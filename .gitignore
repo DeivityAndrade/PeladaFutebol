@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.angular/
+target/
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
+playwright-report/
+test-results/
+data/
+/pelada-projeto.zip

@@ -1,0 +1,753 @@
+<a class="skip-link" href="#main" (click)="skipToMain($event)">Pular para o conteúdo</a>
+<div class="app-shell">
+  @if (sidebar()) {
+    <button class="sidebar-scrim" aria-label="Fechar menu" (click)="sidebar.set(false)"></button>
+  }
+  <aside class="sidebar" [class.mobile-open]="sidebar()">
+    <a class="brand" href="#demo" aria-label="Pelada, início"
+      ><span class="brand-icon"><app-icon name="ball" /></span>pelada<span class="brand-dot"
+        >.</span
+      ></a
+    >
+    <span class="sidebar-caption">SEU FUTEBOL, ORGANIZADO.</span>
+    <div class="sidebar-group">
+      <span class="group-avatar"><app-icon name="shield" /></span>
+      <div>
+        <strong>{{ detail()?.club?.name || 'Sua próxima resenha' }}</strong
+        ><span>{{ demo() ? 'Grupo de demonstração' : 'Juntos dentro de campo' }}</span>
+      </div>
+    </div>
+    <span class="nav-label">VESTIÁRIO</span>
+    <nav aria-label="Navegação principal">
+      <a href="#demo" [class.active]="page() === 'demo'"
+        ><app-icon name="grid" />Visão geral
+        @if (demo()) {
+          <span class="nav-indicator"></span>
+        }
+      </a>
+      <a href="#groups" [class.active]="page() === 'groups'"
+        ><app-icon name="users" />Meus grupos</a
+      >
+      <button
+        (click)="detail() && !demo() ? navigate('group/' + detail()!.club.id) : navigate('groups')"
+        [class.active]="page() === 'group'"
+      >
+        <app-icon name="calendar" />Agenda de jogos
+      </button>
+      @if (detail() && !demo()) {
+        <button (click)="navigate('game/' + detail()!.game.id)" [class.active]="page() === 'game'">
+          <app-icon name="pitch" />A pelada
+        </button>
+      }
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-card">
+        <span class="mini-ball"><app-icon name="ball" /></span
+        ><strong>Menos conversa.<br />Mais bola rolando.</strong>
+        <p>Reúna a galera e deixe a organização com a gente.</p>
+        <button (click)="user() ? navigate('groups') : openAuth('register')">
+          Organizar minha pelada <app-icon name="arrow" />
+        </button>
+      </div>
+      <div class="sidebar-footer"><span class="status-dot"></span> FEITO PARA QUEM JOGA</div>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="breadcrumbs">
+        <button class="icon-button mobile-menu" aria-label="Abrir menu" (click)="sidebar.set(true)">
+          <app-icon name="menu" /></button
+        ><span>Vestiário</span><app-icon name="chevron" /><strong>{{
+          page() === 'groups' ? 'Meus grupos' : page() === 'group' ? 'Agenda de jogos' : 'A pelada'
+        }}</strong>
+      </div>
+      <div class="account-actions">
+        @if (demo()) {
+          <span class="demo-tag"><span></span> MODO DEMONSTRAÇÃO</span>
+        }
+        @if (user()) {
+          <span class="account-name">{{ user()!.name.split(' ')[0] }}</span
+          ><span class="avatar small-avatar">{{ initials(user()!.name) }}</span
+          ><button class="icon-button" aria-label="Sair da conta" (click)="logout()">
+            <app-icon name="logout" />
+          </button>
+        } @else {
+          <button class="text-button" (click)="openAuth()">Entrar <app-icon name="arrow" /></button>
+        }
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      @if (error() && !modal()) {
+        <div class="alert error" role="alert">
+          <app-icon name="info" /><span>{{ error() }}</span
+          ><button class="text-button" (click)="route()">Tentar novamente</button>
+        </div>
+      }
+      @if (loading()) {
+        <div class="loading-state">
+          <span class="spinner"></span>
+          <h2>Preparando o campo…</h2>
+          <p>Buscando sua próxima pelada.</p>
+        </div>
+      } @else if ((page() === 'demo' || page() === 'game') && detail()) {
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow green">
+              <span class="status-dot"></span
+              >{{ demo() ? 'BEM-VINDO AO SEU VESTIÁRIO' : detail()!.club.name }}
+            </div>
+            <h1>O jogo começa <span>aqui.</span></h1>
+            <p>Galera confirmada, times escalados. Agora é com vocês.</p>
+          </div>
+          <div class="heading-actions">
+            @if (!demo()) {
+              <button class="button secondary" (click)="share(detail()!.club)">
+                <app-icon name="share" />Convidar galera
+              </button>
+            } @else {
+              <button
+                class="button primary"
+                (click)="user() ? navigate('groups') : openAuth('register')"
+              >
+                <app-icon name="plus" />Criar minha pelada
+              </button>
+            }
+          </div>
+        </div>
+        <section class="match-banner" aria-label="Informações da pelada">
+          <div class="match-date">
+            <strong>{{ date(detail()!.game.startsAt, 'day') }}</strong
+            ><span>{{ date(detail()!.game.startsAt, 'month').replace('.', '') }}</span>
+          </div>
+          <div class="match-info">
+            <div class="match-kicker">
+              {{
+                detail()!.game.cancelled
+                  ? 'PELADA CANCELADA'
+                  : demo()
+                    ? 'PRÓXIMA PELADA · DADOS ILUSTRATIVOS'
+                    : editable()
+                      ? 'PRÓXIMA PELADA'
+                      : 'PELADA INICIADA'
+              }}
+            </div>
+            <h2>{{ detail()!.game.title }}</h2>
+            <div class="match-meta">
+              <span><app-icon name="pin" />{{ detail()!.game.location }}</span
+              ><span
+                ><app-icon name="clock" />{{ date(detail()!.game.startsAt, 'hour') }}
+                <small>· Brasília</small></span
+              ><span><app-icon name="ball" />Futebol 5</span>
+            </div>
+          </div>
+          <div class="match-attendance">
+            <div class="avatar-stack">
+              @for (p of confirmed().slice(0, 3); track p.id) {
+                <span class="avatar" [style.background]="teamColor(p.teamId)">{{
+                  initials(p.name)
+                }}</span>
+              }
+              <span class="avatar more"
+                >+{{ confirmed().length > 3 ? confirmed().length - 3 : 0 }}</span
+              >
+            </div>
+            <strong
+              >{{ detail()!.game.confirmed }}<span>/{{ capacity() }} confirmados</span></strong
+            >
+          </div>
+          @if (!demo() && editable()) {
+            @if (mine()) {
+              <button class="button attendance" (click)="open('leave')" [disabled]="busy()">
+                <app-icon name="check" />{{
+                  mine()!.status === 'WAITING' ? 'Na lista de espera' : 'Estou dentro'
+                }}
+              </button>
+            } @else {
+              <button class="button primary" (click)="attend()" [disabled]="busy()">
+                {{
+                  detail()!.game.confirmed >= capacity() ? 'Entrar na espera' : 'Confirmar presença'
+                }}
+              </button>
+            }
+          }
+        </section>
+        <div class="content-tabs">
+          <div role="tablist" aria-label="Dados da pelada">
+            <button
+              role="tab"
+              [attr.aria-selected]="tab() === 'lineup'"
+              [class.active]="tab() === 'lineup'"
+              (click)="tab.set('lineup')"
+            >
+              <app-icon name="pitch" />Escalações</button
+            ><button
+              role="tab"
+              [attr.aria-selected]="tab() === 'players'"
+              [class.active]="tab() === 'players'"
+              (click)="tab.set('players')"
+            >
+              <app-icon name="users" />Jogadores
+              <span class="count">{{ detail()!.game.confirmed }}</span></button
+            ><button
+              role="tab"
+              [attr.aria-selected]="tab() === 'waiting'"
+              [class.active]="tab() === 'waiting'"
+              (click)="tab.set('waiting')"
+            >
+              <app-icon name="clock" />Lista de espera
+              <span class="count">{{ waiting().length }}</span>
+            </button>
+          </div>
+          <span class="live-status"
+            ><span class="status-dot"></span
+            >{{
+              busy() ? 'Salvando…' : demo() ? 'Prévia do produto' : 'Atualização a cada 15s'
+            }}</span
+          >
+        </div>
+        @if (tab() === 'lineup' && team()) {
+          <div class="lineup-layout">
+            <section class="panel lineup-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Seu time em campo<span class="small-dot">.</span></h2>
+                  <p>Cada posição faz a diferença.</p>
+                </div>
+                <span class="outline-tag">5 EM CAMPO</span>
+              </div>
+              <div class="team-tabs" role="tablist" aria-label="Times">
+                @for (t of detail()!.teams; track t.id) {
+                  <button
+                    role="tab"
+                    [attr.aria-selected]="team()!.id === t.id"
+                    [class.active]="team()!.id === t.id"
+                    (click)="teamId.set(t.id)"
+                    [style.--team-color]="t.color"
+                  >
+                    <span class="team-swatch"></span>{{ t.name }}
+                    @if (team()!.id === t.id) {
+                      <app-icon name="check" />
+                    }
+                  </button>
+                }
+              </div>
+              <app-pitch
+                [team]="team()!"
+                [roster]="roster()"
+                [editable]="captain()"
+                [busy]="busy()"
+                (save)="saveLineup($event)"
+              />
+            </section>
+            <aside class="detail-column">
+              <section class="panel team-summary">
+                <div class="section-kicker">CONHEÇA O TIME</div>
+                <div class="team-identity">
+                  <span class="team-crest" [style.background]="team()!.color"
+                    ><app-icon name="shield"
+                  /></span>
+                  <div>
+                    <h2>{{ team()!.name }}</h2>
+                    <span>{{ roster().length }} de {{ detail()!.game.teamSize }} jogadores</span>
+                  </div>
+                </div>
+                <div class="captain-row">
+                  <span class="avatar">{{
+                    team()!.captainId ? initials(captainName(team()!)) : '?'
+                  }}</span>
+                  <div>
+                    <span>NA BRAÇADEIRA</span><strong>{{ captainName(team()!) }}</strong>
+                  </div>
+                  <span class="captain-badge">C</span>
+                </div>
+                <div class="team-stats">
+                  <div>
+                    <strong>{{ roster().length }}</strong
+                    ><span>NO ELENCO</span>
+                  </div>
+                  <div>
+                    <strong>{{ roster().length - benchCount() }}</strong
+                    ><span>TITULARES</span>
+                  </div>
+                  <div>
+                    <strong>{{ benchCount() }}</strong
+                    ><span>RESERVAS</span>
+                  </div>
+                </div>
+                @if (owner() && editable()) {
+                  <button class="button secondary full-width" (click)="open('team')">
+                    <app-icon name="edit" />Configurar time e capitão
+                  </button>
+                }
+              </section>
+              <section class="panel roster-panel">
+                <div class="compact-heading">
+                  <h3>Relacionados</h3>
+                  <span class="count">{{ roster().length }}</span>
+                </div>
+                @for (p of roster(); track p.id) {
+                  <div class="roster-row">
+                    <span class="roster-number">{{
+                      p.slot === null ? '—' : '0' + (p.slot + 1)
+                    }}</span>
+                    <div>
+                      <strong>{{ p.name }}</strong
+                      ><span>{{
+                        p.slot === null
+                          ? 'Banco de reservas'
+                          : p.slot === 0
+                            ? 'Goleiro'
+                            : 'Jogador de linha'
+                      }}</span>
+                    </div>
+                    @if (p.id === team()!.captainId) {
+                      <span class="captain-badge small">C</span>
+                    } @else if (captain()) {
+                      <button
+                        class="icon-button"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'Liberar ' + p.name"
+                        (click)="release(p)"
+                      >
+                        <app-icon name="close" />
+                      </button>
+                    } @else {
+                      <span class="roster-dot"></span>
+                    }
+                  </div>
+                }
+                @if (!roster().length) {
+                  <p class="muted small">
+                    O organizador indica o capitão. Depois, ele escolhe os jogadores.
+                  </p>
+                }
+              </section>
+              @if (captain()) {
+                <section class="panel">
+                  <div class="compact-heading">
+                    <h3>Disponíveis</h3>
+                    <span class="count">{{ available().length }}</span>
+                  </div>
+                  @for (p of available(); track p.id) {
+                    <div class="available-row">
+                      <span>{{ p.name }}</span
+                      ><button
+                        class="icon-button"
+                        [disabled]="busy() || roster().length >= detail()!.game.teamSize"
+                        [attr.aria-label]="'Escolher ' + p.name"
+                        (click)="pick(p)"
+                      >
+                        <app-icon name="plus" />
+                      </button>
+                    </div>
+                  }
+                  @if (!available().length) {
+                    <p class="muted small">Nenhum jogador confirmado sem time por enquanto.</p>
+                  }
+                </section>
+              }
+              <div class="tip-card">
+                <app-icon name="info" />
+                <div>
+                  <strong>{{
+                    demo() ? 'Aqui, todo mundo joga junto.' : 'O time é do capitão.'
+                  }}</strong>
+                  <p>
+                    {{
+                      demo()
+                        ? 'Explore os times e as formações. Crie sua conta para organizar a próxima resenha.'
+                        : 'Somente o capitão pode escolher os jogadores e alterar a escalação do próprio time.'
+                    }}
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        } @else {
+          <section class="panel people-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>
+                  {{
+                    tab() === 'waiting' ? 'Na próxima vaga, você entra.' : 'A galera está chegando.'
+                  }}
+                </h2>
+                <p>
+                  {{
+                    tab() === 'waiting'
+                      ? 'A primeira pessoa da fila entra automaticamente quando alguém desiste.'
+                      : 'Jogadores confirmados e seus times nesta pelada.'
+                  }}
+                </p>
+              </div>
+            </div>
+            @for (
+              p of tab() === 'waiting' ? waiting() : confirmed();
+              track p.id;
+              let index = $index
+            ) {
+              <div class="person-row">
+                <span class="avatar" [style.background]="teamColor(p.teamId)">{{
+                  initials(p.name)
+                }}</span
+                ><strong>{{ p.name }}</strong
+                ><span class="person-status">{{
+                  tab() === 'waiting' ? index + 1 + 'º na fila' : teamName(p.teamId)
+                }}</span
+                ><app-icon [name]="tab() === 'waiting' ? 'clock' : 'check'" />
+              </div>
+            }
+            @if (!(tab() === 'waiting' ? waiting() : confirmed()).length) {
+              <div class="empty-state">
+                <app-icon name="users" />
+                <h3>
+                  {{ tab() === 'waiting' ? 'Sem lista de espera' : 'Seja o primeiro a confirmar' }}
+                </h3>
+                <p>
+                  {{
+                    tab() === 'waiting'
+                      ? 'Quando as vagas acabarem, a fila aparece aqui.'
+                      : 'Compartilhe o convite do grupo e reúna a galera.'
+                  }}
+                </p>
+              </div>
+            }
+          </section>
+        }
+        @if (owner() && !detail()!.game.cancelled) {
+          <div class="danger-zone">
+            <button class="text-button danger" (click)="open('cancel')">
+              Cancelar esta pelada
+            </button>
+          </div>
+        }
+      } @else if (page() === 'groups' && user()) {
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow green">A GALERA DE SEMPRE</span>
+            <h1>Seus <span>grupos.</span></h1>
+            <p>Uma boa pelada começa com boas companhias.</p>
+          </div>
+          <div class="heading-actions">
+            <button class="button secondary" (click)="open('join')">Entrar com convite</button
+            ><button class="button primary" (click)="open('club')">
+              <app-icon name="plus" />Criar grupo
+            </button>
+          </div>
+        </div>
+        <div class="group-grid">
+          @for (c of clubs(); track c.id) {
+            <button class="panel group-card" (click)="navigate('group/' + c.id)">
+              <span class="group-card-icon"><app-icon name="shield" /></span
+              ><span class="outline-tag">{{
+                c.ownerId === user()!.id ? 'ORGANIZADOR' : 'PARTICIPANTE'
+              }}</span>
+              <h2>{{ c.name }}</h2>
+              <p>{{ c.description || 'O ponto de encontro da sua galera.' }}</p>
+              <div>
+                <span><app-icon name="users" />{{ c.memberCount }} membros</span
+                ><app-icon name="arrow" />
+              </div>
+            </button>
+          }
+        </div>
+        @if (!clubs().length) {
+          <div class="panel empty-state">
+            <app-icon name="ball" />
+            <h2>Vamos tirar a pelada do papel?</h2>
+            <p>Crie seu primeiro grupo ou entre pelo convite de um amigo.</p>
+            <button class="button primary" (click)="open('club')">Criar meu primeiro grupo</button>
+          </div>
+        }
+      } @else if (page() === 'group' && club()) {
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow green">AGENDA DO GRUPO</span>
+            <h1>{{ club()!.name }}<span>.</span></h1>
+            <p>{{ club()!.description }}</p>
+          </div>
+          <div class="heading-actions">
+            <button class="button secondary" (click)="share(club())">
+              <app-icon name="share" />Convidar galera
+            </button>
+            @if (club()!.ownerId === user()?.id) {
+              <button class="button primary" (click)="open('game')">
+                <app-icon name="plus" />Marcar pelada
+              </button>
+            }
+          </div>
+        </div>
+        <div class="games-list">
+          @for (g of games(); track g.id) {
+            <button class="panel game-card" (click)="navigate('game/' + g.id)">
+              <span class="match-date"
+                ><strong>{{ date(g.startsAt, 'day') }}</strong
+                ><span>{{ date(g.startsAt, 'month') }}</span></span
+              >
+              <div>
+                <span class="eyebrow">{{
+                  g.cancelled ? 'CANCELADA' : g.editable ? 'INSCRIÇÕES ABERTAS' : 'INICIADA'
+                }}</span>
+                <h2>{{ g.title }}</h2>
+                <p>{{ g.location }} · {{ date(g.startsAt, 'hour') }}</p>
+              </div>
+              <span class="game-capacity"
+                >{{ g.confirmed }}/{{ g.teamCount * g.teamSize }} confirmados</span
+              ><app-icon name="arrow" />
+            </button>
+          }
+        </div>
+        @if (!games().length) {
+          <section class="panel empty-state">
+            <app-icon name="calendar" />
+            <h2>A quadra está esperando.</h2>
+            <p>
+              {{
+                club()!.ownerId === user()?.id
+                  ? 'Marque a primeira pelada do grupo.'
+                  : 'O organizador ainda não marcou uma pelada.'
+              }}
+            </p>
+          </section>
+        }
+      } @else if (!user()) {
+        <section class="panel empty-state">
+          <app-icon name="lock" />
+          <h1>Seu lugar no time.</h1>
+          <p>Entre ou crie uma conta para continuar.</p>
+          <button class="button primary" (click)="openAuth()">Entrar na minha conta</button>
+        </section>
+      }
+      <footer class="page-footer">
+        <span
+          >pelada<span class="green">.</span> <span class="footer-divider">/</span> O futebol
+          aproxima.</span
+        ><span>FEITO PARA A SUA PRÓXIMA PARTIDA</span>
+      </footer>
+    </main>
+  </div>
+</div>
+@if (toast()) {
+  <div class="toast" role="status"><app-icon name="check" />{{ toast() }}</div>
+}
+@if (modal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <section
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      (click)="$event.stopPropagation()"
+    >
+      <button class="icon-button modal-close" aria-label="Fechar" (click)="closeModal()">
+        <app-icon name="close" />
+      </button>
+      <div class="modal-brand"><app-icon name="ball" />pelada.</div>
+      @if (error()) {
+        <div class="alert error" role="alert">{{ error() }}</div>
+      }
+      @switch (modal()) {
+        @case ('auth') {
+          <h2 id="modal-title">
+            {{ authMode === 'login' ? 'De volta ao jogo.' : 'Seu lugar está no time.' }}
+          </h2>
+          <p>
+            {{
+              authMode === 'login'
+                ? 'Entre para organizar a próxima resenha.'
+                : 'Crie sua conta e tire a pelada do papel.'
+            }}
+          </p>
+          <form (ngSubmit)="submitAuth()">
+            @if (authMode === 'register') {
+              <label
+                >Seu nome<input
+                  name="name"
+                  [(ngModel)]="form['name']"
+                  required
+                  maxlength="80"
+                  autocomplete="name"
+                  placeholder="Como a galera te chama?"
+              /></label>
+            }
+            <label
+              >E-mail<input
+                type="email"
+                name="email"
+                [(ngModel)]="form['email']"
+                required
+                maxlength="254"
+                autocomplete="email"
+                placeholder="voce@exemplo.com" /></label
+            ><label
+              >Senha<input
+                type="password"
+                name="password"
+                [(ngModel)]="form['password']"
+                required
+                [minlength]="authMode === 'register' ? 8 : 1"
+                maxlength="72"
+                [autocomplete]="authMode === 'register' ? 'new-password' : 'current-password'"
+                placeholder="Pelo menos 8 caracteres" /></label
+            ><button class="button primary full-width" [disabled]="busy()">
+              {{
+                busy()
+                  ? 'Um instante…'
+                  : authMode === 'login'
+                    ? 'Entrar em campo'
+                    : 'Criar minha conta'
+              }}<app-icon name="arrow" />
+            </button>
+          </form>
+          <button
+            class="text-button auth-toggle"
+            (click)="authMode = authMode === 'login' ? 'register' : 'login'; error.set('')"
+          >
+            {{ authMode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar' }}
+          </button>
+        }
+        @case ('club') {
+          <h2 id="modal-title">Reúna sua galera.</h2>
+          <p>Dê um nome ao grupo e comece a organizar os jogos.</p>
+          <form (ngSubmit)="createClub()">
+            <label
+              >Nome do grupo<input
+                name="name"
+                [(ngModel)]="form['name']"
+                required
+                maxlength="80"
+                placeholder="Ex.: Resenha de quinta" /></label
+            ><label
+              >Sobre o grupo<textarea
+                name="description"
+                [(ngModel)]="form['description']"
+                maxlength="300"
+                placeholder="O futebol de toda semana, com a galera de sempre."
+              ></textarea></label
+            ><button class="button primary full-width" [disabled]="busy()">
+              Criar grupo<app-icon name="arrow" />
+            </button>
+          </form>
+        }
+        @case ('join') {
+          <h2 id="modal-title">A galera te espera.</h2>
+          <p>Confirme o convite para entrar no grupo.</p>
+          <form (ngSubmit)="join()">
+            <label
+              >Link ou código do convite<input
+                name="invite"
+                [(ngModel)]="form['invite']"
+                required
+                placeholder="Cole o convite aqui" /></label
+            ><button class="button primary full-width" [disabled]="busy()">Entrar no grupo</button>
+          </form>
+        }
+        @case ('game') {
+          <h2 id="modal-title">Marque a próxima.</h2>
+          <p>Defina os detalhes e abra as confirmações.</p>
+          <form (ngSubmit)="createGame()">
+            <label
+              >Nome da pelada<input
+                name="title"
+                [(ngModel)]="form['title']"
+                required
+                maxlength="100" /></label
+            ><label
+              >Local e quadra<input
+                name="location"
+                [(ngModel)]="form['location']"
+                required
+                maxlength="160"
+                placeholder="Arena da Vila · Quadra 02" /></label
+            ><label
+              >Data e horário<input
+                type="datetime-local"
+                name="startsAt"
+                [(ngModel)]="form['startsAt']"
+                required
+              /><small>Horário local do seu dispositivo.</small></label
+            >
+            <div class="form-row">
+              <label
+                >Quantidade de times<input
+                  type="number"
+                  name="teamCount"
+                  [(ngModel)]="form['teamCount']"
+                  min="2"
+                  max="6"
+                  required /></label
+              ><label
+                >Jogadores por time<input
+                  type="number"
+                  name="teamSize"
+                  [(ngModel)]="form['teamSize']"
+                  min="5"
+                  max="12"
+                  required
+              /></label>
+            </div>
+            <div class="form-hint">
+              {{ form['teamCount'] * form['teamSize'] }} vagas no total · 5 titulares por time
+            </div>
+            <button class="button primary full-width" [disabled]="busy()">Marcar pelada</button>
+          </form>
+        }
+        @case ('team') {
+          <h2 id="modal-title">A identidade do time.</h2>
+          <p>Escolha um capitão confirmado. Ele montará o elenco e a escalação.</p>
+          <form (ngSubmit)="configureTeam()">
+            <label
+              >Nome do time<input
+                name="name"
+                [(ngModel)]="form['name']"
+                required
+                maxlength="60" /></label
+            ><label
+              >Cor do uniforme<input
+                type="color"
+                name="color"
+                [(ngModel)]="form['color']"
+                required /></label
+            ><label
+              >Capitão<select aria-label="Capitão" name="captainId" [(ngModel)]="form['captainId']">
+                <option value="">A definir</option>
+                @for (p of eligibleCaptains(); track p.id) {
+                  <option [value]="p.id">{{ p.name }}</option>
+                }
+              </select></label
+            ><button class="button primary full-width" [disabled]="busy()">Salvar time</button>
+          </form>
+        }
+        @case ('leave') {
+          <h2 id="modal-title">Não vai dar desta vez?</h2>
+          <p>
+            Você sairá da pelada e do seu time. Se houver lista de espera, o primeiro da fila ficará
+            com sua vaga.
+          </p>
+          <button class="button primary full-width" [disabled]="busy()" (click)="leave()">
+            Confirmar desistência</button
+          ><button class="text-button auth-toggle" (click)="closeModal()">
+            Manter minha presença
+          </button>
+        }
+        @case ('cancel') {
+          <h2 id="modal-title">Cancelar a pelada?</h2>
+          <p>
+            Os participantes poderão consultar os dados, mas as inscrições e escalações serão
+            bloqueadas.
+          </p>
+          <button class="button danger-button full-width" [disabled]="busy()" (click)="cancel()">
+            Cancelar pelada
+          </button>
+        }
+        @case ('share') {
+          <h2 id="modal-title">Chame a galera.</h2>
+          <p>Copie este link e compartilhe com os participantes.</p>
+          <label
+            >Convite<input readonly [value]="form['link']" (focus)="$any($event.target).select()"
+          /></label>
+        }
+      }
+    </section>
+  </div>
+}
