@@ -57,12 +57,29 @@ test('demonstração, navegação, teclado e layout desktop/mobile', async ({ pa
   await expect(page.locator('.sidebar')).not.toHaveClass(/mobile-open/);
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByLabel('E-mail', { exact: true }).fill('teste@example.com');
+  await page.mouse.click(5, 5);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByLabel('E-mail', { exact: true })).toHaveValue('teste@example.com');
   await page.keyboard.press('Tab');
   expect(
     await page.locator('.modal').evaluate((el) => el.contains(document.activeElement)),
   ).toBeTruthy();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Ver partida concluída' }).click();
+  await expect(page.getByRole('tab', { name: 'Partida' })).toBeVisible();
+  await expect(page.locator('.scoreboard')).toContainText('3');
+  await expect(page.locator('.timeline-row')).toHaveCount(4);
+  await page.getByRole('tab', { name: 'Notas' }).click();
+  await expect(page.locator('.rating-row')).toHaveCount(14);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+  await page.goto('/#groups');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await expect(page).toHaveURL(/#demo$/);
   expect(errors).toEqual([]);
 });
 
@@ -220,4 +237,112 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await expect(page.locator('.captain-row')).toContainText('A definir');
   await teammateContext.close();
   await teammate.ctx.dispose();
+});
+
+test('partida ao vivo, gol, encerramento e avaliação em desktop e celular', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const organizer = await account('Organizador Ao Vivo');
+  const mate = await account('Colega Ao Vivo');
+  const opponent = await account('Adversário Ao Vivo');
+  const club = await (
+    await mutate(organizer.ctx, '/groups', 'POST', { name: 'Grupo ao vivo', description: '' })
+  ).json();
+  for (const person of [mate, opponent]) {
+    expect((await mutate(person.ctx, '/invites/' + club.invite + '/join')).ok()).toBeTruthy();
+  }
+  const kickoff = Date.now() + 20_000;
+  const game = await (
+    await mutate(organizer.ctx, '/groups/' + club.id + '/games', 'POST', {
+      title: 'Jogo ao vivo',
+      location: 'Quadra teste',
+      startsAt: new Date(kickoff).toISOString(),
+      teamCount: 2,
+      teamSize: 5,
+    })
+  ).json();
+  for (const person of [organizer, mate, opponent]) {
+    expect((await mutate(person.ctx, '/games/' + game.game.id + '/attendance')).ok()).toBeTruthy();
+  }
+  const [first, second] = game.teams;
+  expect(
+    (
+      await mutate(organizer.ctx, '/games/' + game.game.id + '/teams/' + first.id, 'PUT', {
+        name: 'Verde',
+        color: '#d8f36a',
+        captainId: organizer.user.id,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await mutate(organizer.ctx, '/games/' + game.game.id + '/teams/' + second.id, 'PUT', {
+        name: 'Roxo',
+        color: '#a69aff',
+        captainId: opponent.user.id,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await mutate(
+        organizer.ctx,
+        '/games/' + game.game.id + '/teams/' + first.id + '/players',
+        'POST',
+        { playerId: mate.user.id },
+      )
+    ).ok(),
+  ).toBeTruthy();
+
+  const desktop = await browser.newContext({
+    storageState: await organizer.ctx.storageState(),
+    viewport: { width: 1440, height: 900 },
+  });
+  const mobile = await browser.newContext({
+    storageState: await opponent.ctx.storageState(),
+    viewport: { width: 390, height: 844 },
+  });
+  const ownerPage = await desktop.newPage();
+  const otherPage = await mobile.newPage();
+  await ownerPage.goto('/#game/' + game.game.id);
+  await otherPage.goto('/#game/' + game.game.id);
+  await ownerPage.getByRole('tab', { name: 'Partida' }).click();
+  await otherPage.getByRole('tab', { name: 'Partida' }).click();
+  await ownerPage.waitForTimeout(Math.max(0, kickoff - Date.now() + 300));
+  await ownerPage.reload();
+  await ownerPage.getByRole('tab', { name: 'Partida' }).click();
+  await ownerPage.getByRole('button', { name: 'Começar partida' }).click();
+  await expect(ownerPage.locator('.match-clock')).not.toHaveText('0:00', { timeout: 5_000 });
+  await ownerPage.reload();
+  await ownerPage.getByRole('tab', { name: 'Partida' }).click();
+  await expect(ownerPage.locator('.match-clock')).not.toHaveText('0:00');
+  await ownerPage.getByRole('button', { name: 'Registrar gol' }).click();
+  await ownerPage.getByLabel('Autor do gol').selectOption({ label: 'Colega Ao Vivo' });
+  await ownerPage.getByRole('button', { name: 'Salvar gol' }).click();
+  await expect(ownerPage.locator('.scoreboard')).toContainText('1');
+  await otherPage.reload();
+  await otherPage.getByRole('tab', { name: 'Partida' }).click();
+  await expect(otherPage.locator('.scoreboard')).toContainText('1');
+  expect(
+    await otherPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+  await otherPage.getByRole('button', { name: 'Encerrar partida' }).click();
+  await otherPage.getByRole('button', { name: 'Confirmar fim de jogo' }).click();
+  await expect(otherPage.getByRole('heading', { name: 'Fim de jogo' })).toBeVisible();
+  await ownerPage.reload();
+  await ownerPage.getByRole('tab', { name: 'Notas' }).click();
+  await ownerPage.getByRole('button', { name: '5 estrelas para Colega Ao Vivo' }).click();
+  await expect(
+    ownerPage.getByRole('button', { name: '5 estrelas para Colega Ao Vivo' }),
+  ).toHaveClass(/selected/);
+  expect(
+    (
+      await mutate(opponent.ctx, '/games/' + game.game.id + '/ratings', 'PUT', {
+        playerId: mate.user.id,
+        stars: 5,
+      })
+    ).status(),
+  ).toBe(403);
+  await desktop.close();
+  await mobile.close();
+  for (const person of [organizer, mate, opponent]) await person.ctx.dispose();
 });

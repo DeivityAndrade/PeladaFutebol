@@ -13,6 +13,10 @@
 - Escalar um goleiro e quatro jogadores de linha nas formações **2–2**, **1–2–1** e **3–1**.
 - Arrastar jogadores entre posições e banco ou usar o seletor acessível por toque e teclado.
 - Consultar uma demonstração pública com dados fictícios, sem cadastro.
+- Em peladas de dois times, iniciar a partida no horário marcado, acompanhar cronômetro e placar,
+  registrar gols (inclusive contra) e consultar a linha do tempo.
+- Encerrar a partida e avaliar colegas do próprio time com 1 a 5 estrelas durante 24 horas.
+  Depois desse prazo, consultar médias anônimas por partida e a média geral no perfil.
 
 Reservas já têm vaga na pelada e pertencem a um time. A lista de espera é para quem ainda não tem vaga no evento.
 
@@ -89,6 +93,13 @@ Encerre o processo Java antes de reconstruir o mesmo arquivo JAR no Windows.
 5. Como organizador, abra **Configurar time e capitão** e escolha alguém confirmado.
 6. Como capitão, use **Disponíveis** para adicionar jogadores. Depois toque em uma posição do campo e escolha um nome.
 7. Troque a formação, mova jogadores ao banco e recarregue a página: as alterações permanecem salvas.
+8. Depois do horário marcado, com todos os confirmados distribuídos entre os dois times,
+   qualquer membro pode tocar em **Começar partida**. Até esse início manual, capitães ainda
+   podem completar elencos e escalações; as presenças fecham no horário marcado.
+9. Jogadores confirmados podem registrar ou anular gols e encerrar a partida. O organizador
+   pode abrir o modo de correção após o fim para ajustar gols e duração sem reiniciar o relógio.
+10. Na aba **Notas**, cada confirmado pode avaliar colegas do próprio time por 24 horas.
+    As médias aparecem depois do prazo. A demonstração inclui uma partida concluída.
 
 O organizador só edita a escalação se também for o capitão daquele time. Trocar o capitão não remove o capitão anterior do elenco; o novo capitão pode liberá-lo. Um capitão que desiste deixa o posto vago até o organizador indicar um substituto.
 
@@ -118,7 +129,8 @@ pnpm test:e2e
 
 Os testes de navegador criam contas e grupos fictícios. Execute-os em uma instância de desenvolvimento. A integração contínua usa bancos separados para regras e testes de navegador.
 
-**Verificado em 22/09/2026:** 12 testes de integração Java e 3 cenários Playwright passaram. Consulte [o relatório de validação](docs/VALIDACAO.md).
+As verificações da integração contínua compilam o frontend, executam os testes Java com PostgreSQL
+e rodam os cenários Playwright em desktop e celular. Consulte [o relatório de validação](docs/VALIDACAO.md).
 
 ## Organização e decisões
 
@@ -136,6 +148,11 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 
 ## Estado da entrega
 
-Código implementado, compilado e validado localmente. Configurações de Docker, Render e integração contínua estão incluídas. **Ainda não publicado:** faltam as contas do proprietário no Render e no Neon, as credenciais do banco e um repositório remoto conectado ao Render. A imagem Docker e o fluxo remoto de CI não foram executados nesta máquina, que não possui Docker.
+O projeto usa o repositório [DeivityAndrade/PeladaFutebol](https://github.com/DeivityAndrade/PeladaFutebol),
+Render e Neon. A partida ao vivo e as avaliações estão disponíveis para peladas de dois times.
+Peladas de três ou mais times continuam com agenda e escalações, sem placar ou notas.
+Peladas encerradas antes da migração não recebem avaliações retroativas.
 
-Na primeira versão ficam de fora pagamentos, custos, estatísticas de partidas, chat, recorrência de eventos, recuperação de senha e notificações externas. Os convites são compartilhados copiando o link; não existe integração com WhatsApp.
+Ficam de fora pagamentos, custos, chat, recorrência de eventos, recuperação de senha e
+notificações externas. Os convites são compartilhados copiando o link; não existe integração
+com WhatsApp.

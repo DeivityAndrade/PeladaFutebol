@@ -24,6 +24,14 @@ export interface Game {
   waiting: number;
   cancelled: boolean;
   editable: boolean;
+  teamEditable: boolean;
+  liveEnabled: boolean;
+  matchStatus: 'SCHEDULED' | 'READY' | 'LIVE' | 'FINISHED' | 'CANCELLED' | 'LEGACY';
+  matchStartedAt: string | null;
+  matchEndedAt: string | null;
+  matchDurationSeconds: number | null;
+  correctionOpen: boolean;
+  serverNow: string;
 }
 export interface Player {
   id: string;
@@ -45,6 +53,42 @@ export interface Detail {
   club: Club;
   attendees: Player[];
   teams: Team[];
+  score: { teamId: string; goals: number }[];
+  goals: Goal[];
+  ratings: Rating[];
+  myRatings: OwnRating[];
+  ratingsVisibleAt: string | null;
+}
+export interface Goal {
+  id: string;
+  teamId: string;
+  scorerId: string;
+  scorerName: string;
+  minute: number;
+  ownGoal: boolean;
+  voided: boolean;
+}
+export interface Rating {
+  playerId: string;
+  average: number | null;
+  count: number;
+}
+export interface OwnRating {
+  playerId: string;
+  stars: number;
+}
+export interface PlayerProfile {
+  id: string;
+  name: string;
+  average: number | null;
+  ratedGames: number;
+  history: {
+    gameId: string;
+    gameTitle: string;
+    startsAt: string;
+    average: number;
+    count: number;
+  }[];
 }
 export const formations: Record<string, { x: number; y: number; label: string }[]> = {
   '2-2': [

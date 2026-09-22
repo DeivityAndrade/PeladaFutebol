@@ -622,6 +622,9 @@ h1 span {
 .content-tabs > div {
   display: flex;
   gap: 25px;
+  overflow-x: auto;
+  min-width: 0;
+  scrollbar-width: thin;
 }
 .content-tabs button {
   background: transparent;
@@ -1622,6 +1625,154 @@ label small {
 }
 .sidebar-scrim {
   display: none;
+}
+.live-panel,
+.ratings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.match-clock {
+  font:
+    600 38px 'Barlow Condensed',
+    sans-serif;
+  color: #315035;
+}
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px;
+  border-radius: 10px;
+  background: #edf3e2;
+}
+.score-team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-weight: 600;
+}
+.score-team span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.score-team strong {
+  margin-left: auto;
+  font:
+    700 34px 'Barlow Condensed',
+    sans-serif;
+}
+.timeline {
+  border-top: 1px solid #e1e5d9;
+  padding-top: 16px;
+}
+.timeline h3,
+.rating-team {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+.timeline-row,
+.rating-row,
+.profile-game {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid #edf0e7;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.timeline-row > span {
+  flex: 1;
+}
+.timeline-row.voided {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.rating-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.rating-row .profile-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #315035;
+  text-align: left;
+  font-weight: 600;
+  flex: 1;
+  min-width: 140px;
+}
+.rating-row .profile-link:not(:disabled) {
+  text-decoration: underline;
+}
+.rating-row > .muted,
+.profile-game .muted {
+  font-size: 10px;
+}
+.stars {
+  display: flex;
+  gap: 3px;
+}
+.stars button {
+  background: none;
+  border: 0;
+  padding: 4px;
+  font-size: 25px;
+  color: #adb8a0;
+}
+.stars button.selected {
+  color: #dbad36;
+}
+.stars button:hover,
+.stars button:focus-visible {
+  color: #b57e19;
+}
+.check-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.check-label input {
+  width: 18px;
+  min-height: 18px;
+}
+.profile-game span:first-child {
+  flex: 1;
+}
+@media (max-width: 680px) {
+  .content-tabs {
+    overflow: hidden;
+  }
+  .content-tabs > div {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .content-tabs button {
+    font-size: 9px;
+  }
+  .scoreboard {
+    padding: 12px;
+    gap: 8px;
+  }
+  .score-team {
+    gap: 5px;
+    font-size: 10px;
+  }
+  .score-team strong {
+    font-size: 27px;
+  }
+  .live-panel .button {
+    width: 100%;
+  }
+  .page-heading .heading-actions {
+    max-width: 155px;
+    flex-direction: column;
+  }
 }
 @media (min-width: 1500px) {
   .field {
