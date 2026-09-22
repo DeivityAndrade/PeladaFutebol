@@ -476,7 +476,7 @@ class GameRulesTest {
       result
         .goals()
         .stream()
-        .filter(g -> !g.voided)
+        .filter(g -> !g.voided())
         .count()
     ).isEqualTo(1);
     assertThat(result.goals().getLast().minute()).isEqualTo(42);
