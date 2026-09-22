@@ -1,0 +1,8 @@
+{
+  "printWidth": 100,
+  "singleQuote": true,
+  "overrides": [
+    { "files": "src/**/*.html", "options": { "parser": "angular" } },
+    { "files": "**/*.java", "options": { "tabWidth": 4, "singleQuote": false } }
+  ]
+}

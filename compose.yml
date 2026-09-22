@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: pelada
+      POSTGRES_USER: pelada
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pelada-local}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pelada-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pelada -d pelada"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      JDBC_DATABASE_URL: jdbc:postgresql://db:5432/pelada
+      DB_USER: pelada
+      DB_PASSWORD: ${DB_PASSWORD:-pelada-local}
+      COOKIE_SECURE: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  pelada-db:
