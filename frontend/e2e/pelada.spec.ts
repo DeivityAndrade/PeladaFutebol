@@ -18,6 +18,12 @@ async function account(name: string, requestedEmail?: string) {
   return { ctx, email, password, user: await login.json() };
 }
 
+function futureLocalDateTime(daysAhead: number, hour = 19) {
+  const date = new Date(Date.now() + daysAhead * 86400000);
+  date.setHours(hour, 0, 0, 0);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 test('demonstração, navegação, teclado e layout desktop/mobile', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -345,4 +351,163 @@ test('partida ao vivo, gol, encerramento e avaliação em desktop e celular', as
   await desktop.close();
   await mobile.close();
   for (const person of [organizer, mate, opponent]) await person.ctx.dispose();
+});
+
+test('sorteio manual, recorrência de churrasco e convite individual em desktop e celular', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const organizer = await account('Organizador do Sorteio');
+  const players = await Promise.all(
+    Array.from({ length: 5 }, (_, index) => account(`Jogador do Sorteio ${index + 1}`)),
+  );
+  const barbecueOnly = await account('Só vai ao churrasco');
+  const club = await (
+    await mutate(organizer.ctx, '/groups', 'POST', {
+      name: 'Sorteio e Churrasco',
+      description: 'Teste das novas atividades do grupo.',
+      barbecueFrequency: 'MONTHLY',
+    })
+  ).json();
+  for (const person of [...players, barbecueOnly]) {
+    expect((await mutate(person.ctx, `/invites/${club.invite}/join`)).ok()).toBeTruthy();
+  }
+  const game = await (
+    await mutate(organizer.ctx, `/groups/${club.id}/games`, 'POST', {
+      title: 'Pelada com sorteio',
+      location: 'Campo do bairro',
+      startsAt: new Date(Date.now() + 86400000).toISOString(),
+      teamCount: 2,
+      teamSize: 5,
+    })
+  ).json();
+  for (const person of [organizer, ...players]) {
+    expect((await mutate(person.ctx, `/games/${game.game.id}/attendance`)).ok()).toBeTruthy();
+  }
+  const [first, second] = game.teams;
+  for (const [team, captain, name] of [
+    [first, organizer.user.id, 'Verde'],
+    [second, players[0].user.id, 'Roxo'],
+  ] as const) {
+    expect(
+      (
+        await mutate(organizer.ctx, `/games/${game.game.id}/teams/${team.id}`, 'PUT', {
+          name,
+          color: name === 'Verde' ? '#d8f36a' : '#a69aff',
+          captainId: captain,
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+
+  const desktop = await browser.newContext({
+    storageState: await organizer.ctx.storageState(),
+    viewport: { width: 1440, height: 1000 },
+  });
+  const ownerPage = await desktop.newPage();
+  await ownerPage.goto('/#game/' + game.game.id);
+  await ownerPage.getByRole('button', { name: 'Sortear times' }).click();
+  const firstDraw = ownerPage.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/games/${game.game.id}/teams/draw`) &&
+      response.request().method() === 'POST',
+  );
+  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Sortear agora' }).click();
+  expect((await firstDraw).ok()).toBeTruthy();
+  let detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
+  expect(detail.attendees.filter((person: any) => person.status === 'CONFIRMED')).toHaveLength(6);
+  expect(
+    detail.attendees.filter((person: any) => person.status === 'CONFIRMED' && person.teamId),
+  ).toHaveLength(6);
+  expect(detail.teams.find((team: any) => team.id === first.id).captainId).toBe(organizer.user.id);
+  expect(detail.teams.find((team: any) => team.id === second.id).captainId).toBe(
+    players[0].user.id,
+  );
+  for (const team of detail.teams) {
+    expect(detail.attendees.filter((person: any) => person.teamId === team.id)).toHaveLength(3);
+  }
+
+  const latePlayer = await account('Chegou depois do sorteio');
+  expect((await mutate(latePlayer.ctx, `/invites/${club.invite}/join`)).ok()).toBeTruthy();
+  expect((await mutate(latePlayer.ctx, `/games/${game.game.id}/attendance`)).ok()).toBeTruthy();
+  detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
+  expect(
+    detail.attendees.find((person: any) => person.id === latePlayer.user.id).teamId,
+  ).toBeNull();
+  await ownerPage.reload();
+  await ownerPage.getByRole('button', { name: 'Sortear times' }).click();
+  const secondDraw = ownerPage.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/games/${game.game.id}/teams/draw`) &&
+      response.request().method() === 'POST',
+  );
+  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Sortear agora' }).click();
+  expect((await secondDraw).ok()).toBeTruthy();
+  detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
+  expect(
+    detail.attendees.filter((person: any) => person.status === 'CONFIRMED' && person.teamId),
+  ).toHaveLength(7);
+  expect(
+    await ownerPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+
+  await ownerPage.goto('/#group/' + club.id);
+  await ownerPage.getByRole('tab', { name: 'Churrasco' }).click();
+  await ownerPage.getByRole('button', { name: 'Agendar primeira edição' }).click();
+  await ownerPage.getByLabel('Data e horário').fill(futureLocalDateTime(5));
+  await ownerPage.getByLabel('Local').fill('Salão da integração');
+  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Criar recorrência' }).click();
+  await expect(ownerPage.locator('.barbecue-card')).toHaveCount(6);
+  await ownerPage.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await ownerPage
+    .getByRole('button', { name: /Copiar convite para/ })
+    .first()
+    .click();
+  const inviteLink = await ownerPage.evaluate(() => navigator.clipboard.readText());
+  expect(inviteLink).toContain('#barbecue-invite/');
+
+  const memberMobile = await browser.newContext({
+    storageState: await barbecueOnly.ctx.storageState(),
+    viewport: { width: 390, height: 844 },
+  });
+  const memberPage = await memberMobile.newPage();
+  await memberPage.goto('/#group/' + club.id);
+  await memberPage.getByRole('tab', { name: 'Churrasco' }).click();
+  await memberPage
+    .locator('.barbecue-card')
+    .first()
+    .getByRole('button', { name: 'Confirmar presença' })
+    .click();
+  await expect(memberPage.locator('.barbecue-card').first()).toContainText('Só vai ao churrasco');
+  expect(
+    await memberPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+  const gameAttendance = await (await barbecueOnly.ctx.get(`/api/games/${game.game.id}`)).json();
+  expect(
+    gameAttendance.attendees.some((person: any) => person.id === barbecueOnly.user.id),
+  ).toBeFalsy();
+
+  const eventGuest = await account('Convidado do churrasco');
+  const guestMobile = await browser.newContext({
+    storageState: await eventGuest.ctx.storageState(),
+    viewport: { width: 390, height: 844 },
+  });
+  const guestPage = await guestMobile.newPage();
+  await guestPage.goto(inviteLink);
+  await expect(guestPage.getByRole('heading', { name: 'Você está convidado.' })).toBeVisible();
+  await guestPage.getByRole('button', { name: 'Confirmar presença' }).click();
+  await expect(guestPage.getByRole('button', { name: /Presença confirmada/ })).toBeVisible();
+  expect(
+    (await (await eventGuest.ctx.get('/api/groups')).json()).map((group: any) => group.id),
+  ).toEqual([]);
+  expect(
+    await guestPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+
+  await desktop.close();
+  await memberMobile.close();
+  await guestMobile.close();
+  for (const person of [organizer, ...players, barbecueOnly, latePlayer, eventGuest]) {
+    await person.ctx.dispose();
+  }
 });

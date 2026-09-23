@@ -199,6 +199,81 @@ public class Games {
     return detail(game);
   }
 
+  public GameDetail draw(UUID user, UUID gameId) {
+    Game game = editable(user, gameId, true);
+    groups.requireOwner(user, game.clubId);
+    List<Participation> confirmed = attendees(gameId)
+      .stream()
+      .filter(p -> p.status.equals("CONFIRMED"))
+      .toList();
+    if (confirmed.isEmpty()) throw new ApiException(
+      400,
+      "Confirme ao menos uma presença antes de sortear os times."
+    );
+
+    List<Team> teams = store.list(
+      Team.class,
+      "from Team where gameId=:game order by ordinal",
+      "game",
+      gameId
+    );
+    Map<UUID, Participation> players = confirmed
+      .stream()
+      .collect(Collectors.toMap(p -> p.playerId, Function.identity()));
+    Map<Team, Integer> counts = new LinkedHashMap<>();
+    Set<UUID> pinnedCaptains = new HashSet<>();
+    teams.forEach(team -> counts.put(team, 0));
+
+    for (Participation participation : confirmed) participation.slot = null;
+    store.flush();
+
+    for (Team team : teams) {
+      team.version++;
+      if (team.captainId == null) continue;
+      Participation captain = players.get(team.captainId);
+      if (captain == null) {
+        team.captainId = null;
+        continue;
+      }
+      captain.teamId = team.id;
+      pinnedCaptains.add(captain.playerId);
+      counts.put(team, 1);
+    }
+
+    List<Participation> remaining = confirmed
+      .stream()
+      .filter(p -> !pinnedCaptains.contains(p.playerId))
+      .collect(Collectors.toCollection(ArrayList::new));
+    Collections.shuffle(remaining);
+    for (Participation player : remaining) {
+      int smallest = counts
+        .values()
+        .stream()
+        .filter(count -> count < game.teamSize)
+        .mapToInt(Integer::intValue)
+        .min()
+        .orElseThrow(() ->
+          ApiException.conflict(
+            "Não há vagas suficientes para sortear os times."
+          )
+        );
+      List<Team> candidates = counts
+        .entrySet()
+        .stream()
+        .filter(entry -> entry.getValue() == smallest)
+        .map(Map.Entry::getKey)
+        .toList();
+      Team destination = candidates.get(
+        java.util.concurrent.ThreadLocalRandom.current().nextInt(
+          candidates.size()
+        )
+      );
+      player.teamId = destination.id;
+      counts.put(destination, counts.get(destination) + 1);
+    }
+    return detail(game);
+  }
+
   public GameDetail lineup(UUID user, UUID gameId, UUID teamId, Lineup input) {
     Game game = editable(user, gameId, true);
     Team team = captain(user, gameId, teamId);

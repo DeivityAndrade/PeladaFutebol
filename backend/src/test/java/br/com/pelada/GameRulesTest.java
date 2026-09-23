@@ -7,8 +7,9 @@ import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.*;
 import br.com.pelada.games.Games;
 import br.com.pelada.games.Matches;
+import br.com.pelada.groups.Barbecues;
 import br.com.pelada.groups.Groups;
-import java.time.Instant;
+import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.IntConsumer;
@@ -33,6 +34,9 @@ class GameRulesTest {
   Groups groups;
 
   @Autowired
+  Barbecues barbecues;
+
+  @Autowired
   Store store;
 
   @Autowired
@@ -47,7 +51,7 @@ class GameRulesTest {
   @BeforeEach
   void setup() {
     jdbc.execute(
-      "TRUNCATE spring_session,participations,teams,games,members,clubs,players CASCADE"
+      "TRUNCATE spring_session,barbecue_attendance,barbecues,barbecue_series,participations,teams,games,members,clubs,players CASCADE"
     );
     players = tx.execute(status -> {
       List<UUID> result = new ArrayList<>();
@@ -268,6 +272,9 @@ class GameRulesTest {
   void participantCannotManageAndCaptainCannotEditOtherTeam() {
     confirmed(3);
     var teams = captains();
+    assertThatThrownBy(() -> games.draw(players.get(2), game)).isInstanceOf(
+      ApiException.class
+    );
     assertThatThrownBy(() ->
       games.configure(
         players.get(2),
@@ -355,6 +362,356 @@ class GameRulesTest {
     assertThatThrownBy(() -> games.pick(owner, game, team, players.get(6)))
       .isInstanceOf(ApiException.class)
       .hasMessageContaining("completo");
+  }
+
+  @Test
+  void drawPinsCaptainsBalancesTeamsAndLeavesWaitlistOut() {
+    confirmed(12);
+    List<TeamView> teams = captains();
+    UUID first = teams.getFirst().id();
+    games.pick(owner, game, first, players.get(2));
+    games.lineup(
+      owner,
+      game,
+      first,
+      new Lineup(
+        "2-2",
+        Arrays.asList(owner, players.get(2), null, null, null),
+        games.get(owner, game).teams().getFirst().version()
+      )
+    );
+
+    var result = games.draw(owner, game);
+
+    assertThat(result.teams().get(0).captainId()).isEqualTo(owner);
+    assertThat(result.teams().get(1).captainId()).isEqualTo(players.get(1));
+    for (TeamView team : result.teams())
+      assertThat(
+        result
+          .attendees()
+          .stream()
+          .filter(p -> team.id().equals(p.teamId()))
+      ).hasSize(5);
+    assertThat(
+      result
+        .attendees()
+        .stream()
+        .filter(p -> p.status().equals("CONFIRMED"))
+    ).allSatisfy(p -> {
+      assertThat(p.teamId()).isNotNull();
+      assertThat(p.slot()).isNull();
+    });
+    assertThat(
+      result
+        .attendees()
+        .stream()
+        .filter(p -> p.status().equals("WAITING"))
+    ).allSatisfy(p -> {
+      assertThat(p.teamId()).isNull();
+      assertThat(p.slot()).isNull();
+    });
+    games.leave(players.get(2), game);
+    var promoted = games
+      .get(owner, game)
+      .attendees()
+      .stream()
+      .filter(p -> p.id().equals(players.get(10)))
+      .findFirst()
+      .orElseThrow();
+    assertThat(promoted.status()).isEqualTo("CONFIRMED");
+    assertThat(promoted.teamId()).isNull();
+    games.draw(owner, game);
+    assertThat(
+      games
+        .get(owner, game)
+        .attendees()
+        .stream()
+        .filter(p -> p.status().equals("CONFIRMED"))
+    ).allSatisfy(p -> assertThat(p.teamId()).isNotNull());
+  }
+
+  @Test
+  void newConfirmationsWaitForManualRedrawAndStartedGameCannotBeRedrawn() {
+    confirmed(3);
+    List<TeamView> teams = captains();
+    games.draw(owner, game);
+    games.attend(players.get(3), game);
+    assertThat(
+      games
+        .get(owner, game)
+        .attendees()
+        .stream()
+        .filter(p -> p.id().equals(players.get(3)))
+        .findFirst()
+        .orElseThrow()
+        .teamId()
+    ).isNull();
+
+    games.draw(owner, game);
+    assertThat(
+      games
+        .get(owner, game)
+        .attendees()
+        .stream()
+        .filter(p -> p.status().equals("CONFIRMED"))
+    ).allSatisfy(p -> assertThat(p.teamId()).isNotNull());
+    scheduledTimeHasPassed();
+    matches.start(players.get(2), game);
+    assertThatThrownBy(() -> games.draw(owner, game))
+      .isInstanceOf(ApiException.class)
+      .hasMessageContaining("começou");
+    assertThat(teams).hasSize(2);
+  }
+
+  @Test
+  void concurrentDrawsLeaveEveryConfirmedPlayerOnExactlyOneTeam()
+    throws Exception {
+    confirmed(8);
+    captains();
+
+    var results = race(i -> games.draw(owner, game));
+
+    assertThat(results.stream().filter(Objects::nonNull).count()).isZero();
+    var result = games.get(owner, game);
+    assertThat(
+      result
+        .attendees()
+        .stream()
+        .filter(p -> p.status().equals("CONFIRMED"))
+    ).allSatisfy(p -> assertThat(p.teamId()).isNotNull());
+    for (TeamView team : result.teams())
+      assertThat(
+        result
+          .attendees()
+          .stream()
+          .filter(p -> team.id().equals(p.teamId()))
+      ).hasSize(4);
+  }
+
+  @Test
+  void monthlyBarbecueKeepsMonthEndAndReplenishesAfterAnIsolatedCancellation()
+    throws Exception {
+    ClubView recurring = groups.create(
+      owner,
+      new CreateClub("Grupo do churrasco", "", "MONTHLY")
+    );
+    ZoneId zone = ZoneId.of("America/Sao_Paulo");
+    Instant anchor = ZonedDateTime.of(
+      2027,
+      1,
+      31,
+      19,
+      0,
+      0,
+      0,
+      zone
+    ).toInstant();
+
+    List<BarbecueView> firstWindow = barbecues.startSeries(
+      owner,
+      recurring.id(),
+      new CreateBarbecueSeries(anchor, "Salão", zone.getId())
+    );
+
+    assertThat(firstWindow).hasSize(6);
+    assertThat(
+      firstWindow
+        .stream()
+        .limit(3)
+        .map(event -> event.startsAt().atZone(zone).toLocalDate())
+    ).containsExactly(
+      LocalDate.of(2027, 1, 31),
+      LocalDate.of(2027, 2, 28),
+      LocalDate.of(2027, 3, 31)
+    );
+    assertThat(barbecues.list(owner, recurring.id())).hasSize(6);
+    assertThat(
+      race(i -> barbecues.list(owner, recurring.id()).size())
+        .stream()
+        .filter(Objects::nonNull)
+        .count()
+    ).isZero();
+    assertThat(
+      barbecues.cancel(owner, firstWindow.getFirst().id()).cancelled()
+    ).isTrue();
+
+    List<BarbecueView> replenished = barbecues.list(owner, recurring.id());
+    assertThat(replenished).hasSize(7);
+    assertThat(
+      replenished
+        .stream()
+        .filter(event -> event.recurring() && !event.cancelled())
+    ).hasSize(6);
+    assertThat(replenished.stream().map(BarbecueView::id).distinct()).hasSize(
+      7
+    );
+  }
+
+  @Test
+  void twoAndThreeMonthBarbecueRecurrencesUseTheirAnchorDate() {
+    ZoneId zone = ZoneId.of("America/Sao_Paulo");
+    Instant anchor = ZonedDateTime.of(
+      2027,
+      1,
+      31,
+      19,
+      0,
+      0,
+      0,
+      zone
+    ).toInstant();
+    for (String frequency : List.of("EVERY_2_MONTHS", "EVERY_3_MONTHS")) {
+      ClubView recurring = groups.create(
+        owner,
+        new CreateClub("Grupo " + frequency, "", frequency)
+      );
+      List<BarbecueView> events = barbecues.startSeries(
+        owner,
+        recurring.id(),
+        new CreateBarbecueSeries(anchor, "Salão", zone.getId())
+      );
+      LocalDate expected = frequency.equals("EVERY_2_MONTHS")
+        ? LocalDate.of(2027, 3, 31)
+        : LocalDate.of(2027, 4, 30);
+      assertThat(events).hasSize(6);
+      assertThat(events.get(1).startsAt().atZone(zone).toLocalDate()).isEqualTo(
+        expected
+      );
+      assertThat(barbecues.list(owner, recurring.id())).hasSize(6);
+    }
+  }
+
+  @Test
+  void pauseStopsWindowGenerationAndResumeRestoresSixUpcomingEvents() {
+    ClubView recurring = groups.create(
+      owner,
+      new CreateClub("Grupo pausável", "", "EVERY_2_MONTHS")
+    );
+    Instant anchor = Instant.now().plus(Duration.ofDays(45));
+    List<BarbecueView> initial = barbecues.startSeries(
+      owner,
+      recurring.id(),
+      new CreateBarbecueSeries(anchor, "Salão", "UTC")
+    );
+    UUID seriesId = tx.execute(
+      s ->
+        store
+          .first(
+            BarbecueSeries.class,
+            "from BarbecueSeries where clubId=:club",
+            "club",
+            recurring.id()
+          )
+          .orElseThrow()
+          .id
+    );
+    barbecues.pauseSeries(owner, recurring.id());
+    tx.executeWithoutResult(s -> {
+      store.get(BarbecueSeries.class, seriesId).nextOccurrenceIndex =
+        initial.size();
+      store
+        .list(
+          Barbecue.class,
+          "from Barbecue where seriesId=:series",
+          "series",
+          seriesId
+        )
+        .forEach(event -> event.startsAt = Instant.now().minusSeconds(60));
+    });
+
+    assertThat(barbecues.list(owner, recurring.id())).hasSize(6);
+    assertThat(
+      groups
+        .list(owner)
+        .stream()
+        .filter(c -> c.id().equals(recurring.id()))
+        .findFirst()
+        .orElseThrow()
+        .barbecueSeriesActive()
+    ).isFalse();
+    List<BarbecueView> resumed = barbecues.resumeSeries(owner, recurring.id());
+    assertThat(resumed).hasSize(12);
+    assertThat(
+      resumed.stream().filter(event -> event.startsAt().isAfter(Instant.now()))
+    ).hasSize(6);
+    assertThat(
+      groups
+        .list(owner)
+        .stream()
+        .filter(c -> c.id().equals(recurring.id()))
+        .findFirst()
+        .orElseThrow()
+        .barbecueSeriesActive()
+    ).isTrue();
+  }
+
+  @Test
+  void barbecueGuestInviteIsEventScopedAndAttendanceIsIndependentFromFootball() {
+    ClubView barbecueClub = groups.create(
+      owner,
+      new CreateClub("Churrasco avulso", "")
+    );
+    groups.join(players.get(1), barbecueClub.invite());
+    Instant startsAt = Instant.now().plus(Duration.ofDays(3));
+    BarbecueView invited = barbecues.createOneOff(
+      owner,
+      barbecueClub.id(),
+      new CreateBarbecue(startsAt, "Salão")
+    );
+    BarbecueView other = barbecues.createOneOff(
+      owner,
+      barbecueClub.id(),
+      new CreateBarbecue(startsAt.plus(Duration.ofDays(30)), "Quintal")
+    );
+    UUID outsider = tx.execute(
+      s ->
+        store
+          .save(new Player("Convidado", "guest@test.invalid", "!disabled"))
+          .id
+    );
+
+    barbecues.attendance(players.get(1), invited.id(), true);
+    assertThat(games.get(players.get(1), game).attendees()).isEmpty();
+    assertThatThrownBy(() ->
+      barbecues.attendance(outsider, invited.id(), true)
+    ).isInstanceOf(ApiException.class);
+    UUID oldToken = UUID.fromString(invited.inviteToken());
+    assertThat(
+      barbecues.inviteDetails(outsider, oldToken).attending()
+    ).isFalse();
+    barbecues.inviteAttendance(outsider, oldToken, true);
+    assertThat(
+      barbecues.inviteDetails(outsider, oldToken).attending()
+    ).isTrue();
+    assertThat(groups.list(outsider)).isEmpty();
+    assertThatThrownBy(() ->
+      groups.requireMember(outsider, barbecueClub.id())
+    ).isInstanceOf(ApiException.class);
+    assertThatThrownBy(() ->
+      barbecues.list(outsider, barbecueClub.id())
+    ).isInstanceOf(ApiException.class);
+    assertThatThrownBy(() ->
+      barbecues.inviteDetails(outsider, UUID.randomUUID())
+    ).isInstanceOf(ApiException.class);
+
+    BarbecueView updated = barbecues.update(
+      owner,
+      other.id(),
+      new UpdateBarbecue(startsAt.plus(Duration.ofDays(31)), "Outro salão")
+    );
+    assertThat(updated.location()).isEqualTo("Outro salão");
+    assertThat(barbecues.cancel(owner, other.id()).cancelled()).isTrue();
+    assertThat(barbecues.inviteDetails(outsider, oldToken)).isNotNull();
+    assertThat(
+      barbecues.inviteDetails(outsider, oldToken).attending()
+    ).isTrue();
+    assertThatThrownBy(() ->
+      barbecues.createOneOff(
+        players.get(1),
+        barbecueClub.id(),
+        new CreateBarbecue(startsAt, "Salão")
+      )
+    ).isInstanceOf(ApiException.class);
   }
 
   @Test

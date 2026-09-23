@@ -2,9 +2,9 @@
 
 ## Resultado
 
-**20 verificações passaram:** 16 cenários Java com PostgreSQL e 4 cenários de navegador com
-Chromium. O Angular compilou na CI; a checagem Prettier passou localmente. Os dois checks do
-pull request passaram.
+GitHub Actions passou na compilação Angular, na checagem Prettier, na suíte Java com PostgreSQL e nos
+cinco cenários Playwright em Chromium. A validação cobriu os fluxos de partida ao vivo, sorteio de
+times, recorrência dos churrascos, presença independente da pelada e convite individual de convidado.
 
 Ambiente de CI: GitHub Actions, Java 21, PostgreSQL 18 e Chromium. A aplicação testada pelo
 navegador é o pacote de produção do Spring Boot, que serve o Angular na mesma origem.
@@ -27,6 +27,13 @@ navegador é o pacote de produção do Spring Boot, que serve o Angular na mesma
 14. Proteção contra dois inícios simultâneos.
 15. Gol contra, anulação, correção de placar e duração congelada após o fim.
 16. Permissões, privacidade, prazo de 24 horas e média geral com peso igual por pelada.
+17. Sorteio equilibrado, capitães fixos, espera excluída e limpeza das posições antigas.
+18. Confirmações ou desistências após o sorteio sem reorganização automática; bloqueio após o início.
+19. Sorteios simultâneos serializados no banco.
+20. Recorrência mensal em meses curtos, janela de seis edições e reposição após cancelamento.
+21. Recorrências a cada dois e três meses calculadas pela data inicial.
+22. Pausa sem geração de novas edições e recomposição da janela ao retomar.
+23. Presença de churrasco independente da pelada, edição isolada, convite de convidado e acesso restrito.
 
 ### Navegador — Playwright
 
@@ -37,6 +44,8 @@ navegador é o pacote de produção do Spring Boot, que serve o Angular na mesma
    persistência, teclado, celular e permissão de edição.
 4. Partida ao vivo em duas contas: início, cronômetro após recarregar, gol, placar sincronizado,
    encerramento, avaliação e rejeição de nota fora do time.
+5. Sorteio e novo sorteio; recorrência de churrasco; confirmação de membro que não vai jogar;
+   convite de edição para convidado, confirmação no celular e verificação de que ele não entrou no grupo.
 
 ### Telas
 
@@ -47,8 +56,7 @@ As imagens base da aplicação, capturadas em **1440 px** e **390 px**, estão e
 
 ## Limites
 
-- O fluxo completo passou na CI. A publicação da nova versão e a verificação pública do Render
-  acontecem após integrar o pull request.
 - Firefox, Safari, aparelhos físicos, teste de carga e auditoria formal de acessibilidade não foram
   executados.
+- A publicação e a verificação pública no Render acontecem após integrar o pull request.
 - Os testes usam contas fictícias; nenhum dado de jogador real foi incluído.

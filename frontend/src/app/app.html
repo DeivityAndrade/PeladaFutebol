@@ -58,7 +58,15 @@
         <button class="icon-button mobile-menu" aria-label="Abrir menu" (click)="sidebar.set(true)">
           <app-icon name="menu" /></button
         ><span>Vestiário</span><app-icon name="chevron" /><strong>{{
-          page() === 'groups' ? 'Meus grupos' : page() === 'group' ? 'Agenda de jogos' : 'A pelada'
+          page() === 'groups'
+            ? 'Meus grupos'
+            : page() === 'group'
+              ? groupTab() === 'barbecue'
+                ? 'Churrasco do grupo'
+                : 'Agenda de jogos'
+              : page() === 'barbecue-invite'
+                ? 'Convite para churrasco'
+                : 'A pelada'
         }}</strong>
       </div>
       <div class="account-actions">
@@ -309,6 +317,22 @@
                   </button>
                 }
               </section>
+              @if (owner() && teamEditable()) {
+                <section class="panel draw-panel">
+                  <div class="section-kicker">TIMES</div>
+                  <h3>Deixe o sorteio com a gente.</h3>
+                  <p>
+                    Os confirmados são distribuídos entre os times. Capitães permanecem nos seus.
+                  </p>
+                  <button
+                    class="button primary full-width"
+                    [disabled]="busy() || !confirmed().length"
+                    (click)="open('draw')"
+                  >
+                    <app-icon name="shuffle" />Sortear times
+                  </button>
+                </section>
+              }
               <section class="panel roster-panel">
                 <div class="compact-heading">
                   <h3>Relacionados</h3>
@@ -654,47 +678,246 @@
             }
           </div>
         </div>
-        <div class="games-list">
-          @for (g of games(); track g.id) {
-            <button class="panel game-card" (click)="navigate('game/' + g.id)">
-              <span class="match-date"
-                ><strong>{{ date(g.startsAt, 'day') }}</strong
-                ><span>{{ date(g.startsAt, 'month') }}</span></span
-              >
-              <div>
-                <span class="eyebrow">{{
-                  g.cancelled
-                    ? 'CANCELADA'
-                    : g.matchStatus === 'LIVE'
-                      ? 'AO VIVO'
-                      : g.matchStatus === 'FINISHED'
-                        ? 'ENCERRADA'
-                        : g.editable
-                          ? 'INSCRIÇÕES ABERTAS'
-                          : 'AGUARDANDO INÍCIO'
-                }}</span>
-                <h2>{{ g.title }}</h2>
-                <p>{{ g.location }} · {{ date(g.startsAt, 'hour') }}</p>
-              </div>
-              <span class="game-capacity"
-                >{{ g.confirmed }}/{{ g.teamCount * g.teamSize }} confirmados</span
-              ><app-icon name="arrow" />
-            </button>
-          }
+        <div class="group-tabs" role="tablist" aria-label="Agenda do grupo">
+          <button
+            role="tab"
+            [attr.aria-selected]="groupTab() === 'games'"
+            [class.active]="groupTab() === 'games'"
+            (click)="groupTab.set('games')"
+          >
+            Peladas
+          </button>
+          <button
+            role="tab"
+            [attr.aria-selected]="groupTab() === 'barbecue'"
+            [class.active]="groupTab() === 'barbecue'"
+            (click)="groupTab.set('barbecue')"
+          >
+            Churrasco
+          </button>
         </div>
-        @if (!games().length) {
-          <section class="panel empty-state">
-            <app-icon name="calendar" />
-            <h2>A quadra está esperando.</h2>
-            <p>
-              {{
-                club()!.ownerId === user()?.id
-                  ? 'Marque a primeira pelada do grupo.'
-                  : 'O organizador ainda não marcou uma pelada.'
-              }}
-            </p>
+        @if (groupTab() === 'games') {
+          <div class="games-list">
+            @for (g of games(); track g.id) {
+              <button class="panel game-card" (click)="navigate('game/' + g.id)">
+                <span class="match-date"
+                  ><strong>{{ date(g.startsAt, 'day') }}</strong
+                  ><span>{{ date(g.startsAt, 'month') }}</span></span
+                >
+                <div>
+                  <span class="eyebrow">{{
+                    g.cancelled
+                      ? 'CANCELADA'
+                      : g.matchStatus === 'LIVE'
+                        ? 'AO VIVO'
+                        : g.matchStatus === 'FINISHED'
+                          ? 'ENCERRADA'
+                          : g.editable
+                            ? 'INSCRIÇÕES ABERTAS'
+                            : 'AGUARDANDO INÍCIO'
+                  }}</span>
+                  <h2>{{ g.title }}</h2>
+                  <p>{{ g.location }} · {{ date(g.startsAt, 'hour') }}</p>
+                </div>
+                <span class="game-capacity"
+                  >{{ g.confirmed }}/{{ g.teamCount * g.teamSize }} confirmados</span
+                ><app-icon name="arrow" />
+              </button>
+            }
+          </div>
+          @if (!games().length) {
+            <section class="panel empty-state">
+              <app-icon name="calendar" />
+              <h2>A quadra está esperando.</h2>
+              <p>
+                {{
+                  club()!.ownerId === user()?.id
+                    ? 'Marque a primeira pelada do grupo.'
+                    : 'O organizador ainda não marcou uma pelada.'
+                }}
+              </p>
+            </section>
+          }
+        } @else {
+          <section class="panel barbecue-board">
+            <div class="panel-heading barbecue-board-heading">
+              <div>
+                <span class="eyebrow green">FORA DE CAMPO</span>
+                <h2>Churrasco da galera<span class="small-dot">.</span></h2>
+                <p>Confirme sua presença, mesmo que não vá jogar futebol.</p>
+              </div>
+              @if (groupOwner()) {
+                <div class="heading-actions barbecue-actions">
+                  @if (club()!.barbecueFrequency !== 'NONE' && !barbecueSeriesConfigured()) {
+                    <button class="button secondary" (click)="open('barbecue-series')">
+                      <app-icon name="calendar" />Agendar primeira edição
+                    </button>
+                  }
+                  @if (barbecueSeriesConfigured()) {
+                    <button
+                      class="button secondary"
+                      (click)="pauseBarbecueSeries(club()!.barbecueSeriesActive)"
+                      [disabled]="busy()"
+                    >
+                      {{
+                        club()!.barbecueSeriesActive ? 'Pausar recorrência' : 'Retomar recorrência'
+                      }}
+                    </button>
+                  }
+                  <button class="button primary" (click)="open('barbecue')">
+                    <app-icon name="plus" />Marcar avulso
+                  </button>
+                </div>
+              }
+            </div>
+            <div class="barbecue-list">
+              @for (event of barbecues(); track event.id) {
+                <article class="barbecue-card" [class.cancelled]="event.cancelled">
+                  <div class="barbecue-date">
+                    <strong>{{ date(event.startsAt, 'day') }}</strong>
+                    <span>{{ date(event.startsAt, 'month') }}</span>
+                  </div>
+                  <div class="barbecue-main">
+                    <div class="barbecue-event-meta">
+                      <span class="eyebrow">{{
+                        event.cancelled
+                          ? 'CANCELADO'
+                          : event.recurring
+                            ? 'CHURRASCO RECORRENTE'
+                            : 'EDIÇÃO AVULSA'
+                      }}</span>
+                      <h3>Churrasco do grupo</h3>
+                      <p>{{ event.location }} · {{ date(event.startsAt, 'hour') }}</p>
+                    </div>
+                    <div class="barbecue-attendees">
+                      <strong>{{ event.confirmed }} confirmados</strong>
+                      @if (event.attendees.length) {
+                        @for (person of event.attendees; track person.id) {
+                          <span class="attendee-chip">{{ person.name }}</span>
+                        }
+                      } @else {
+                        <span class="muted">Ninguém confirmou ainda.</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="barbecue-controls">
+                    @if (!event.cancelled && isFuture(event.startsAt)) {
+                      @if (event.attending) {
+                        <button
+                          class="button secondary"
+                          [disabled]="busy()"
+                          (click)="toggleBarbecueAttendance(event)"
+                        >
+                          Estou dentro · Desistir
+                        </button>
+                      } @else {
+                        <button
+                          class="button primary"
+                          [disabled]="busy()"
+                          (click)="toggleBarbecueAttendance(event)"
+                        >
+                          Confirmar presença
+                        </button>
+                      }
+                    }
+                    @if (groupOwner() && event.inviteToken && !event.cancelled) {
+                      <button
+                        class="icon-button"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'Copiar convite para ' + date(event.startsAt, 'full')"
+                        (click)="inviteBarbecue(event)"
+                      >
+                        <app-icon name="share" />
+                      </button>
+                    }
+                    @if (groupOwner() && !event.cancelled && isFuture(event.startsAt)) {
+                      <button
+                        class="icon-button"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'Editar churrasco de ' + date(event.startsAt, 'full')"
+                        (click)="editBarbecue(event)"
+                      >
+                        <app-icon name="edit" />
+                      </button>
+                      <button
+                        class="icon-button danger-icon"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'Cancelar churrasco de ' + date(event.startsAt, 'full')"
+                        (click)="confirmCancelBarbecue(event)"
+                      >
+                        <app-icon name="close" />
+                      </button>
+                    }
+                  </div>
+                </article>
+              } @empty {
+                <div class="empty-state barbecue-empty">
+                  <app-icon name="users" />
+                  <h3>Uma boa resenha também acontece fora de campo.</h3>
+                  <p>
+                    {{
+                      groupOwner()
+                        ? club()!.barbecueFrequency !== 'NONE'
+                          ? 'Agende a primeira edição para preparar as próximas.'
+                          : 'Marque um churrasco e convide quem quiser participar.'
+                        : 'O organizador ainda não marcou um churrasco.'
+                    }}
+                  </p>
+                </div>
+              }
+            </div>
           </section>
         }
+      } @else if (page() === 'barbecue-invite' && barbecueInvite()) {
+        <div class="page-heading">
+          <div>
+            <span class="eyebrow green">CONVITE DO CHURRASCO</span>
+            <h1>Você está <span>convidado.</span></h1>
+            <p>Este convite vale só para esta edição; não é preciso entrar no grupo de futebol.</p>
+          </div>
+        </div>
+        <section class="panel barbecue-invite-panel">
+          <span class="eyebrow">{{ barbecueInvite()!.clubName }}</span>
+          <h2>Churrasco do grupo</h2>
+          <p>
+            {{ date(barbecueInvite()!.startsAt, 'full') }} ·
+            {{ date(barbecueInvite()!.startsAt, 'hour') }}
+          </p>
+          <p>{{ barbecueInvite()!.location }}</p>
+          <strong>{{ barbecueInvite()!.confirmed }} confirmados</strong>
+          @if (barbecueInvite()!.attending) {
+            <button
+              class="button secondary"
+              [disabled]="busy() || barbecueInvite()!.cancelled"
+              (click)="guestBarbecueAttendance(false)"
+            >
+              Presença confirmada · Desistir
+            </button>
+          } @else {
+            <button
+              class="button primary"
+              [disabled]="
+                busy() || barbecueInvite()!.cancelled || !isFuture(barbecueInvite()!.startsAt)
+              "
+              (click)="guestBarbecueAttendance(true)"
+            >
+              Confirmar presença
+            </button>
+          }
+          @if (barbecueInvite()!.attendees.length) {
+            <div class="barbecue-attendees">
+              @for (person of barbecueInvite()!.attendees; track person.id) {
+                <span class="attendee-chip">{{ person.name }}</span>
+              }
+            </div>
+          }
+        </section>
+      } @else if (page() === 'barbecue-invite') {
+        <section class="panel empty-state">
+          <app-icon name="lock" />
+          <h1>Convite indisponível.</h1>
+          <p>Peça ao organizador um novo link para este churrasco.</p>
+        </section>
       } @else if (!user()) {
         <section class="panel empty-state">
           <app-icon name="lock" />
@@ -809,6 +1032,16 @@
                 maxlength="300"
                 placeholder="O futebol de toda semana, com a galera de sempre."
               ></textarea></label
+            ><label
+              >Churrasco recorrente<select
+                name="barbecueFrequency"
+                [(ngModel)]="form['barbecueFrequency']"
+              >
+                <option value="NONE">Não temos churrasco recorrente</option>
+                <option value="MONTHLY">Todo mês</option>
+                <option value="EVERY_2_MONTHS">A cada dois meses</option>
+                <option value="EVERY_3_MONTHS">A cada três meses</option>
+              </select></label
             ><button class="button primary full-width" [disabled]="busy()">
               Criar grupo<app-icon name="arrow" />
             </button>
@@ -876,6 +1109,88 @@
             </div>
             <button class="button primary full-width" [disabled]="busy()">Marcar pelada</button>
           </form>
+        }
+        @case ('draw') {
+          <h2 id="modal-title">Hora de misturar os times?</h2>
+          <p>
+            Os {{ confirmed().length }} confirmados serão distribuídos. Capitães ficam nos seus
+            times; titulares e posições serão limpos. Você pode sortear de novo até a partida
+            começar.
+          </p>
+          <div class="form-actions">
+            <button class="button secondary" (click)="closeModal()">Voltar</button>
+            <button class="button primary" [disabled]="busy()" (click)="drawTeams()">
+              Sortear agora
+            </button>
+          </div>
+        }
+        @case ('barbecue-series') {
+          <h2 id="modal-title">Vamos marcar o primeiro churrasco.</h2>
+          <p>As próximas edições seguirão esta data, horário e local. Você pode editar cada uma.</p>
+          <form (ngSubmit)="createBarbecueSeries()">
+            <label
+              >Data e horário<input
+                type="datetime-local"
+                name="startsAt"
+                [(ngModel)]="form['startsAt']"
+                required /></label
+            ><label
+              >Local<input
+                name="location"
+                [(ngModel)]="form['location']"
+                required
+                maxlength="160"
+                placeholder="Ex.: Salão do condomínio"
+            /></label>
+            <button class="button primary full-width" [disabled]="busy()">Criar recorrência</button>
+          </form>
+        }
+        @case ('barbecue') {
+          <h2 id="modal-title">Marque um churrasco.</h2>
+          <p>Este evento será avulso, sem alterar a recorrência do grupo.</p>
+          <form (ngSubmit)="createBarbecue()">
+            <label
+              >Data e horário<input
+                type="datetime-local"
+                name="startsAt"
+                [(ngModel)]="form['startsAt']"
+                required /></label
+            ><label
+              >Local<input
+                name="location"
+                [(ngModel)]="form['location']"
+                required
+                maxlength="160"
+                placeholder="Ex.: Salão do condomínio"
+            /></label>
+            <button class="button primary full-width" [disabled]="busy()">Marcar churrasco</button>
+          </form>
+        }
+        @case ('edit-barbecue') {
+          <h2 id="modal-title">Editar esta edição.</h2>
+          <p>As outras datas da recorrência permanecem iguais.</p>
+          <form (ngSubmit)="saveBarbecue()">
+            <label
+              >Data e horário<input
+                type="datetime-local"
+                name="startsAt"
+                [(ngModel)]="form['startsAt']"
+                required /></label
+            ><label
+              >Local<input name="location" [(ngModel)]="form['location']" required maxlength="160"
+            /></label>
+            <button class="button primary full-width" [disabled]="busy()">Salvar edição</button>
+          </form>
+        }
+        @case ('cancel-barbecue') {
+          <h2 id="modal-title">Cancelar este churrasco?</h2>
+          <p>A recorrência continua normalmente nas próximas datas.</p>
+          <div class="form-actions">
+            <button class="button secondary" (click)="closeModal()">Voltar</button>
+            <button class="button danger-button" [disabled]="busy()" (click)="cancelBarbecue()">
+              Cancelar churrasco
+            </button>
+          </div>
         }
         @case ('team') {
           <h2 id="modal-title">A identidade do time.</h2>
