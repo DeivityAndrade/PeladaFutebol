@@ -197,7 +197,7 @@ export class App implements OnInit, OnDestroy {
     document.documentElement.dataset['theme'] = next;
     document
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', next === 'dark' ? '#10251c' : '#f7f8f3');
+      ?.setAttribute('content', next === 'dark' ? '#14171a' : '#f7f8f3');
     try {
       localStorage.setItem('pelada.theme', next);
     } catch {
