@@ -26,6 +26,9 @@ const paths: Record<string, string> = {
   shuffle: 'M16 3h5v5 M4 20 21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5',
   lock: 'M5 10h14v11H5z M8 10V6a4 4 0 0 1 8 0v4',
   menu: 'M4 6h16 M4 12h16 M4 18h16',
+  panel: 'M3 4h18v16H3z M9 4v16',
+  moon: 'M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5z',
+  sun: 'M12 3v2 M12 19v2 M3 12h2 M19 12h2 M5.6 5.6 7 7 M17 17l1.4 1.4 M18.4 5.6 17 7 M7 17l-1.4 1.4 M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8',
 };
 @Component({
   selector: 'app-icon',

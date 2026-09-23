@@ -40,6 +40,10 @@ export class App implements OnInit, OnDestroy {
   tab = signal('lineup');
   groupTab = signal('games');
   sidebar = signal(false);
+  sidebarCollapsed = signal(document.documentElement.dataset['sidebar'] === 'collapsed');
+  theme = signal<'light' | 'dark'>(
+    document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light',
+  );
   demoFinished = signal(false);
   now = signal(Date.now());
   profile = signal<PlayerProfile | null>(null);
@@ -120,6 +124,7 @@ export class App implements OnInit, OnDestroy {
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 401)) this.showError(e);
     }
+    if (this.user() && !location.hash) history.replaceState(null, '', '#groups');
     await this.route();
     this.timer = setInterval(() => {
       if (
@@ -185,6 +190,39 @@ export class App implements OnInit, OnDestroy {
   navigate(path: string) {
     if (location.hash === '#' + path) void this.route();
     else location.hash = path;
+  }
+  toggleTheme() {
+    const next = this.theme() === 'dark' ? 'light' : 'dark';
+    this.theme.set(next);
+    document.documentElement.dataset['theme'] = next;
+    document
+      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', next === 'dark' ? '#10251c' : '#f7f8f3');
+    try {
+      localStorage.setItem('pelada.theme', next);
+    } catch {
+      // The preference still applies to the current page when storage is unavailable.
+    }
+  }
+  toggleSidebarCollapsed() {
+    const next = !this.sidebarCollapsed();
+    this.sidebarCollapsed.set(next);
+    document.documentElement.dataset['sidebar'] = next ? 'collapsed' : 'expanded';
+    try {
+      localStorage.setItem('pelada.sidebar', next ? 'collapsed' : 'expanded');
+    } catch {
+      // The menu remains usable without persistent storage.
+    }
+  }
+  openSidebar() {
+    this.sidebar.set(true);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.sidebar nav a')?.focus());
+  }
+  closeSidebar(restoreFocus = false) {
+    const wasOpen = this.sidebar();
+    this.sidebar.set(false);
+    if (wasOpen && restoreFocus)
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('.mobile-menu')?.focus());
   }
   skipToMain(event: Event) {
     event.preventDefault();
@@ -263,20 +301,21 @@ export class App implements OnInit, OnDestroy {
   }
   @HostListener('document:keydown.escape') escape() {
     this.closeModal();
-    this.sidebar.set(false);
+    this.closeSidebar(true);
   }
   @HostListener('document:keydown.tab', ['$event']) trapFocus(rawEvent: Event) {
     const event = rawEvent as KeyboardEvent;
-    if (!this.modal()) return;
+    const scope = this.modal() ? '.modal' : this.sidebar() && innerWidth < 960 ? '.sidebar' : '';
+    if (!scope) return;
     const elements = Array.from(
       document.querySelectorAll<HTMLElement>(
-        '.modal button:not(:disabled),.modal input,.modal select,.modal textarea,.modal a[href]',
+        `${scope} button:not(:disabled),${scope} input,${scope} select,${scope} textarea,${scope} a[href]`,
       ),
-    );
+    ).filter((element) => element.getClientRects().length > 0);
     const first = elements[0],
       last = elements.at(-1);
     if (!first) return;
-    if (!document.querySelector('.modal')?.contains(document.activeElement)) {
+    if (!document.querySelector(scope)?.contains(document.activeElement)) {
       event.preventDefault();
       first.focus();
     } else if (event.shiftKey && document.activeElement === first) {
