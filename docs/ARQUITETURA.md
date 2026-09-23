@@ -12,9 +12,9 @@ flowchart LR
     F --> E
 ```
 
-O backend organiza as funcionalidades em `auth`, `groups`, `games`, `demo` e `api`. O serviço `Matches` concentra partida ao vivo, gols e avaliações. As entidades compartilhadas ficam em `domain`. Os controladores recebem contratos validados e devolvem modelos de leitura; nunca serializam entidades JPA ou hashes de senha.
+O backend organiza as funcionalidades em `auth`, `groups`, `games`, `demo` e `api`. O serviço `Matches` concentra partida ao vivo, gols e avaliações; `Barbecues` cuida das edições, séries e convites de churrasco. As entidades compartilhadas ficam em `domain`. Os controladores recebem contratos validados e devolvem modelos de leitura; nunca serializam entidades JPA ou hashes de senha.
 
-O Angular usa componentes standalone, signals para estado derivado e rotas por fragmento (`#groups`, `#group/UUID`, `#game/UUID`, `#invite/UUID`). Isso permite recarregar qualquer tela no mesmo endereço servido pelo Spring, sem regras de redirecionamento no host. A atualização de presença e elencos acontece a cada 15 segundos enquanto a página da pelada está visível e sem edição em andamento.
+O Angular usa componentes standalone, signals para estado derivado e rotas por fragmento (`#groups`, `#group/UUID`, `#game/UUID`, `#invite/UUID`, `#barbecue-invite/TOKEN`). Isso permite recarregar qualquer tela no mesmo endereço servido pelo Spring, sem regras de redirecionamento no host. A atualização de presença e elencos acontece a cada 15 segundos enquanto a página da pelada está visível e sem edição em andamento.
 
 ## Modelo
 
@@ -22,6 +22,9 @@ O Angular usa componentes standalone, signals para estado derivado e rotas por f
 | --- | --- |
 | Player | Identidade, e-mail normalizado e hash BCrypt |
 | Club / Member | Grupo privado, organizador, convite e participantes |
+| BarbecueSeries | Frequência, data de referência, fuso e estado da recorrência |
+| Barbecue | Edição avulsa ou recorrente, horário, local, cancelamento e convite individual |
+| BarbecueAttendance | Confirmação independente do futebol, inclusive de convidados do evento |
 | Game | Evento, horário, capacidade, estado e relógio da partida |
 | Participation | Confirmação/fila, ordem de inscrição, time e posição |
 | Team | Identidade, capitão, formação e revisão da escalação |
@@ -35,7 +38,9 @@ A escalação é representada pela formação do time e pelo `slot` de cada part
 
 Todas as alterações de uma pelada adquirem um bloqueio transacional `PESSIMISTIC_WRITE` na linha do evento. A confirmação só conta vagas depois de adquirir esse bloqueio. Duas requisições disputando a última vaga são processadas em sequência: uma entra; a outra vai para a fila.
 
-O mesmo bloqueio protege escolhas dos capitães, desistências, promoção da fila, mudanças na escalação, início/encerramento da partida, gols, correções e notas. Uma participação tem apenas um `team_id`. A ordem da fila é o identificador sequencial da inscrição, gerado dentro dessa operação serializada. Desistir e entrar novamente coloca a pessoa no fim da fila.
+O mesmo bloqueio protege escolhas dos capitães, desistências, promoção da fila, mudanças na escalação, início/encerramento da partida, gols, correções e notas. O sorteio também trava a pelada; os capitães confirmados ficam em seus times e os demais confirmados são distribuídos entre as vagas com menor elenco. Repetir o sorteio é seguro e limpa posições antigas. Confirmações e desistências depois dele não reorganizam ninguém. Uma participação tem apenas um `team_id`. A ordem da fila é o identificador sequencial da inscrição, gerado dentro dessa operação serializada. Desistir e entrar novamente coloca a pessoa no fim da fila.
+
+A listagem do churrasco bloqueia a linha do grupo enquanto completa a janela das seis próximas edições ativas. Um índice único por série evita duplicações. A data de cada edição é calculada a partir da data inicial no fuso configurado; editar ou cancelar uma ocorrência não altera as demais, e cancelamentos futuros são repostos na janela. Pausar impede novas gerações; retomar recompõe a janela. Confirmação e alteração de cada presença bloqueiam a própria edição.
 
 O banco reforça as regras com:
 
@@ -56,6 +61,8 @@ Capacidade: `quantidade de times × jogadores por time`. De dois a seis times, c
 - Organizador cria eventos, nomeia capitães e cancela peladas.
 - Capitão escolhe e libera jogadores, define formação e escala apenas o próprio time.
 - Participante confirma/desiste da própria presença e consulta os times.
+- Apenas o organizador sorteia times e cria, altera, cancela ou pausa churrascos. Membros confirmam presença sem relação com a pelada.
+- Um convite de churrasco é uma credencial específica daquela edição: uma conta autenticada pode consultá-la e confirmar presença sem entrar no grupo. Ela não recebe acesso às outras peladas ou churrascos.
 - Demonstração pública aceita somente leitura; senhas dos perfis fictícios são desabilitadas.
 - Presenças fecham no horário marcado. Em peladas de dois times, os elencos e escalações permanecem editáveis até o início manual, que exige todos os confirmados distribuídos e ao menos um jogador por time.
 - Depois do início, elencos e escalações ficam somente para consulta e o cancelamento não é permitido. Jogadores confirmados registram/anulam gols e encerram a partida. Após o fim, só o organizador pode abrir correções; o relógio permanece parado.
@@ -75,6 +82,15 @@ Capacidade: `quantidade de times × jogadores por time`. De dois a seis times, c
 | `GET /api/auth/me` / `POST /api/auth/logout` | Perfil / encerramento de sessão |
 | `GET, POST /api/groups` | Lista de grupos do usuário / criação |
 | `POST /api/invites/{invite}/join` | Entrada idempotente no grupo |
+| `GET /api/groups/{id}/barbecues` | Janela de churrascos, gerada sob demanda |
+| `POST /api/groups/{id}/barbecue-series` | Configurar as seis próximas edições recorrentes |
+| `POST /api/groups/{id}/barbecue-series/pause` | Pausar gerações futuras |
+| `POST /api/groups/{id}/barbecue-series/resume` | Retomar e recompor a janela |
+| `POST /api/groups/{id}/barbecues` | Criar churrasco avulso |
+| `PUT /api/barbecues/{id}` / `POST .../cancel` | Editar ou cancelar uma edição |
+| `POST, DELETE /api/barbecues/{id}/attendance` | Confirmar ou desistir como membro do grupo |
+| `GET /api/barbecue-invites/{token}` | Consultar edição compartilhada |
+| `POST, DELETE /api/barbecue-invites/{token}/attendance` | Confirmar ou desistir como convidado |
 | `GET, POST /api/groups/{id}/games` | Agenda / criação de pelada |
 | `GET /api/games/{id}` | Evento, times, placar, gols e notas publicadas |
 | `POST, DELETE /api/games/{id}/attendance` | Confirmar / desistir |
@@ -83,6 +99,7 @@ Capacidade: `quantidade de times × jogadores por time`. De dois a seis times, c
 | `POST /api/games/{game}/teams/{team}/players` | Escolher jogador disponível |
 | `DELETE /api/games/{game}/teams/{team}/players/{player}` | Liberar jogador do elenco |
 | `PUT /api/games/{game}/teams/{team}/lineup` | Formação, cinco slots e revisão |
+| `POST /api/games/{id}/teams/draw` | Sortear ou refazer times antes do início |
 | `POST /api/games/{id}/match/start` / `finish` | Iniciar / encerrar partida |
 | `POST, DELETE /api/games/{id}/match/correction` | Abrir / fechar correções |
 | `PUT /api/games/{id}/match/duration` | Corrigir duração parada |

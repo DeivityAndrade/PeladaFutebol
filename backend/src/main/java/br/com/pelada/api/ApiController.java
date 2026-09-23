@@ -4,6 +4,7 @@ import br.com.pelada.api.Contracts.*;
 import br.com.pelada.auth.Accounts;
 import br.com.pelada.games.Games;
 import br.com.pelada.games.Matches;
+import br.com.pelada.groups.Barbecues;
 import br.com.pelada.groups.Groups;
 import jakarta.validation.Valid;
 import java.util.*;
@@ -18,17 +19,20 @@ public class ApiController {
   private final Groups groups;
   private final Games games;
   private final Matches matches;
+  private final Barbecues barbecues;
 
   public ApiController(
     Accounts accounts,
     Groups groups,
     Games games,
-    Matches matches
+    Matches matches,
+    Barbecues barbecues
   ) {
     this.accounts = accounts;
     this.groups = groups;
     this.games = games;
     this.matches = matches;
+    this.barbecues = barbecues;
   }
 
   private UUID user(Authentication auth) {
@@ -56,6 +60,105 @@ public class ApiController {
   @PostMapping("/invites/{invite}/join")
   public ClubView join(Authentication auth, @PathVariable UUID invite) {
     return groups.join(user(auth), invite);
+  }
+
+  @GetMapping("/groups/{id}/barbecues")
+  public List<BarbecueView> barbecues(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return barbecues.list(user(auth), id);
+  }
+
+  @PostMapping("/groups/{id}/barbecue-series")
+  public List<BarbecueView> startBarbecueSeries(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody CreateBarbecueSeries input
+  ) {
+    return barbecues.startSeries(user(auth), id, input);
+  }
+
+  @PostMapping("/groups/{id}/barbecue-series/pause")
+  public List<BarbecueView> pauseBarbecueSeries(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return barbecues.pauseSeries(user(auth), id);
+  }
+
+  @PostMapping("/groups/{id}/barbecue-series/resume")
+  public List<BarbecueView> resumeBarbecueSeries(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return barbecues.resumeSeries(user(auth), id);
+  }
+
+  @PostMapping("/groups/{id}/barbecues")
+  public BarbecueView createBarbecue(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody CreateBarbecue input
+  ) {
+    return barbecues.createOneOff(user(auth), id, input);
+  }
+
+  @PutMapping("/barbecues/{id}")
+  public BarbecueView updateBarbecue(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody UpdateBarbecue input
+  ) {
+    return barbecues.update(user(auth), id, input);
+  }
+
+  @PostMapping("/barbecues/{id}/cancel")
+  public BarbecueView cancelBarbecue(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return barbecues.cancel(user(auth), id);
+  }
+
+  @PostMapping("/barbecues/{id}/attendance")
+  public BarbecueView attendBarbecue(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return barbecues.attendance(user(auth), id, true);
+  }
+
+  @DeleteMapping("/barbecues/{id}/attendance")
+  public BarbecueView leaveBarbecue(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return barbecues.attendance(user(auth), id, false);
+  }
+
+  @GetMapping("/barbecue-invites/{token}")
+  public BarbecueView barbecueInvite(
+    Authentication auth,
+    @PathVariable UUID token
+  ) {
+    return barbecues.inviteDetails(user(auth), token);
+  }
+
+  @PostMapping("/barbecue-invites/{token}/attendance")
+  public BarbecueView attendInvitedBarbecue(
+    Authentication auth,
+    @PathVariable UUID token
+  ) {
+    return barbecues.inviteAttendance(user(auth), token, true);
+  }
+
+  @DeleteMapping("/barbecue-invites/{token}/attendance")
+  public BarbecueView leaveInvitedBarbecue(
+    Authentication auth,
+    @PathVariable UUID token
+  ) {
+    return barbecues.inviteAttendance(user(auth), token, false);
   }
 
   @GetMapping("/groups/{id}/games")
@@ -130,6 +233,11 @@ public class ApiController {
     @Valid @RequestBody Lineup input
   ) {
     return games.lineup(user(auth), game, team, input);
+  }
+
+  @PostMapping("/games/{id}/teams/draw")
+  public GameDetail draw(Authentication auth, @PathVariable UUID id) {
+    return games.draw(user(auth), id);
   }
 
   @PostMapping("/games/{id}/match/start")

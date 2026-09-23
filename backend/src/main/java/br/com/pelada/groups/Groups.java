@@ -21,6 +21,7 @@ public class Groups {
     Club club = store.save(
       new Club(input.name().strip(), input.description().strip(), user)
     );
+    club.barbecueFrequency = input.barbecueFrequency();
     store.save(new Member(club.id, user));
     return view(club);
   }
@@ -98,7 +99,16 @@ public class Groups {
       club.ownerId,
       club.demo ? null : club.invite,
       members,
-      club.demo
+      club.demo,
+      club.barbecueFrequency,
+      store
+        .first(
+          BarbecueSeries.class,
+          "from BarbecueSeries where clubId=:club and active=true",
+          "club",
+          club.id
+        )
+        .isPresent()
     );
   }
 }

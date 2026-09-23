@@ -21,7 +21,33 @@ public final class Contracts {
 
   public record CreateClub(
     @NotBlank @Size(max = 80) String name,
-    @NotNull @Size(max = 300) String description
+    @NotNull @Size(max = 300) String description,
+    @Pattern(regexp = "NONE|MONTHLY|EVERY_2_MONTHS|EVERY_3_MONTHS")
+    String barbecueFrequency
+  ) {
+    public CreateClub(String name, String description) {
+      this(name, description, "NONE");
+    }
+
+    public CreateClub {
+      if (barbecueFrequency == null) barbecueFrequency = "NONE";
+    }
+  }
+
+  public record CreateBarbecueSeries(
+    @NotNull Instant startsAt,
+    @NotBlank @Size(max = 160) String location,
+    @NotBlank @Size(max = 80) String timeZone
+  ) {}
+
+  public record CreateBarbecue(
+    @NotNull Instant startsAt,
+    @NotBlank @Size(max = 160) String location
+  ) {}
+
+  public record UpdateBarbecue(
+    @NotNull Instant startsAt,
+    @NotBlank @Size(max = 160) String location
   ) {}
 
   public record CreateGame(
@@ -68,7 +94,25 @@ public final class Contracts {
     UUID ownerId,
     UUID invite,
     long memberCount,
-    boolean demo
+    boolean demo,
+    String barbecueFrequency,
+    boolean barbecueSeriesActive
+  ) {}
+
+  public record BarbecueAttendee(UUID id, String name) {}
+
+  public record BarbecueView(
+    UUID id,
+    UUID clubId,
+    String clubName,
+    Instant startsAt,
+    String location,
+    boolean cancelled,
+    boolean recurring,
+    int confirmed,
+    boolean attending,
+    String inviteToken,
+    List<BarbecueAttendee> attendees
   ) {}
 
   public record GameView(

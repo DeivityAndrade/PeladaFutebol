@@ -41,6 +41,7 @@ public final class Domain {
     public UUID ownerId;
     public UUID invite = UUID.randomUUID();
     public boolean demo;
+    public String barbecueFrequency = "NONE";
 
     protected Club() {}
 
@@ -66,6 +67,100 @@ public final class Domain {
     public Member(UUID clubId, UUID playerId) {
       this.clubId = clubId;
       this.playerId = playerId;
+    }
+  }
+
+  @Entity(name = "BarbecueSeries")
+  @Table(name = "barbecue_series")
+  public static class BarbecueSeries {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID clubId;
+    public String frequency;
+    public Instant anchorStartsAt;
+    public String timeZone;
+    public String location;
+    public boolean active = true;
+    public int nextOccurrenceIndex;
+
+    protected BarbecueSeries() {}
+
+    public BarbecueSeries(
+      UUID clubId,
+      String frequency,
+      Instant anchorStartsAt,
+      String timeZone,
+      String location
+    ) {
+      this.clubId = clubId;
+      this.frequency = frequency;
+      this.anchorStartsAt = anchorStartsAt;
+      this.timeZone = timeZone;
+      this.location = location;
+    }
+  }
+
+  @Entity(name = "Barbecue")
+  @Table(name = "barbecues")
+  public static class Barbecue {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID clubId;
+    public UUID seriesId;
+    public int occurrenceIndex;
+    public Instant startsAt;
+    public String location;
+    public boolean cancelled;
+    public UUID inviteToken = UUID.randomUUID();
+
+    protected Barbecue() {}
+
+    public Barbecue(
+      UUID clubId,
+      UUID seriesId,
+      int occurrenceIndex,
+      Instant startsAt,
+      String location
+    ) {
+      this.clubId = clubId;
+      this.seriesId = seriesId;
+      this.occurrenceIndex = occurrenceIndex;
+      this.startsAt = startsAt;
+      this.location = location;
+    }
+  }
+
+  @Entity(name = "BarbecueAttendance")
+  @Table(
+    name = "barbecue_attendance",
+    uniqueConstraints = @UniqueConstraint(
+      columnNames = { "barbecue_id", "player_id" }
+    )
+  )
+  public static class BarbecueAttendance {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
+
+    public UUID barbecueId;
+    public UUID playerId;
+    public Instant createdAt;
+
+    protected BarbecueAttendance() {}
+
+    public BarbecueAttendance(
+      UUID barbecueId,
+      UUID playerId,
+      Instant createdAt
+    ) {
+      this.barbecueId = barbecueId;
+      this.playerId = playerId;
+      this.createdAt = createdAt;
     }
   }
 

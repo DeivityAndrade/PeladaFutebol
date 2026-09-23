@@ -10,7 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Api, ApiError } from './api';
-import { Club, Detail, Game, Player, PlayerProfile, Team, User } from './models';
+import { Barbecue, Club, Detail, Game, Player, PlayerProfile, Team, User } from './models';
 import { Icon } from './icon';
 import { Pitch } from './pitch';
 
@@ -27,6 +27,8 @@ export class App implements OnInit, OnDestroy {
   games = signal<Game[]>([]);
   detail = signal<Detail | null>(null);
   club = signal<Club | null>(null);
+  barbecues = signal<Barbecue[]>([]);
+  barbecueInvite = signal<Barbecue | null>(null);
   page = signal('demo');
   loading = signal(true);
   busy = signal(false);
@@ -36,6 +38,7 @@ export class App implements OnInit, OnDestroy {
   authMode = 'login';
   teamId = signal('');
   tab = signal('lineup');
+  groupTab = signal('games');
   sidebar = signal(false);
   demoFinished = signal(false);
   now = signal(Date.now());
@@ -53,6 +56,8 @@ export class App implements OnInit, OnDestroy {
   owner = computed(
     () => !!this.user() && this.detail()?.club.ownerId === this.user()!.id && !this.demo(),
   );
+  groupOwner = computed(() => !!this.user() && this.club()?.ownerId === this.user()!.id);
+  barbecueSeriesConfigured = computed(() => this.barbecues().some((event) => event.recurring));
   editable = computed(() => !!this.detail()?.game.editable && !this.demo());
   teamEditable = computed(() => !!this.detail()?.game.teamEditable && !this.demo());
   captain = computed(() => this.teamEditable() && this.team()?.captainId === this.user()?.id);
@@ -141,6 +146,7 @@ export class App implements OnInit, OnDestroy {
     this.sidebar.set(false);
     this.loading.set(true);
     this.error.set('');
+    if (page !== 'barbecue-invite') this.barbecueInvite.set(null);
     try {
       if (page === 'demo') {
         const d = await this.api.request<Detail>(this.demoFinished() ? '/demo/finished' : '/demo');
@@ -154,6 +160,13 @@ export class App implements OnInit, OnDestroy {
         this.clubs.set(clubs);
         this.club.set(clubs.find((c) => c.id === parts[1]) || null);
         this.games.set(await this.api.request<Game[]>('/groups/' + parts[1] + '/games'));
+        this.barbecues.set(
+          await this.api.request<Barbecue[]>('/groups/' + parts[1] + '/barbecues'),
+        );
+      } else if (page === 'barbecue-invite') {
+        this.barbecueInvite.set(
+          await this.api.request<Barbecue>('/barbecue-invites/' + encodeURIComponent(parts[1])),
+        );
       } else if (page === 'game') {
         const d = await this.api.request<Detail>('/games/' + parts[1]);
         if (version === this.routeVersion) this.setDetail(d);
@@ -227,6 +240,9 @@ export class App implements OnInit, OnDestroy {
     this.error.set('');
     this.form = {};
     if (name === 'game') this.form = { title: 'Pelada da semana', teamCount: 2, teamSize: 7 };
+    if (name === 'club') this.form = { name: '', description: '', barbecueFrequency: 'NONE' };
+    if (name === 'barbecue-series' || name === 'barbecue')
+      this.form = { startsAt: '', location: '' };
     if (name === 'team' && this.team())
       this.form = { ...this.team(), captainId: this.team()!.captainId || '' };
     if (name === 'goal')
@@ -299,8 +315,10 @@ export class App implements OnInit, OnDestroy {
       const c = await this.api.request<Club>('/groups', 'POST', {
         name: this.form['name'],
         description: this.form['description'] || '',
+        barbecueFrequency: this.form['barbecueFrequency'] || 'NONE',
       });
       this.modal.set('');
+      this.groupTab.set(c.barbecueFrequency === 'NONE' ? 'games' : 'barbecue');
       this.navigate('group/' + c.id);
       this.notify('Grupo criado. Convide a galera!');
     });
@@ -329,6 +347,129 @@ export class App implements OnInit, OnDestroy {
       this.navigate('game/' + d.game.id);
       this.notify('Pelada marcada!');
     });
+  }
+  async createBarbecueSeries() {
+    const club = this.club();
+    if (!club) return;
+    await this.action(async () => {
+      const events = await this.api.request<Barbecue[]>(
+        '/groups/' + club.id + '/barbecue-series',
+        'POST',
+        {
+          startsAt: new Date(this.form['startsAt']).toISOString(),
+          location: this.form['location'],
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
+        },
+      );
+      this.barbecues.set(events);
+      this.club.set({ ...club, barbecueSeriesActive: true });
+      this.modal.set('');
+      this.notify('Churrasco recorrente configurado.');
+    });
+  }
+  createBarbecue() {
+    const club = this.club();
+    if (!club) return;
+    void this.action(async () => {
+      const event = await this.api.request<Barbecue>('/groups/' + club.id + '/barbecues', 'POST', {
+        startsAt: new Date(this.form['startsAt']).toISOString(),
+        location: this.form['location'],
+      });
+      this.barbecues.update((events) => [...events, event]);
+      this.modal.set('');
+      this.notify('Churrasco marcado.');
+    });
+  }
+  saveBarbecue() {
+    const eventId = this.form['eventId'];
+    void this.action(async () => {
+      const event = await this.api.request<Barbecue>('/barbecues/' + eventId, 'PUT', {
+        startsAt: new Date(this.form['startsAt']).toISOString(),
+        location: this.form['location'],
+      });
+      this.updateBarbecue(event);
+      this.modal.set('');
+      this.notify('Edição do churrasco atualizada.');
+    });
+  }
+  cancelBarbecue() {
+    const eventId = this.form['eventId'];
+    void this.action(async () => {
+      const event = await this.api.request<Barbecue>('/barbecues/' + eventId + '/cancel', 'POST');
+      this.updateBarbecue(event);
+      this.modal.set('');
+      this.notify('Churrasco cancelado.');
+    });
+  }
+  toggleBarbecueAttendance(event: Barbecue) {
+    void this.action(async () => {
+      const updated = await this.api.request<Barbecue>(
+        '/barbecues/' + event.id + '/attendance',
+        event.attending ? 'DELETE' : 'POST',
+      );
+      this.updateBarbecue(updated);
+      this.notify(updated.attending ? 'Presença confirmada no churrasco.' : 'Presença cancelada.');
+    });
+  }
+  pauseBarbecueSeries(paused: boolean) {
+    const club = this.club();
+    if (!club) return;
+    void this.action(async () => {
+      const events = await this.api.request<Barbecue[]>(
+        '/groups/' + club.id + '/barbecue-series/' + (paused ? 'pause' : 'resume'),
+        'POST',
+      );
+      this.barbecues.set(events);
+      this.club.set({ ...club, barbecueSeriesActive: !paused });
+      this.notify(paused ? 'A recorrência foi pausada.' : 'A recorrência foi retomada.');
+    });
+  }
+  inviteBarbecue(event: Barbecue) {
+    void this.action(async () => {
+      if (!event.inviteToken) return;
+      const link = location.origin + location.pathname + '#barbecue-invite/' + event.inviteToken;
+      try {
+        await navigator.clipboard.writeText(link);
+        this.notify('Convite do churrasco copiado.');
+      } catch {
+        this.form = { link };
+        this.modal.set('share');
+      }
+    });
+  }
+  guestBarbecueAttendance(attending: boolean) {
+    const token = location.hash.split('/')[1];
+    void this.action(async () => {
+      this.barbecueInvite.set(
+        await this.api.request<Barbecue>(
+          '/barbecue-invites/' + encodeURIComponent(token) + '/attendance',
+          attending ? 'POST' : 'DELETE',
+        ),
+      );
+      this.notify(attending ? 'Presença confirmada no churrasco.' : 'Presença cancelada.');
+    });
+  }
+  updateBarbecue(event: Barbecue) {
+    this.barbecues.update((events) => events.map((item) => (item.id === event.id ? event : item)));
+  }
+  editBarbecue(event: Barbecue) {
+    this.open('edit-barbecue');
+    this.form = {
+      eventId: event.id,
+      startsAt: this.localDateTime(event.startsAt),
+      location: event.location,
+    };
+  }
+  confirmCancelBarbecue(event: Barbecue) {
+    this.open('cancel-barbecue');
+    this.form = { eventId: event.id, location: event.location };
+  }
+  localDateTime(iso: string) {
+    const date = new Date(iso);
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+  isFuture(iso: string) {
+    return Date.parse(iso) > Date.now();
   }
   configureTeam() {
     void this.action(async () => {
@@ -503,6 +644,15 @@ export class App implements OnInit, OnDestroy {
   }
   startMatch() {
     this.matchAction('start', 'POST', undefined, 'A bola está rolando!');
+  }
+  drawTeams() {
+    const id = this.detail()?.game.id;
+    if (!id) return;
+    void this.action(async () => {
+      this.setDetail(await this.api.request<Detail>('/games/' + id + '/teams/draw', 'POST'));
+      this.modal.set('');
+      this.notify('Times sorteados.');
+    });
   }
   finishMatch() {
     this.matchAction(

@@ -11,6 +11,8 @@ export interface Club {
   invite: string | null;
   memberCount: number;
   demo: boolean;
+  barbecueFrequency: 'NONE' | 'MONTHLY' | 'EVERY_2_MONTHS' | 'EVERY_3_MONTHS';
+  barbecueSeriesActive: boolean;
 }
 export interface Game {
   id: string;
@@ -89,6 +91,23 @@ export interface PlayerProfile {
     average: number;
     count: number;
   }[];
+}
+export interface BarbecueAttendee {
+  id: string;
+  name: string;
+}
+export interface Barbecue {
+  id: string;
+  clubId: string;
+  clubName: string;
+  startsAt: string;
+  location: string;
+  cancelled: boolean;
+  recurring: boolean;
+  confirmed: number;
+  attending: boolean;
+  inviteToken: string | null;
+  attendees: BarbecueAttendee[];
 }
 export const formations: Record<string, { x: number; y: number; label: string }[]> = {
   '2-2': [
