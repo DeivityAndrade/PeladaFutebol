@@ -10,7 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Api, ApiError } from './api';
-import { Club, Detail, Game, Player, Team, User } from './models';
+import { Club, Detail, Game, Player, PlayerProfile, Team, User } from './models';
 import { Icon } from './icon';
 import { Pitch } from './pitch';
 
@@ -37,6 +37,11 @@ export class App implements OnInit, OnDestroy {
   teamId = signal('');
   tab = signal('lineup');
   sidebar = signal(false);
+  demoFinished = signal(false);
+  now = signal(Date.now());
+  profile = signal<PlayerProfile | null>(null);
+  private serverOffset = 0;
+  private secondTimer?: ReturnType<typeof setInterval>;
   form: Record<string, any> = {};
   private timer?: ReturnType<typeof setInterval>;
   private noticeTimer?: ReturnType<typeof setTimeout>;
@@ -49,7 +54,8 @@ export class App implements OnInit, OnDestroy {
     () => !!this.user() && this.detail()?.club.ownerId === this.user()!.id && !this.demo(),
   );
   editable = computed(() => !!this.detail()?.game.editable && !this.demo());
-  captain = computed(() => this.editable() && this.team()?.captainId === this.user()?.id);
+  teamEditable = computed(() => !!this.detail()?.game.teamEditable && !this.demo());
+  captain = computed(() => this.teamEditable() && this.team()?.captainId === this.user()?.id);
   roster = computed(
     () => this.detail()?.attendees.filter((p) => p.teamId === this.team()?.id) || [],
   );
@@ -65,6 +71,43 @@ export class App implements OnInit, OnDestroy {
   capacity = computed(
     () => (this.detail()?.game.teamCount || 0) * (this.detail()?.game.teamSize || 0),
   );
+  live = computed(() => this.detail()?.game.matchStatus === 'LIVE');
+  finished = computed(() => this.detail()?.game.matchStatus === 'FINISHED');
+  canStart = computed(() => {
+    const d = this.detail();
+    return (
+      !!d &&
+      !this.demo() &&
+      d.game.matchStatus === 'READY' &&
+      d.attendees.filter((p) => p.status === 'CONFIRMED').length > 0 &&
+      d.attendees.every((p) => p.status !== 'CONFIRMED' || !!p.teamId) &&
+      d.teams.every((t) => d.attendees.some((p) => p.teamId === t.id && p.status === 'CONFIRMED'))
+    );
+  });
+  canScore = computed(
+    () => !this.demo() && !!this.mine() && this.mine()?.status === 'CONFIRMED' && this.live(),
+  );
+  canChangeGoals = computed(
+    () => this.canScore() || (this.canCorrect() && !!this.detail()?.game.correctionOpen),
+  );
+  canFinish = this.canScore;
+  canCorrect = computed(() => this.owner() && this.finished());
+  ratingOpen = computed(
+    () =>
+      this.finished() &&
+      !this.demo() &&
+      !!this.detail()?.ratingsVisibleAt &&
+      this.now() + this.serverOffset < Date.parse(this.detail()!.ratingsVisibleAt!),
+  );
+  elapsedSeconds = computed(() => {
+    const game = this.detail()?.game;
+    if (!game?.matchStartedAt) return 0;
+    if (game.matchDurationSeconds !== null) return game.matchDurationSeconds;
+    return Math.max(
+      0,
+      Math.floor((this.now() + this.serverOffset - Date.parse(game.matchStartedAt)) / 1000),
+    );
+  });
 
   async ngOnInit() {
     try {
@@ -83,9 +126,11 @@ export class App implements OnInit, OnDestroy {
       )
         void this.refresh();
     }, 15000);
+    this.secondTimer = setInterval(() => this.now.set(Date.now()), 1000);
   }
   ngOnDestroy() {
     clearInterval(this.timer);
+    clearInterval(this.secondTimer);
     clearTimeout(this.noticeTimer);
   }
   @HostListener('window:hashchange') async route() {
@@ -98,8 +143,8 @@ export class App implements OnInit, OnDestroy {
     this.error.set('');
     try {
       if (page === 'demo') {
-        const d = await this.api.request<Detail>('/demo');
-        if (version === this.routeVersion) this.detail.set(d);
+        const d = await this.api.request<Detail>(this.demoFinished() ? '/demo/finished' : '/demo');
+        if (version === this.routeVersion) this.setDetail(d);
       } else if (!this.user()) {
         this.openAuth();
       } else if (page === 'groups') {
@@ -111,7 +156,7 @@ export class App implements OnInit, OnDestroy {
         this.games.set(await this.api.request<Game[]>('/groups/' + parts[1] + '/games'));
       } else if (page === 'game') {
         const d = await this.api.request<Detail>('/games/' + parts[1]);
-        if (version === this.routeVersion) this.detail.set(d);
+        if (version === this.routeVersion) this.setDetail(d);
       } else if (page === 'invite') {
         this.form = { invite: parts[1] };
         this.modal.set('join');
@@ -138,10 +183,19 @@ export class App implements OnInit, OnDestroy {
     const version = this.routeVersion;
     try {
       const d = await this.api.request<Detail>('/games/' + id);
-      if (version === this.routeVersion) this.detail.set(d);
+      if (version === this.routeVersion) this.setDetail(d);
     } catch (e) {
       this.showError(e);
     }
+  }
+  setDetail(detail: Detail | null) {
+    if (detail) this.serverOffset = Date.parse(detail.game.serverNow) - Date.now();
+    this.detail.set(detail);
+  }
+  showDemo(finished: boolean) {
+    this.demoFinished.set(finished);
+    this.tab.set(finished ? 'match' : 'lineup');
+    void this.route();
   }
   async action(work: () => Promise<void>) {
     if (this.busy()) return;
@@ -175,10 +229,21 @@ export class App implements OnInit, OnDestroy {
     if (name === 'game') this.form = { title: 'Pelada da semana', teamCount: 2, teamSize: 7 };
     if (name === 'team' && this.team())
       this.form = { ...this.team(), captainId: this.team()!.captainId || '' };
+    if (name === 'goal')
+      this.form = {
+        teamId: this.detail()?.teams[0]?.id || '',
+        scorerId: '',
+        ownGoal: false,
+        minute: Math.floor(this.elapsedSeconds() / 60),
+      };
+    if (name === 'duration') this.form = { seconds: this.elapsedSeconds() };
     this.modal.set(name);
   }
   closeModal() {
-    if (!this.busy()) this.modal.set('');
+    if (this.busy()) return;
+    const wasAuth = this.modal() === 'auth';
+    this.modal.set('');
+    if (wasAuth && !this.user() && this.page() !== 'demo') this.navigate('demo');
   }
   @HostListener('document:keydown.escape') escape() {
     this.closeModal();
@@ -225,7 +290,7 @@ export class App implements OnInit, OnDestroy {
     void this.action(async () => {
       await this.api.request('/auth/logout', 'POST');
       this.user.set(null);
-      this.detail.set(null);
+      this.setDetail(null);
       this.navigate('demo');
     });
   }
@@ -259,7 +324,7 @@ export class App implements OnInit, OnDestroy {
         ...this.form,
         startsAt: new Date(this.form['startsAt']).toISOString(),
       });
-      this.detail.set(d);
+      this.setDetail(d);
       this.modal.set('');
       this.navigate('game/' + d.game.id);
       this.notify('Pelada marcada!');
@@ -267,7 +332,7 @@ export class App implements OnInit, OnDestroy {
   }
   configureTeam() {
     void this.action(async () => {
-      this.detail.set(
+      this.setDetail(
         await this.api.request<Detail>(this.teamPath(), 'PUT', {
           name: this.form['name'],
           color: this.form['color'],
@@ -283,7 +348,7 @@ export class App implements OnInit, OnDestroy {
   }
   attend() {
     void this.action(async () => {
-      this.detail.set(
+      this.setDetail(
         await this.api.request<Detail>('/games/' + this.detail()!.game.id + '/attendance', 'POST'),
       );
       this.notify(
@@ -295,7 +360,7 @@ export class App implements OnInit, OnDestroy {
   }
   leave() {
     void this.action(async () => {
-      this.detail.set(
+      this.setDetail(
         await this.api.request<Detail>(
           '/games/' + this.detail()!.game.id + '/attendance',
           'DELETE',
@@ -307,7 +372,7 @@ export class App implements OnInit, OnDestroy {
   }
   cancel() {
     void this.action(async () => {
-      this.detail.set(
+      this.setDetail(
         await this.api.request<Detail>('/games/' + this.detail()!.game.id + '/cancel', 'POST'),
       );
       this.modal.set('');
@@ -316,7 +381,7 @@ export class App implements OnInit, OnDestroy {
   }
   pick(player: Player) {
     void this.action(async () => {
-      this.detail.set(
+      this.setDetail(
         await this.api.request<Detail>(this.teamPath() + '/players', 'POST', {
           playerId: player.id,
         }),
@@ -326,7 +391,7 @@ export class App implements OnInit, OnDestroy {
   }
   release(player: Player) {
     void this.action(async () => {
-      this.detail.set(
+      this.setDetail(
         await this.api.request<Detail>(this.teamPath() + '/players/' + player.id, 'DELETE'),
       );
       this.notify('Jogador disponível para outros times.');
@@ -334,7 +399,7 @@ export class App implements OnInit, OnDestroy {
   }
   saveLineup(body: unknown) {
     void this.action(async () => {
-      this.detail.set(await this.api.request<Detail>(this.teamPath() + '/lineup', 'PUT', body));
+      this.setDetail(await this.api.request<Detail>(this.teamPath() + '/lineup', 'PUT', body));
       this.notify('Escalação salva.');
     });
   }
@@ -383,5 +448,114 @@ export class App implements OnInit, OnDestroy {
   }
   eligibleCaptains() {
     return this.confirmed().filter((p) => !p.teamId || p.teamId === this.team()?.id);
+  }
+  clockText() {
+    const seconds = this.elapsedSeconds();
+    return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  }
+  score(teamId: string) {
+    return this.detail()?.score.find((s) => s.teamId === teamId)?.goals || 0;
+  }
+  goalScorers() {
+    return this.confirmed().filter(
+      (p) =>
+        p.teamId &&
+        (this.form['ownGoal']
+          ? p.teamId !== this.form['teamId']
+          : p.teamId === this.form['teamId']),
+    );
+  }
+  ownStars(playerId: string) {
+    return this.detail()?.myRatings.find((r) => r.playerId === playerId)?.stars || 0;
+  }
+  canRate(player: Player) {
+    return (
+      this.ratingOpen() &&
+      this.mine()?.status === 'CONFIRMED' &&
+      !!this.mine()?.teamId &&
+      player.teamId === this.mine()?.teamId &&
+      player.id !== this.user()?.id
+    );
+  }
+  rating(playerId: string) {
+    return this.detail()?.ratings.find((r) => r.playerId === playerId);
+  }
+  average(value: number | null | undefined) {
+    return value == null
+      ? 'Sem nota'
+      : value.toLocaleString('pt-BR', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        });
+  }
+  matchAction(path: string, method = 'POST', body?: unknown, notice?: string) {
+    void this.action(async () => {
+      this.setDetail(
+        await this.api.request<Detail>(
+          '/games/' + this.detail()!.game.id + '/match/' + path,
+          method,
+          body,
+        ),
+      );
+      this.modal.set('');
+      if (notice) this.notify(notice);
+    });
+  }
+  startMatch() {
+    this.matchAction('start', 'POST', undefined, 'A bola está rolando!');
+  }
+  finishMatch() {
+    this.matchAction(
+      'finish',
+      'POST',
+      undefined,
+      'Partida encerrada. As notas estão abertas por 24 horas.',
+    );
+  }
+  correction(open: boolean) {
+    this.matchAction(
+      'correction',
+      open ? 'POST' : 'DELETE',
+      undefined,
+      open ? 'Modo de correção aberto.' : 'Correções encerradas.',
+    );
+  }
+  saveDuration() {
+    this.matchAction(
+      'duration',
+      'PUT',
+      { seconds: Number(this.form['seconds']) },
+      'Duração corrigida.',
+    );
+  }
+  addGoal() {
+    const body: Record<string, unknown> = {
+      teamId: this.form['teamId'],
+      scorerId: this.form['scorerId'],
+      ownGoal: !!this.form['ownGoal'],
+    };
+    if (this.detail()?.game.correctionOpen) body['minute'] = Number(this.form['minute']);
+    this.matchAction('goals', 'POST', body, 'Gol registrado!');
+  }
+  voidGoal(id: string) {
+    this.matchAction('goals/' + id, 'DELETE', undefined, 'Gol anulado.');
+  }
+  saveRating(playerId: string, stars: number) {
+    void this.action(async () => {
+      this.setDetail(
+        await this.api.request<Detail>('/games/' + this.detail()!.game.id + '/ratings', 'PUT', {
+          playerId,
+          stars,
+        }),
+      );
+      this.notify('Nota salva. Você pode alterá-la até o fim do prazo.');
+    });
+  }
+  openProfile(player: Player) {
+    if (this.demo()) return;
+    void this.action(async () => {
+      this.profile.set(await this.api.request<PlayerProfile>('/players/' + player.id + '/profile'));
+      this.modal.set('profile');
+    });
   }
 }

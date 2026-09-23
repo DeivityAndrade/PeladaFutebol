@@ -18,11 +18,13 @@ public class Games {
   private final Store store;
   private final Groups groups;
   private final Clock clock;
+  private final Matches matches;
 
-  public Games(Store store, Groups groups, Clock clock) {
+  public Games(Store store, Groups groups, Clock clock, Matches matches) {
     this.store = store;
     this.groups = groups;
     this.clock = clock;
+    this.matches = matches;
   }
 
   public GameDetail create(UUID user, UUID clubId, CreateGame input) {
@@ -74,11 +76,11 @@ public class Games {
   public GameDetail get(UUID user, UUID id) {
     Game game = store.get(Game.class, id);
     groups.requireMember(user, game.clubId);
-    return detail(game);
+    return detail(game, user);
   }
 
   public GameDetail attend(UUID user, UUID id) {
-    Game game = editable(user, id);
+    Game game = editable(user, id, false);
     if (participation(game.id, user).isEmpty()) {
       long confirmed = attendees(id)
         .stream()
@@ -96,7 +98,7 @@ public class Games {
   }
 
   public GameDetail leave(UUID user, UUID id) {
-    Game game = editable(user, id);
+    Game game = editable(user, id, false);
     Optional<Participation> existing = participation(id, user);
     if (existing.isEmpty()) return detail(game);
     Participation p = existing.get();
@@ -119,6 +121,12 @@ public class Games {
   public GameDetail cancel(UUID user, UUID id) {
     Game game = store.lock(Game.class, id);
     groups.requireOwner(user, game.clubId);
+    if (game.matchStartedAt != null) throw ApiException.conflict(
+      "Uma partida iniciada não pode ser cancelada."
+    );
+    if (game.cancelled) throw ApiException.conflict(
+      "Esta pelada já foi cancelada."
+    );
     game.cancelled = true;
     return detail(game);
   }
@@ -129,7 +137,7 @@ public class Games {
     UUID teamId,
     UpdateTeam input
   ) {
-    Game game = editable(user, gameId);
+    Game game = editable(user, gameId, true);
     groups.requireOwner(user, game.clubId);
     Team team = team(gameId, teamId);
     if (input.captainId() != null) {
@@ -154,7 +162,7 @@ public class Games {
   }
 
   public GameDetail pick(UUID user, UUID gameId, UUID teamId, UUID playerId) {
-    Game game = editable(user, gameId);
+    Game game = editable(user, gameId, true);
     Team team = captain(user, gameId, teamId);
     Participation p = participation(gameId, playerId)
       .filter(a -> a.status.equals("CONFIRMED"))
@@ -176,7 +184,7 @@ public class Games {
     UUID teamId,
     UUID playerId
   ) {
-    Game game = editable(user, gameId);
+    Game game = editable(user, gameId, true);
     Team team = captain(user, gameId, teamId);
     if (playerId.equals(team.captainId)) throw new ApiException(
       400,
@@ -192,7 +200,7 @@ public class Games {
   }
 
   public GameDetail lineup(UUID user, UUID gameId, UUID teamId, Lineup input) {
-    Game game = editable(user, gameId);
+    Game game = editable(user, gameId, true);
     Team team = captain(user, gameId, teamId);
     if (team.version != input.version()) throw ApiException.conflict(
       "O time mudou enquanto você editava. Confira a escalação atualizada."
@@ -224,7 +232,7 @@ public class Games {
     return detail(game);
   }
 
-  private Game editable(UUID user, UUID id) {
+  private Game editable(UUID user, UUID id, boolean teamChange) {
     // All game mutations serialize on this row: capacity, FIFO queue and team picks stay atomic.
     Game game = store.lock(Game.class, id);
     Club club = groups.requireMember(user, game.clubId);
@@ -232,8 +240,14 @@ public class Games {
     if (game.cancelled) throw ApiException.conflict(
       "Esta pelada foi cancelada."
     );
-    if (!game.startsAt.isAfter(clock.instant())) throw ApiException.conflict(
-      "A pelada já começou. Os dados estão disponíveis apenas para consulta."
+    if (teamChange && game.liveEnabled) {
+      if (game.matchStartedAt != null) throw ApiException.conflict(
+        "A partida já começou. Os times estão disponíveis apenas para consulta."
+      );
+    } else if (
+      !game.startsAt.isAfter(clock.instant())
+    ) throw ApiException.conflict(
+      "As presenças e alterações desta pelada já foram encerradas."
     );
     return game;
   }
@@ -296,11 +310,34 @@ public class Games {
       confirmed,
       list.size() - confirmed,
       game.cancelled,
-      !game.cancelled && game.startsAt.isAfter(clock.instant())
+      !game.cancelled && game.startsAt.isAfter(clock.instant()),
+      !game.cancelled &&
+        (game.liveEnabled
+          ? game.matchStartedAt == null
+          : game.startsAt.isAfter(clock.instant())),
+      game.liveEnabled,
+      status(game),
+      game.matchStartedAt,
+      game.matchEndedAt,
+      game.matchDurationSeconds,
+      game.correctionOpen,
+      clock.instant()
     );
   }
 
+  private String status(Game game) {
+    if (game.cancelled) return "CANCELLED";
+    if (!game.liveEnabled) return "LEGACY";
+    if (game.matchEndedAt != null) return "FINISHED";
+    if (game.matchStartedAt != null) return "LIVE";
+    return game.startsAt.isAfter(clock.instant()) ? "SCHEDULED" : "READY";
+  }
+
   public GameDetail detail(Game game) {
+    return detail(game, null);
+  }
+
+  public GameDetail detail(Game game, UUID viewer) {
     List<Attendee> people = store
       .list(
         Object[].class,
@@ -327,11 +364,29 @@ public class Games {
         new TeamView(t.id, t.name, t.color, t.captainId, t.formation, t.version)
       )
       .toList();
+    List<GoalView> goals = matches.goals(game);
+    List<TeamScore> score = teams
+      .stream()
+      .map(t ->
+        new TeamScore(
+          t.id(),
+          (int) goals
+            .stream()
+            .filter(g -> !g.voided() && g.teamId().equals(t.id()))
+            .count()
+        )
+      )
+      .toList();
     return new GameDetail(
       view(game),
       groups.view(store.get(Club.class, game.clubId)),
       people,
-      teams
+      teams,
+      score,
+      goals,
+      matches.publishedRatings(game),
+      matches.ownRatings(game, viewer),
+      game.matchEndedAt == null ? null : game.matchEndedAt.plusSeconds(86400)
     );
   }
 }

@@ -44,6 +44,7 @@ public class SecurityConfig {
             HttpMethod.GET,
             "/api/auth/csrf",
             "/api/demo",
+            "/api/demo/finished",
             "/api/health",
             "/api/openapi/**",
             "/api/docs/**",

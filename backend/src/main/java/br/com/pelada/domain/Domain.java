@@ -83,6 +83,11 @@ public final class Domain {
     public int teamCount;
     public int teamSize;
     public boolean cancelled;
+    public boolean liveEnabled;
+    public Instant matchStartedAt;
+    public Instant matchEndedAt;
+    public Integer matchDurationSeconds;
+    public boolean correctionOpen;
 
     protected Game() {}
 
@@ -100,6 +105,7 @@ public final class Domain {
       this.startsAt = startsAt;
       this.teamCount = teamCount;
       this.teamSize = teamSize;
+      this.liveEnabled = teamCount == 2;
     }
   }
 
@@ -148,6 +154,75 @@ public final class Domain {
       this.gameId = gameId;
       this.playerId = playerId;
       this.status = status;
+    }
+  }
+
+  @Entity(name = "Goal")
+  @Table(name = "goals")
+  public static class Goal {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID gameId;
+    public UUID teamId;
+    public UUID scorerId;
+    public int minute;
+    public boolean ownGoal;
+    public Instant createdAt;
+    public Instant voidedAt;
+
+    protected Goal() {}
+
+    public Goal(
+      UUID gameId,
+      UUID teamId,
+      UUID scorerId,
+      int minute,
+      boolean ownGoal,
+      Instant createdAt
+    ) {
+      this.gameId = gameId;
+      this.teamId = teamId;
+      this.scorerId = scorerId;
+      this.minute = minute;
+      this.ownGoal = ownGoal;
+      this.createdAt = createdAt;
+    }
+  }
+
+  @Entity(name = "Rating")
+  @Table(
+    name = "ratings",
+    uniqueConstraints = @UniqueConstraint(
+      columnNames = { "game_id", "rater_id", "player_id" }
+    )
+  )
+  public static class Rating {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID gameId;
+    public UUID raterId;
+    public UUID playerId;
+    public int stars;
+    public Instant updatedAt;
+
+    protected Rating() {}
+
+    public Rating(
+      UUID gameId,
+      UUID raterId,
+      UUID playerId,
+      int stars,
+      Instant updatedAt
+    ) {
+      this.gameId = gameId;
+      this.raterId = raterId;
+      this.playerId = playerId;
+      this.stars = stars;
+      this.updatedAt = updatedAt;
     }
   }
 }

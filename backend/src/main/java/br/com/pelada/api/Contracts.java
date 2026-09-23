@@ -46,6 +46,17 @@ public final class Contracts {
     @PositiveOrZero long version
   ) {}
 
+  public record NewGoal(
+    @NotNull UUID teamId,
+    @NotNull UUID scorerId,
+    boolean ownGoal,
+    @Min(0) @Max(1440) Integer minute
+  ) {}
+
+  public record MatchDuration(@Min(0) @Max(86400) int seconds) {}
+
+  public record SaveRating(@NotNull UUID playerId, @Min(1) @Max(5) int stars) {}
+
   public record UserView(UUID id, String name, String email) {}
 
   public record Person(UUID id, String name) {}
@@ -71,7 +82,47 @@ public final class Contracts {
     int confirmed,
     int waiting,
     boolean cancelled,
-    boolean editable
+    boolean editable,
+    boolean teamEditable,
+    boolean liveEnabled,
+    String matchStatus,
+    Instant matchStartedAt,
+    Instant matchEndedAt,
+    Integer matchDurationSeconds,
+    boolean correctionOpen,
+    Instant serverNow
+  ) {}
+
+  public record GoalView(
+    UUID id,
+    UUID teamId,
+    UUID scorerId,
+    String scorerName,
+    int minute,
+    boolean ownGoal,
+    boolean voided
+  ) {}
+
+  public record TeamScore(UUID teamId, int goals) {}
+
+  public record RatingView(UUID playerId, Double average, int count) {}
+
+  public record OwnRating(UUID playerId, int stars) {}
+
+  public record PlayerGameRating(
+    UUID gameId,
+    String gameTitle,
+    Instant startsAt,
+    double average,
+    int count
+  ) {}
+
+  public record PlayerProfile(
+    UUID id,
+    String name,
+    Double average,
+    int ratedGames,
+    List<PlayerGameRating> history
   ) {}
 
   public record Attendee(
@@ -95,6 +146,11 @@ public final class Contracts {
     GameView game,
     ClubView club,
     List<Attendee> attendees,
-    List<TeamView> teams
+    List<TeamView> teams,
+    List<TeamScore> score,
+    List<GoalView> goals,
+    List<RatingView> ratings,
+    List<OwnRating> myRatings,
+    Instant ratingsVisibleAt
   ) {}
 }

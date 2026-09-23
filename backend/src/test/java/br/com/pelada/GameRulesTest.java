@@ -6,6 +6,7 @@ import br.com.pelada.api.Contracts.*;
 import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.*;
 import br.com.pelada.games.Games;
+import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Groups;
 import java.time.Instant;
 import java.util.*;
@@ -24,6 +25,9 @@ class GameRulesTest {
 
   @Autowired
   Games games;
+
+  @Autowired
+  Matches matches;
 
   @Autowired
   Groups groups;
@@ -385,6 +389,189 @@ class GameRulesTest {
     assertThatThrownBy(() -> games.cancel(owner, game)).isInstanceOf(
       ApiException.class
     );
+  }
+
+  void scheduledTimeHasPassed() {
+    tx.executeWithoutResult(
+      s -> store.get(Game.class, game).startsAt = Instant.now().minusSeconds(2)
+    );
+  }
+
+  @Test
+  void liveStartRequiresTimeAndAllConfirmedAssigned() {
+    confirmed(3);
+    var teams = captains();
+    assertThatThrownBy(() -> matches.start(players.get(2), game))
+      .isInstanceOf(ApiException.class)
+      .hasMessageContaining("horário");
+    scheduledTimeHasPassed();
+    assertThatThrownBy(() -> matches.start(players.get(2), game))
+      .isInstanceOf(ApiException.class)
+      .hasMessageContaining("Distribua");
+    games.pick(owner, game, teams.getFirst().id(), players.get(2));
+    matches.start(players.get(3), game);
+    assertThat(games.get(owner, game).game().matchStatus()).isEqualTo("LIVE");
+    assertThatThrownBy(() -> games.cancel(owner, game)).isInstanceOf(
+      ApiException.class
+    );
+    assertThatThrownBy(() ->
+      games.pick(owner, game, teams.getFirst().id(), players.get(4))
+    ).isInstanceOf(ApiException.class);
+    assertThatThrownBy(() -> games.attend(players.get(4), game)).isInstanceOf(
+      ApiException.class
+    );
+  }
+
+  @Test
+  void onlyOneSimultaneousStartWins() throws Exception {
+    confirmed(2);
+    captains();
+    scheduledTimeHasPassed();
+    var results = race(i -> matches.start(players.get(i), game));
+    assertThat(results.stream().filter(Objects::isNull).count()).isEqualTo(1);
+    assertThat(results.stream().filter(Objects::nonNull).count()).isEqualTo(1);
+    assertThat(games.get(owner, game).game().matchStartedAt()).isNotNull();
+  }
+
+  @Test
+  void ownGoalsVoidsAndOrganizerCorrectionKeepFrozenClock() {
+    confirmed(2);
+    var teams = captains();
+    scheduledTimeHasPassed();
+    matches.start(owner, game);
+    matches.goal(
+      owner,
+      game,
+      new NewGoal(teams.get(1).id(), owner, true, null)
+    );
+    assertThat(matches.goals(storeGetGame()).getFirst().ownGoal()).isTrue();
+    UUID goalId = matches.goals(storeGetGame()).getFirst().id();
+    assertThatThrownBy(() ->
+      matches.goal(
+        owner,
+        game,
+        new NewGoal(teams.get(1).id(), owner, false, null)
+      )
+    ).isInstanceOf(ApiException.class);
+    matches.voidGoal(players.get(1), game, goalId);
+    assertThat(matches.goals(storeGetGame()).getFirst().voided()).isTrue();
+    matches.finish(owner, game);
+    assertThatThrownBy(() ->
+      matches.goal(
+        owner,
+        game,
+        new NewGoal(teams.get(0).id(), owner, false, null)
+      )
+    ).isInstanceOf(ApiException.class);
+    assertThatThrownBy(() ->
+      matches.correction(players.get(1), game, true)
+    ).isInstanceOf(ApiException.class);
+    matches.correction(owner, game, true);
+    matches.duration(owner, game, 3120);
+    matches.goal(owner, game, new NewGoal(teams.get(0).id(), owner, false, 42));
+    matches.correction(owner, game, false);
+    var result = games.get(owner, game);
+    assertThat(result.game().matchDurationSeconds()).isEqualTo(3120);
+    assertThat(
+      result
+        .goals()
+        .stream()
+        .filter(g -> !g.voided())
+        .count()
+    ).isEqualTo(1);
+    assertThat(result.goals().getLast().minute()).isEqualTo(42);
+  }
+
+  @Test
+  void ratingsArePrivateUntilDeadlineAndOverallUsesEqualGameWeight() {
+    confirmed(3);
+    var teams = captains();
+    games.pick(owner, game, teams.getFirst().id(), players.get(2));
+    scheduledTimeHasPassed();
+    matches.start(owner, game);
+    matches.finish(owner, game);
+    assertThatThrownBy(() ->
+      matches.rate(owner, game, new SaveRating(owner, 5))
+    ).isInstanceOf(ApiException.class);
+    assertThatThrownBy(() ->
+      matches.rate(players.get(1), game, new SaveRating(owner, 5))
+    ).isInstanceOf(ApiException.class);
+    matches.rate(players.get(2), game, new SaveRating(owner, 3));
+    matches.rate(players.get(2), game, new SaveRating(owner, 5));
+    assertThat(games.get(players.get(1), game).ratings()).isEmpty();
+    assertThat(games.get(players.get(2), game).myRatings()).hasSize(1);
+    tx.executeWithoutResult(
+      s ->
+        store.get(Game.class, game).matchEndedAt = Instant.now().minusSeconds(
+          86401
+        )
+    );
+    assertThat(
+      games
+        .get(players.get(1), game)
+        .ratings()
+        .stream()
+        .filter(r -> r.playerId().equals(owner))
+        .findFirst()
+        .orElseThrow()
+        .average()
+    ).isEqualTo(5.0);
+    assertThatThrownBy(() ->
+      matches.rate(players.get(2), game, new SaveRating(owner, 4))
+    ).isInstanceOf(ApiException.class);
+
+    UUID second = games
+      .create(
+        owner,
+        club,
+        new CreateGame(
+          "Outra pelada",
+          "Quadra 2",
+          Instant.now().plusSeconds(3600),
+          2,
+          5
+        )
+      )
+      .game()
+      .id();
+    tx.executeWithoutResult(s -> {
+      Game other = store.get(Game.class, second);
+      other.matchStartedAt = Instant.now().minusSeconds(90000);
+      other.matchEndedAt = Instant.now().minusSeconds(86401);
+      other.matchDurationSeconds = 1200;
+      store.save(
+        new Rating(
+          second,
+          players.get(1),
+          owner,
+          1,
+          Instant.now().minusSeconds(89000)
+        )
+      );
+      store.save(
+        new Rating(
+          second,
+          players.get(2),
+          owner,
+          3,
+          Instant.now().minusSeconds(89000)
+        )
+      );
+    });
+    var profile = matches.profile(players.get(1), owner);
+    assertThat(profile.average()).isEqualTo(3.5); // (5 + (1+3)/2) / 2
+    assertThat(profile.ratedGames()).isEqualTo(2);
+    UUID outsider = tx.execute(
+      s ->
+        store.save(new Player("Fora", "outsider@test.invalid", "!disabled")).id
+    );
+    assertThatThrownBy(() -> matches.profile(outsider, owner)).isInstanceOf(
+      ApiException.class
+    );
+  }
+
+  private Game storeGetGame() {
+    return tx.execute(s -> store.get(Game.class, game));
   }
 
   private List<Throwable> race(IntConsumer operation) throws Exception {

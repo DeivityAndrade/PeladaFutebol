@@ -3,6 +3,7 @@ package br.com.pelada.api;
 import br.com.pelada.api.Contracts.*;
 import br.com.pelada.auth.Accounts;
 import br.com.pelada.games.Games;
+import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Groups;
 import jakarta.validation.Valid;
 import java.util.*;
@@ -16,11 +17,18 @@ public class ApiController {
   private final Accounts accounts;
   private final Groups groups;
   private final Games games;
+  private final Matches matches;
 
-  public ApiController(Accounts accounts, Groups groups, Games games) {
+  public ApiController(
+    Accounts accounts,
+    Groups groups,
+    Games games,
+    Matches matches
+  ) {
     this.accounts = accounts;
     this.groups = groups;
     this.games = games;
+    this.matches = matches;
   }
 
   private UUID user(Authentication auth) {
@@ -122,5 +130,72 @@ public class ApiController {
     @Valid @RequestBody Lineup input
   ) {
     return games.lineup(user(auth), game, team, input);
+  }
+
+  @PostMapping("/games/{id}/match/start")
+  public GameDetail start(Authentication auth, @PathVariable UUID id) {
+    return games.detail(matches.start(user(auth), id), user(auth));
+  }
+
+  @PostMapping("/games/{id}/match/finish")
+  public GameDetail finish(Authentication auth, @PathVariable UUID id) {
+    return games.detail(matches.finish(user(auth), id), user(auth));
+  }
+
+  @PostMapping("/games/{id}/match/correction")
+  public GameDetail openCorrection(Authentication auth, @PathVariable UUID id) {
+    return games.detail(matches.correction(user(auth), id, true), user(auth));
+  }
+
+  @DeleteMapping("/games/{id}/match/correction")
+  public GameDetail closeCorrection(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return games.detail(matches.correction(user(auth), id, false), user(auth));
+  }
+
+  @PutMapping("/games/{id}/match/duration")
+  public GameDetail duration(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody MatchDuration input
+  ) {
+    return games.detail(
+      matches.duration(user(auth), id, input.seconds()),
+      user(auth)
+    );
+  }
+
+  @PostMapping("/games/{id}/match/goals")
+  public GameDetail goal(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody NewGoal input
+  ) {
+    return games.detail(matches.goal(user(auth), id, input), user(auth));
+  }
+
+  @DeleteMapping("/games/{id}/match/goals/{goal}")
+  public GameDetail voidGoal(
+    Authentication auth,
+    @PathVariable UUID id,
+    @PathVariable UUID goal
+  ) {
+    return games.detail(matches.voidGoal(user(auth), id, goal), user(auth));
+  }
+
+  @PutMapping("/games/{id}/ratings")
+  public GameDetail rating(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody SaveRating input
+  ) {
+    return games.detail(matches.rate(user(auth), id, input), user(auth));
+  }
+
+  @GetMapping("/players/{id}/profile")
+  public PlayerProfile profile(Authentication auth, @PathVariable UUID id) {
+    return matches.profile(user(auth), id);
   }
 }
