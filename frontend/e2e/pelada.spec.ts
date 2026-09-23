@@ -460,7 +460,7 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
   await expect(ownerPage.locator('.barbecue-card')).toHaveCount(6);
   await ownerPage.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await ownerPage
-    .getByRole('button', { name: /Copiar convite para/ })
+    .getByRole('button', { name: /Convidar alguém para o churrasco de/ })
     .first()
     .click();
   const inviteLink = await ownerPage.evaluate(() => navigator.clipboard.readText());

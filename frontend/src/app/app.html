@@ -137,7 +137,7 @@
           <div class="heading-actions">
             @if (!demo()) {
               <button class="button secondary" (click)="share(detail()!.club)">
-                <app-icon name="share" />Convidar galera
+                <app-icon name="user-plus" />Convidar galera
               </button>
             } @else {
               <button class="button secondary" (click)="showDemo(!demoFinished())">
@@ -694,16 +694,20 @@
             <h1>{{ club()!.name }}<span>.</span></h1>
             <p>{{ club()!.description }}</p>
           </div>
-          <div class="heading-actions">
-            <button class="button secondary" (click)="share(club())">
-              <app-icon name="share" />Convidar galera
-            </button>
-            @if (club()!.ownerId === user()?.id) {
-              <button class="button primary" (click)="open('game')">
-                <app-icon name="plus" />Marcar pelada
-              </button>
-            }
-          </div>
+          @if (groupTab() === 'games' || club()!.ownerId === user()?.id) {
+            <div class="heading-actions">
+              @if (groupTab() === 'games') {
+                <button class="button secondary" (click)="share(club())">
+                  <app-icon name="user-plus" />Convidar galera
+                </button>
+              }
+              @if (club()!.ownerId === user()?.id) {
+                <button class="button primary" (click)="open('game')">
+                  <app-icon name="plus" />Marcar pelada
+                </button>
+              }
+            </div>
+          }
         </div>
         <div class="group-tabs" role="tablist" aria-label="Agenda do grupo">
           <button
@@ -851,10 +855,15 @@
                       <button
                         class="icon-button"
                         [disabled]="busy()"
-                        [attr.aria-label]="'Copiar convite para ' + date(event.startsAt, 'full')"
+                        [attr.aria-label]="
+                          'Convidar alguém para o churrasco de ' +
+                          date(event.startsAt, 'full') +
+                          ' (copiar link)'
+                        "
+                        title="Convidar alguém (copiar link)"
                         (click)="inviteBarbecue(event)"
                       >
-                        <app-icon name="share" />
+                        <app-icon name="user-plus" />
                       </button>
                     }
                     @if (groupOwner() && !event.cancelled && isFuture(event.startsAt)) {
