@@ -2,8 +2,9 @@
 
 ## Resultado
 
-O Angular compilou e a checagem Prettier passou localmente. A nova suíte Java com PostgreSQL e os
-cenários Playwright desta atualização aguardam execução na integração contínua.
+GitHub Actions passou na compilação Angular, na checagem Prettier, na suíte Java com PostgreSQL e nos
+cinco cenários Playwright em Chromium. A validação cobriu os fluxos de partida ao vivo, sorteio de
+times, recorrência dos churrascos, presença independente da pelada e convite individual de convidado.
 
 Ambiente de CI: GitHub Actions, Java 21, PostgreSQL 18 e Chromium. A aplicação testada pelo
 navegador é o pacote de produção do Spring Boot, que serve o Angular na mesma origem.
@@ -55,8 +56,7 @@ As imagens base da aplicação, capturadas em **1440 px** e **390 px**, estão e
 
 ## Limites
 
-- Os fluxos novos aguardam a CI. Depois que passarem, a publicação e a verificação pública do Render
-  acontecem após integrar o pull request.
 - Firefox, Safari, aparelhos físicos, teste de carga e auditoria formal de acessibilidade não foram
   executados.
+- A publicação e a verificação pública no Render acontecem após integrar o pull request.
 - Os testes usam contas fictícias; nenhum dado de jogador real foi incluído.
