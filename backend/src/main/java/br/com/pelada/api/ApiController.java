@@ -5,11 +5,16 @@ import br.com.pelada.auth.Accounts;
 import br.com.pelada.games.Games;
 import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Barbecues;
+import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api")
@@ -20,19 +25,22 @@ public class ApiController {
   private final Games games;
   private final Matches matches;
   private final Barbecues barbecues;
+  private final Finance finance;
 
   public ApiController(
     Accounts accounts,
     Groups groups,
     Games games,
     Matches matches,
-    Barbecues barbecues
+    Barbecues barbecues,
+    Finance finance
   ) {
     this.accounts = accounts;
     this.groups = groups;
     this.games = games;
     this.matches = matches;
     this.barbecues = barbecues;
+    this.finance = finance;
   }
 
   private UUID user(Authentication auth) {
@@ -60,6 +68,109 @@ public class ApiController {
   @PostMapping("/invites/{invite}/join")
   public ClubView join(Authentication auth, @PathVariable UUID invite) {
     return groups.join(user(auth), invite);
+  }
+
+  @GetMapping("/groups/{id}/finance")
+  public FinanceSummary finance(
+    Authentication auth,
+    @PathVariable UUID id,
+    @RequestParam(required = false) String period,
+    @RequestParam(required = false) UUID playerId,
+    @RequestParam(required = false) UUID gameId
+  ) {
+    return finance.summary(user(auth), id, period, playerId, gameId);
+  }
+
+  @PutMapping("/groups/{id}/finance/settings")
+  public FinanceSummary financeSettings(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody FinanceSettingsInput input
+  ) {
+    return finance.updateSettings(user(auth), id, input);
+  }
+
+  @PutMapping("/groups/{id}/finance/members/{playerId}")
+  public FinanceSummary classifyFinanceMember(
+    Authentication auth,
+    @PathVariable UUID id,
+    @PathVariable UUID playerId,
+    @RequestBody FinanceMemberInput input
+  ) {
+    return finance.classifyMember(user(auth), id, playerId, input.monthly());
+  }
+
+  @PostMapping("/finance/charges/{id}/receipt")
+  public FinanceChargeView uploadFinanceReceipt(
+    Authentication auth,
+    @PathVariable UUID id,
+    @RequestPart("file") MultipartFile file
+  ) {
+    if (
+      file.getSize() > Finance.MAX_RECEIPT_BYTES
+    ) throw new br.com.pelada.domain.ApiException(
+      413,
+      "O comprovante deve ter no máximo 2 MB."
+    );
+    try {
+      return finance.uploadReceipt(
+        user(auth),
+        id,
+        file.getOriginalFilename(),
+        file.getContentType(),
+        file.getBytes()
+      );
+    } catch (IOException ex) {
+      throw new br.com.pelada.domain.ApiException(
+        400,
+        "Não foi possível ler o comprovante."
+      );
+    }
+  }
+
+  @GetMapping("/finance/charges/{id}/receipt")
+  public ResponseEntity<byte[]> financeReceipt(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    Finance.ReceiptDownload file = finance.receipt(user(auth), id);
+    return ResponseEntity.ok()
+      .contentType(MediaType.parseMediaType(file.contentType()))
+      .header(
+        HttpHeaders.CONTENT_DISPOSITION,
+        ContentDisposition.attachment()
+          .filename(file.filename(), StandardCharsets.UTF_8)
+          .build()
+          .toString()
+      )
+      .header("X-Content-Type-Options", "nosniff")
+      .cacheControl(CacheControl.noStore())
+      .body(file.data());
+  }
+
+  @PostMapping("/finance/charges/{id}/approve")
+  public FinanceChargeView approveFinanceCharge(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return finance.review(user(auth), id, true, null);
+  }
+
+  @PostMapping("/finance/charges/{id}/reject")
+  public FinanceChargeView rejectFinanceCharge(
+    Authentication auth,
+    @PathVariable UUID id,
+    @RequestBody(required = false) FinanceReviewInput input
+  ) {
+    return finance.review(user(auth), id, false, input);
+  }
+
+  @PostMapping("/finance/charges/{id}/cash")
+  public FinanceChargeView markFinanceCash(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return finance.markCash(user(auth), id);
   }
 
   @GetMapping("/groups/{id}/barbecues")

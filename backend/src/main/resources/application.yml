@@ -11,6 +11,10 @@ server:
 spring:
   application:
     name: pelada
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   datasource:
     url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5432/pelada}
     username: ${DB_USER:pelada}

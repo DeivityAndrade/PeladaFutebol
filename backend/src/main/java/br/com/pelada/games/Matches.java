@@ -3,6 +3,7 @@ package br.com.pelada.games;
 import br.com.pelada.api.Contracts.*;
 import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.*;
+import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
 import java.time.*;
 import java.util.*;
@@ -17,11 +18,13 @@ public class Matches {
   private final Store store;
   private final Groups groups;
   private final Clock clock;
+  private final Finance finance;
 
-  public Matches(Store store, Groups groups, Clock clock) {
+  public Matches(Store store, Groups groups, Clock clock, Finance finance) {
     this.store = store;
     this.groups = groups;
     this.clock = clock;
+    this.finance = finance;
   }
 
   public Game start(UUID user, UUID id) {
@@ -57,6 +60,13 @@ public class Matches {
             )
         )
     ) throw ApiException.conflict("Cada time precisa de ao menos um jogador.");
+    finance.createGameCharges(
+      game,
+      players
+        .stream()
+        .filter(p -> p.status.equals("CONFIRMED"))
+        .toList()
+    );
     game.matchStartedAt = clock.instant();
     return game;
   }

@@ -670,9 +670,17 @@
             role="tab"
             [attr.aria-selected]="groupTab() === 'barbecue'"
             [class.active]="groupTab() === 'barbecue'"
-            (click)="groupTab.set('barbecue')"
+            (click)="selectGroupTab('barbecue')"
           >
             Churrasco
+          </button>
+          <button
+            role="tab"
+            [attr.aria-selected]="groupTab() === 'finance'"
+            [class.active]="groupTab() === 'finance'"
+            (click)="selectGroupTab('finance')"
+          >
+            Financeiro
           </button>
         </div>
         @if (groupTab() === 'games') {
@@ -717,7 +725,7 @@
               </p>
             </section>
           }
-        } @else {
+        } @else if (groupTab() === 'barbecue') {
           <section class="panel barbecue-board">
             <div class="panel-heading barbecue-board-heading">
               <div>
@@ -850,6 +858,271 @@
                 </div>
               }
             </div>
+          </section>
+        } @else {
+          <section class="panel finance-panel" aria-labelledby="finance-heading">
+            <div class="panel-heading finance-heading">
+              <div>
+                <span class="eyebrow green">CONTROLE DE RECEBIMENTOS</span>
+                <h2 id="finance-heading">Financeiro<span class="small-dot">.</span></h2>
+                <p>Pix é pago fora do app. Envie o comprovante para o organizador conferir.</p>
+              </div>
+              @if (financeData()?.canManage) {
+                <button class="button secondary" (click)="open('finance-settings')">
+                  <app-icon name="settings" />Configurar valores
+                </button>
+              }
+            </div>
+
+            @if (financeLoading() && !financeData()) {
+              <div class="finance-loading" role="status">Carregando o financeiro…</div>
+            } @else if (financeData(); as finance) {
+              <div class="finance-config-line">
+                <span
+                  >Mensalidade <strong>{{ money(finance.settings.monthlyAmountCents) }}</strong> ·
+                  vencimento dia <strong>{{ finance.settings.billingDueDay }}</strong></span
+                >
+                <span
+                  >Avulso padrão
+                  <strong>{{ money(finance.settings.occasionalAmountCents) }}</strong></span
+                >
+                @if (finance.settings.pixInstructions) {
+                  <span
+                    >Pix: <strong>{{ finance.settings.pixInstructions }}</strong></span
+                  >
+                }
+                @if (finance.canManage && !finance.settings.monthlyAmountCents) {
+                  <span class="finance-setup-hint"
+                    >Defina a mensalidade para classificar mensalistas.</span
+                  >
+                }
+              </div>
+
+              @if (finance.overdueCount) {
+                <div class="finance-reminder overdue" role="status">
+                  <app-icon name="clock" />
+                  <span
+                    >{{ finance.overdueCount }} cobrança(s) vencida(s), totalizando
+                    {{ money(finance.overdueCents) }}.</span
+                  >
+                </div>
+              } @else if (finance.dueSoonCount) {
+                <div class="finance-reminder" role="status">
+                  <app-icon name="calendar" />
+                  <span
+                    >{{ finance.dueSoonCount }} cobrança(s) vencem nos próximos cinco dias.</span
+                  >
+                </div>
+              }
+
+              <div class="finance-summary" aria-label="Resumo financeiro do mês">
+                <div>
+                  <span>Recebido</span><strong>{{ money(finance.receivedCents) }}</strong>
+                </div>
+                <div>
+                  <span>A receber</span><strong>{{ money(finance.pendingCents) }}</strong>
+                </div>
+                <div [class.has-overdue]="finance.overdueCents > 0">
+                  <span>Vencido</span><strong>{{ money(finance.overdueCents) }}</strong>
+                </div>
+              </div>
+
+              @if (finance.canManage && finance.members.length) {
+                <section class="finance-members" aria-labelledby="finance-members-heading">
+                  <div class="finance-section-heading">
+                    <div>
+                      <h3 id="finance-members-heading">Como cada pessoa paga</h3>
+                      <p>Uma mudança para mensalista vale a partir do próximo mês.</p>
+                    </div>
+                  </div>
+                  <div class="finance-member-list">
+                    @for (member of finance.members; track member.playerId) {
+                      <div class="finance-member-row">
+                        <div>
+                          <strong>{{ member.playerName }}</strong>
+                          <span>{{ memberBillingLabel(member) }}</span>
+                        </div>
+                        <button
+                          class="text-button"
+                          [disabled]="
+                            busy() ||
+                            (!finance.settings.monthlyAmountCents &&
+                              member.billingType !== 'MONTHLY')
+                          "
+                          (click)="classifyMember(member)"
+                        >
+                          {{
+                            member.billingType === 'MONTHLY'
+                              ? 'Mudar para avulso'
+                              : 'Tornar mensalista'
+                          }}
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </section>
+              }
+
+              <div class="finance-filter-row">
+                <label
+                  >Mês
+                  <input
+                    type="month"
+                    aria-label="Filtrar por mês"
+                    [ngModel]="financePeriod()"
+                    (ngModelChange)="financePeriod.set($event); updateFinanceFilters()"
+                  />
+                </label>
+                @if (finance.canViewAll) {
+                  <label
+                    >Jogador
+                    <select
+                      aria-label="Filtrar por jogador"
+                      [ngModel]="financePlayerFilter()"
+                      (ngModelChange)="financePlayerFilter.set($event); updateFinanceFilters()"
+                    >
+                      <option value="">Todos</option>
+                      @for (person of finance.people; track person.id) {
+                        <option [value]="person.id">{{ person.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label
+                    >Pelada
+                    <select
+                      aria-label="Filtrar por pelada"
+                      [ngModel]="financeGameFilter()"
+                      (ngModelChange)="financeGameFilter.set($event); updateFinanceFilters()"
+                    >
+                      <option value="">Todas</option>
+                      @for (game of games(); track game.id) {
+                        <option [value]="game.id">{{ game.title }}</option>
+                      }
+                    </select>
+                  </label>
+                }
+              </div>
+
+              <div class="finance-charge-list">
+                @for (charge of finance.charges; track charge.id) {
+                  <article class="finance-charge" [class.overdue-charge]="charge.overdue">
+                    <div class="finance-charge-copy">
+                      @if (finance.canViewAll) {
+                        <strong class="finance-player-name">{{ charge.playerName }}</strong>
+                      }
+                      <span class="finance-charge-type">{{ chargeType(charge) }}</span>
+                      <span class="finance-charge-due"
+                        >Vencimento {{ dueDateLabel(charge.dueDate) }}</span
+                      >
+                      @if (charge.reviewNote) {
+                        <span class="finance-review-note">{{ charge.reviewNote }}</span>
+                      }
+                      @if (charge.receiptAvailable && charge.receiptExpiresAt) {
+                        <span class="finance-expiry"
+                          >Comprovante guardado até
+                          {{ dueDateLabel(charge.receiptExpiresAt.slice(0, 10)) }}</span
+                        >
+                      }
+                    </div>
+                    <div class="finance-charge-amount">
+                      <strong>{{ money(charge.amountCents) }}</strong>
+                      <span
+                        class="finance-status"
+                        [class.paid]="charge.status === 'PAID'"
+                        [class.waiting-review]="charge.status === 'AWAITING_REVIEW'"
+                        [class.overdue-status]="charge.overdue"
+                        >{{ financeStatus(charge) }}</span
+                      >
+                    </div>
+                    <div class="finance-charge-actions">
+                      @if (charge.canUpload) {
+                        <label class="button secondary receipt-button">
+                          Enviar comprovante
+                          <input
+                            class="receipt-input"
+                            type="file"
+                            [attr.aria-label]="'Enviar comprovante de ' + charge.playerName"
+                            accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
+                            [disabled]="busy()"
+                            (change)="uploadReceipt(charge, $event)"
+                          />
+                        </label>
+                      }
+                      @if (charge.canReadReceipt && charge.receiptAvailable) {
+                        <a
+                          class="text-button"
+                          [href]="'/api/finance/charges/' + charge.id + '/receipt'"
+                          >Baixar comprovante</a
+                        >
+                      } @else if (charge.receiptFilename && !charge.receiptAvailable) {
+                        <span class="muted receipt-expired">Comprovante expirado após 90 dias</span>
+                      }
+                      @if (charge.canReview) {
+                        <button
+                          class="button primary"
+                          [disabled]="busy()"
+                          (click)="openFinanceReview(charge, true)"
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          class="text-button danger"
+                          [disabled]="busy()"
+                          (click)="openFinanceReview(charge, false)"
+                        >
+                          Recusar
+                        </button>
+                      }
+                      @if (
+                        finance.canManage &&
+                        charge.status !== 'PAID' &&
+                        charge.status !== 'CANCELLED'
+                      ) {
+                        <button
+                          class="text-button"
+                          [disabled]="busy()"
+                          (click)="openCashPayment(charge)"
+                        >
+                          Registrar em dinheiro
+                        </button>
+                        <a
+                          class="text-button"
+                          [href]="whatsappReminder(charge)"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Lembrar pelo WhatsApp
+                        </a>
+                      }
+                    </div>
+                  </article>
+                } @empty {
+                  <div class="empty-state finance-empty">
+                    <app-icon name="calendar" />
+                    @if (finance.canManage) {
+                      <h3>Nenhuma cobrança neste mês.</h3>
+                      <p>
+                        Mensalidades aparecem no ciclo em que começam. Cobranças avulsas são criadas
+                        quando a pelada começa.
+                      </p>
+                    } @else {
+                      <h3>Você não tem cobranças neste mês.</h3>
+                      <p>
+                        Se participar de uma pelada avulsa, a cobrança aparecerá quando o jogo
+                        começar.
+                      </p>
+                    }
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="empty-state finance-empty" role="status">
+                <app-icon name="lock" />
+                <h3>Financeiro indisponível.</h3>
+                <p>Atualize a tela para carregar as cobranças deste grupo.</p>
+                <button class="button secondary" (click)="loadFinance()">Tentar novamente</button>
+              </div>
+            }
           </section>
         }
       } @else if (page() === 'barbecue-invite' && barbecueInvite()) {
@@ -1026,6 +1299,48 @@
                 <option value="EVERY_2_MONTHS">A cada dois meses</option>
                 <option value="EVERY_3_MONTHS">A cada três meses</option>
               </select></label
+            >
+            <div class="form-divider"><span>Mensalidade e Pix</span></div>
+            ><label
+              >Mensalidade do grupo (opcional)<input
+                type="number"
+                name="monthlyAmount"
+                [(ngModel)]="form['monthlyAmount']"
+                min="0.01"
+                step="0.01"
+                inputmode="decimal"
+                placeholder="Ex.: 50,00"
+              />
+              <small>Novos mensalistas começam a pagar no próximo mês.</small></label
+            >
+            <div class="form-row">
+              <label
+                >Dia do vencimento<input
+                  type="number"
+                  name="billingDueDay"
+                  [(ngModel)]="form['billingDueDay']"
+                  min="1"
+                  max="31"
+                  required
+              /></label>
+              <label
+                >Valor avulso padrão<input
+                  type="number"
+                  name="occasionalAmount"
+                  [(ngModel)]="form['occasionalAmount']"
+                  min="0.01"
+                  step="0.01"
+                  inputmode="decimal"
+                  placeholder="Opcional"
+              /></label>
+            </div>
+            ><label
+              >Chave Pix ou instruções<textarea
+                name="pixInstructions"
+                [(ngModel)]="form['pixInstructions']"
+                maxlength="500"
+                placeholder="Ex.: chave Pix por e-mail, em nome de..."
+              ></textarea></label
             ><button class="button primary full-width" [disabled]="busy()">
               Criar grupo<app-icon name="arrow" />
             </button>
@@ -1091,8 +1406,127 @@
             <div class="form-hint">
               {{ form['teamCount'] * form['teamSize'] }} vagas no total · 5 titulares por time
             </div>
+            <label class="check-label finance-game-toggle">
+              <input
+                type="checkbox"
+                name="chargeOccasional"
+                [(ngModel)]="form['chargeOccasional']"
+              />
+              Cobrar o valor avulso nesta pelada
+            </label>
+            @if (form['chargeOccasional']) {
+              <label
+                >Valor para avulsos<input
+                  type="number"
+                  name="occasionalAmount"
+                  [(ngModel)]="form['occasionalAmount']"
+                  min="0.01"
+                  step="0.01"
+                  inputmode="decimal"
+                  required
+                /><small
+                  >Será cobrado de cada avulso confirmado quando a partida começar.</small
+                ></label
+              >
+            }
             <button class="button primary full-width" [disabled]="busy()">Marcar pelada</button>
           </form>
+        }
+        @case ('finance-settings') {
+          <h2 id="modal-title">Valores do grupo.</h2>
+          <p>Os pagamentos continuam fora do app. Cobranças já lançadas mantêm o valor original.</p>
+          <form (ngSubmit)="saveFinanceSettings()">
+            <label
+              >Mensalidade (deixe vazio para não oferecer a novos mensalistas)
+              <input
+                type="number"
+                name="monthlyAmount"
+                [(ngModel)]="form['monthlyAmount']"
+                min="0.01"
+                step="0.01"
+                inputmode="decimal"
+                placeholder="Ex.: 50,00"
+              />
+            </label>
+            <div class="form-row">
+              <label
+                >Dia de vencimento
+                <input
+                  type="number"
+                  name="billingDueDay"
+                  [(ngModel)]="form['billingDueDay']"
+                  min="1"
+                  max="31"
+                  required
+                />
+              </label>
+              <label
+                >Valor avulso padrão
+                <input
+                  type="number"
+                  name="occasionalAmount"
+                  [(ngModel)]="form['occasionalAmount']"
+                  min="0.01"
+                  step="0.01"
+                  inputmode="decimal"
+                  placeholder="Opcional"
+                />
+              </label>
+            </div>
+            <label
+              >Chave Pix ou instruções
+              <textarea
+                name="pixInstructions"
+                [(ngModel)]="form['pixInstructions']"
+                maxlength="500"
+                placeholder="Ex.: chave Pix por e-mail, em nome de..."
+              ></textarea>
+            </label>
+            <button class="button primary full-width" [disabled]="busy()">Salvar valores</button>
+          </form>
+        }
+        @case ('finance-review') {
+          <h2 id="modal-title">
+            {{ form['approve'] ? 'Aprovar pagamento?' : 'Recusar comprovante?' }}
+          </h2>
+          <p>
+            {{ form['playerName'] }} ·
+            {{
+              form['approve']
+                ? 'A cobrança será marcada como paga.'
+                : 'Informe, se possível, o motivo da recusa.'
+            }}
+          </p>
+          @if (!form['approve']) {
+            <label
+              >Motivo (opcional)
+              <textarea
+                name="reviewNote"
+                [(ngModel)]="form['note']"
+                maxlength="240"
+                placeholder="Ex.: valor ou data não conferem"
+              ></textarea>
+            </label>
+          }
+          <div class="form-actions">
+            <button class="button secondary" (click)="closeModal()">Voltar</button>
+            <button class="button primary" [disabled]="busy()" (click)="submitFinanceReview()">
+              {{ form['approve'] ? 'Aprovar pagamento' : 'Recusar comprovante' }}
+            </button>
+          </div>
+        }
+        @case ('finance-cash') {
+          <h2 id="modal-title">Registrar pagamento em dinheiro?</h2>
+          <p>
+            {{ form['playerName'] }} · {{ money(form['amountCents']) }}. O histórico indicará que o
+            pagamento foi registrado manualmente.
+          </p>
+          <div class="form-actions">
+            <button class="button secondary" (click)="closeModal()">Voltar</button>
+            <button class="button primary" [disabled]="busy()" (click)="markCashPayment()">
+              Confirmar pagamento
+            </button>
+          </div>
         }
         @case ('draw') {
           <h2 id="modal-title">Hora de misturar os times?</h2>

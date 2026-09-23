@@ -23,16 +23,45 @@ public final class Contracts {
     @NotBlank @Size(max = 80) String name,
     @NotNull @Size(max = 300) String description,
     @Pattern(regexp = "NONE|MONTHLY|EVERY_2_MONTHS|EVERY_3_MONTHS")
-    String barbecueFrequency
+    String barbecueFrequency,
+    @PositiveOrZero Long monthlyAmountCents,
+    @Min(1) @Max(31) Integer billingDueDay,
+    @PositiveOrZero Long occasionalAmountCents,
+    @Size(max = 500) String pixInstructions
   ) {
     public CreateClub(String name, String description) {
-      this(name, description, "NONE");
+      this(name, description, "NONE", null, 1, null, "");
+    }
+
+    public CreateClub(
+      String name,
+      String description,
+      String barbecueFrequency
+    ) {
+      this(name, description, barbecueFrequency, null, 1, null, "");
     }
 
     public CreateClub {
       if (barbecueFrequency == null) barbecueFrequency = "NONE";
+      if (billingDueDay == null) billingDueDay = 1;
+      if (pixInstructions == null) pixInstructions = "";
     }
   }
+
+  public record FinanceSettingsInput(
+    @PositiveOrZero Long monthlyAmountCents,
+    @NotNull @Min(1) @Max(31) Integer billingDueDay,
+    @PositiveOrZero Long occasionalAmountCents,
+    @Size(max = 500) String pixInstructions
+  ) {
+    public FinanceSettingsInput {
+      if (pixInstructions == null) pixInstructions = "";
+    }
+  }
+
+  public record FinanceMemberInput(boolean monthly) {}
+
+  public record FinanceReviewInput(@Size(max = 240) String note) {}
 
   public record CreateBarbecueSeries(
     @NotNull Instant startsAt,
@@ -55,8 +84,24 @@ public final class Contracts {
     @NotBlank @Size(max = 160) String location,
     @NotNull Instant startsAt,
     @Min(2) @Max(6) int teamCount,
-    @Min(5) @Max(12) int teamSize
-  ) {}
+    @Min(5) @Max(12) int teamSize,
+    Boolean chargeOccasional,
+    @PositiveOrZero Long occasionalAmountCents
+  ) {
+    public CreateGame {
+      if (chargeOccasional == null) chargeOccasional = false;
+    }
+
+    public CreateGame(
+      String title,
+      String location,
+      Instant startsAt,
+      int teamCount,
+      int teamSize
+    ) {
+      this(title, location, startsAt, teamCount, teamSize, false, null);
+    }
+  }
 
   public record UpdateTeam(
     @NotBlank @Size(max = 60) String name,
@@ -96,7 +141,67 @@ public final class Contracts {
     long memberCount,
     boolean demo,
     String barbecueFrequency,
-    boolean barbecueSeriesActive
+    boolean barbecueSeriesActive,
+    Long monthlyAmountCents,
+    int billingDueDay,
+    Long occasionalAmountCents,
+    String pixInstructions
+  ) {}
+
+  public record FinanceSettingsView(
+    Long monthlyAmountCents,
+    int billingDueDay,
+    Long occasionalAmountCents,
+    String pixInstructions
+  ) {}
+
+  public record FinanceMemberView(
+    UUID playerId,
+    String playerName,
+    String billingType,
+    java.time.LocalDate monthlyFrom,
+    java.time.LocalDate monthlyThrough,
+    Long monthlyAmountCents
+  ) {}
+
+  public record FinanceChargeView(
+    UUID id,
+    UUID playerId,
+    String playerName,
+    String type,
+    String period,
+    UUID gameId,
+    String gameTitle,
+    Instant gameStartsAt,
+    long amountCents,
+    java.time.LocalDate dueDate,
+    String status,
+    boolean overdue,
+    boolean dueSoon,
+    boolean manual,
+    String reviewNote,
+    boolean receiptAvailable,
+    String receiptFilename,
+    String receiptContentType,
+    Instant receiptUploadedAt,
+    Instant receiptExpiresAt,
+    boolean canUpload,
+    boolean canReview,
+    boolean canReadReceipt
+  ) {}
+
+  public record FinanceSummary(
+    FinanceSettingsView settings,
+    List<FinanceMemberView> members,
+    List<Person> people,
+    List<FinanceChargeView> charges,
+    long receivedCents,
+    long pendingCents,
+    long overdueCents,
+    int overdueCount,
+    int dueSoonCount,
+    boolean canManage,
+    boolean canViewAll
   ) {}
 
   public record BarbecueAttendee(UUID id, String name) {}
@@ -125,6 +230,8 @@ public final class Contracts {
     int teamSize,
     int confirmed,
     int waiting,
+    boolean chargeOccasional,
+    Long occasionalAmountCents,
     boolean cancelled,
     boolean editable,
     boolean teamEditable,

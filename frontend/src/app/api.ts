@@ -47,4 +47,30 @@ export class Api {
     if (path === '/auth/login' || path === '/auth/logout') this.csrf = '';
     return response.status === 204 ? (undefined as T) : response.json();
   }
+
+  async upload<T>(path: string, file: File): Promise<T> {
+    if (!this.csrf) await this.token();
+    const form = new FormData();
+    form.append('file', file, file.name);
+    let response: Response;
+    try {
+      response = await fetch('/api' + path, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-TOKEN': this.csrf },
+        body: form,
+      });
+    } catch {
+      throw new ApiError(0, 'Sem conexão com o servidor. Confira sua internet e tente novamente.');
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 403) this.csrf = '';
+      throw new ApiError(
+        response.status,
+        data.message || 'Não foi possível enviar o comprovante. Tente novamente.',
+      );
+    }
+    return response.json();
+  }
 }

@@ -3,6 +3,7 @@ package br.com.pelada.games;
 import br.com.pelada.api.Contracts.*;
 import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.*;
+import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
 import java.time.Clock;
 import java.util.*;
@@ -19,20 +20,38 @@ public class Games {
   private final Groups groups;
   private final Clock clock;
   private final Matches matches;
+  private final Finance finance;
 
-  public Games(Store store, Groups groups, Clock clock, Matches matches) {
+  public Games(
+    Store store,
+    Groups groups,
+    Clock clock,
+    Matches matches,
+    Finance finance
+  ) {
     this.store = store;
     this.groups = groups;
     this.clock = clock;
     this.matches = matches;
+    this.finance = finance;
   }
 
   public GameDetail create(UUID user, UUID clubId, CreateGame input) {
-    groups.requireOwner(user, clubId);
+    Club club = groups.requireOwner(user, clubId);
     if (!input.startsAt().isAfter(clock.instant())) throw new ApiException(
       400,
       "Escolha uma data e um horário no futuro."
     );
+    Long gameCharge =
+      input.occasionalAmountCents() == null
+        ? club.occasionalAmountCents
+        : input.occasionalAmountCents();
+    if (input.chargeOccasional() && (gameCharge == null || gameCharge <= 0)) {
+      throw new ApiException(
+        400,
+        "Defina o valor avulso do grupo ou desta pelada."
+      );
+    }
     Game game = store.save(
       new Game(
         clubId,
@@ -43,6 +62,8 @@ public class Games {
         input.teamSize()
       )
     );
+    game.chargeOccasional = input.chargeOccasional();
+    game.occasionalAmountCents = input.chargeOccasional() ? gameCharge : null;
     String[] colors = {
       "#d8f36a",
       "#8d9dff",
@@ -128,6 +149,7 @@ public class Games {
       "Esta pelada já foi cancelada."
     );
     game.cancelled = true;
+    finance.cancelGameCharges(game.id);
     return detail(game);
   }
 
@@ -384,6 +406,8 @@ public class Games {
       game.teamSize,
       confirmed,
       list.size() - confirmed,
+      game.chargeOccasional,
+      game.occasionalAmountCents,
       game.cancelled,
       !game.cancelled && game.startsAt.isAfter(clock.instant()),
       !game.cancelled &&
