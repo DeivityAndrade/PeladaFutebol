@@ -61,7 +61,9 @@ import { Icon } from './icon';
                 stroke="rgba(0,0,0,.16)"
                 stroke-width="1.5"
               /></svg
-            ><b>{{ at(slot) ? (slot === 0 ? '01' : '0' + (slot + 1)) : '+' }}</b></span
+            ><b [style.color]="at(slot) ? numberInk() : '#ffffff'">{{
+              at(slot) ? numberFor(at(slot)!) : '+'
+            }}</b></span
           >
           <span class="player-label">{{ at(slot) ? shortName(at(slot)!.name) : 'Escolher' }}</span
           ><span class="position-label">{{ pos.label }}</span>
@@ -144,6 +146,21 @@ export class Pitch {
   }
   at(slot: number) {
     return this.roster.find((p) => p.slot === slot);
+  }
+  numberFor(player: Player) {
+    return this.roster.findIndex((member) => member.id === player.id) + 1;
+  }
+  numberInk() {
+    const hex = this.team.color.replace('#', '');
+    if (!/^(?:[\da-f]{3}|[\da-f]{6})$/i.test(hex)) return '#172b20';
+    const full = hex.length === 3 ? [...hex].map((part) => part + part).join('') : hex;
+    const rgb = [0, 2, 4].map((index) => parseInt(full.slice(index, index + 2), 16));
+    const luminance = rgb.reduce((sum, channel, index) => {
+      const value = channel / 255;
+      const linear = value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      return sum + linear * [0.2126, 0.7152, 0.0722][index];
+    }, 0);
+    return luminance > 0.18 ? '#172b20' : '#ffffff';
   }
   initials(name: string) {
     return name

@@ -5,7 +5,7 @@
   }
   <aside class="sidebar" [class.mobile-open]="sidebar()" aria-label="Menu principal">
     <div class="sidebar-head">
-      <a class="brand" href="#demo" aria-label="Pelada, início"
+      <a class="brand" [attr.href]="user() ? '#groups' : '#demo'" aria-label="Pelada, início"
         ><span class="brand-icon"><app-icon name="ball" /></span
         ><span class="brand-wordmark">pelada<span class="brand-dot">.</span></span></a
       >
@@ -34,7 +34,7 @@
         data-label="Visão geral"
         aria-label="Visão geral"
         [class.active]="page() === 'demo'"
-        ><app-icon name="grid" /><span class="nav-text">Visão geral</span></a
+        ><app-icon name="home" /><span class="nav-text">Visão geral</span></a
       >
       <a
         href="#groups"
@@ -65,7 +65,7 @@
   </aside>
   <div class="workspace" [attr.inert]="sidebar() ? '' : null">
     <header class="topbar">
-      <div class="breadcrumbs">
+      <div class="topbar-start">
         <button
           class="icon-button mobile-menu"
           aria-label="Abrir menu"
@@ -73,18 +73,14 @@
           [attr.aria-expanded]="sidebar()"
           (click)="openSidebar()"
         >
-          <app-icon name="menu" /></button
-        ><span>Vestiário</span><app-icon name="chevron" /><strong>{{
-          page() === 'groups'
-            ? 'Meus grupos'
-            : page() === 'group'
-              ? groupTab() === 'barbecue'
-                ? 'Churrasco do grupo'
-                : 'Agenda de jogos'
-              : page() === 'barbecue-invite'
-                ? 'Convite para churrasco'
-                : 'A pelada'
-        }}</strong>
+          <app-icon name="menu" />
+        </button>
+        <a
+          class="mobile-brand"
+          [attr.href]="user() ? '#groups' : '#demo'"
+          aria-label="Pelada, início"
+          >pelada<span>.</span></a
+        >
       </div>
       <div class="account-actions">
         <button
@@ -107,10 +103,15 @@
             <app-icon name="logout" />
           </button>
         } @else {
-          <button class="text-button" (click)="openAuth()">Entrar <app-icon name="arrow" /></button>
+          <button class="text-button account-entry" (click)="openAuth()" aria-label="Entrar">
+            <app-icon name="person" /><span>Entrar</span>
+          </button>
         }
       </div>
     </header>
+    @if (demo()) {
+      <div class="mobile-demo-tag"><span>MODO DEMONSTRAÇÃO</span></div>
+    }
     <main id="main" tabindex="-1">
       @if (error() && !modal()) {
         <div class="alert error" role="alert">
@@ -127,29 +128,7 @@
       } @else if ((page() === 'demo' || page() === 'game') && detail()) {
         <div class="page-heading">
           <div>
-            <div class="eyebrow green">
-              <span class="status-dot"></span
-              >{{ demo() ? 'BEM-VINDO AO SEU VESTIÁRIO' : detail()!.club.name }}
-            </div>
             <h1>O jogo começa <span>aqui.</span></h1>
-            <p>Galera confirmada, times escalados. Agora é com vocês.</p>
-          </div>
-          <div class="heading-actions">
-            @if (!demo()) {
-              <button class="button secondary" (click)="share(detail()!.club)">
-                <app-icon name="user-plus" />Convidar galera
-              </button>
-            } @else {
-              <button class="button secondary" (click)="showDemo(!demoFinished())">
-                {{ demoFinished() ? 'Ver próxima pelada' : 'Ver partida concluída' }}
-              </button>
-              <button
-                class="button primary"
-                (click)="user() ? navigate('groups') : openAuth('register')"
-              >
-                <app-icon name="plus" />Criar minha pelada
-              </button>
-            }
           </div>
         </div>
         <section class="match-banner" aria-label="Informações da pelada">
@@ -158,63 +137,62 @@
             ><span>{{ date(detail()!.game.startsAt, 'month').replace('.', '') }}</span>
           </div>
           <div class="match-info">
-            <div class="match-kicker">
-              {{
+            @if (
+              detail()!.game.cancelled ||
+              live() ||
+              finished() ||
+              detail()!.game.matchStatus === 'READY'
+            ) {
+              <span class="match-status">{{
                 detail()!.game.cancelled
-                  ? 'PELADA CANCELADA'
-                  : demo()
-                    ? demoFinished()
-                      ? 'PARTIDA ENCERRADA · DEMONSTRAÇÃO'
-                      : 'PRÓXIMA PELADA · DADOS ILUSTRATIVOS'
-                    : detail()!.game.matchStatus === 'LIVE'
-                      ? 'PARTIDA AO VIVO'
-                      : detail()!.game.matchStatus === 'FINISHED'
-                        ? 'PARTIDA ENCERRADA'
-                        : detail()!.game.matchStatus === 'READY'
-                          ? 'AGUARDANDO INÍCIO'
-                          : detail()!.game.editable
-                            ? 'PRÓXIMA PELADA'
-                            : 'PELADA ANTERIOR'
-              }}
-            </div>
+                  ? 'Pelada cancelada'
+                  : live()
+                    ? 'Partida ao vivo'
+                    : finished()
+                      ? 'Partida encerrada'
+                      : 'Aguardando início'
+              }}</span>
+            }
             <h2>{{ detail()!.game.title }}</h2>
             <div class="match-meta">
-              <span><app-icon name="pin" />{{ detail()!.game.location }}</span
-              ><span
-                ><app-icon name="clock" />{{ date(detail()!.game.startsAt, 'hour') }}
-                <small>· Brasília</small></span
-              ><span><app-icon name="ball" />Futebol 5</span>
+              <span><app-icon name="pin" />{{ detail()!.game.location }}</span>
             </div>
           </div>
           <div class="match-attendance">
-            <div class="avatar-stack">
-              @for (p of confirmed().slice(0, 3); track p.id) {
-                <span class="avatar" [style.background]="teamColor(p.teamId)">{{
-                  initials(p.name)
-                }}</span>
-              }
-              <span class="avatar more"
-                >+{{ confirmed().length > 3 ? confirmed().length - 3 : 0 }}</span
-              >
-            </div>
-            <strong
-              >{{ detail()!.game.confirmed }}<span>/{{ capacity() }} confirmados</span></strong
+            <span><app-icon name="clock" />{{ date(detail()!.game.startsAt, 'hour') }}</span>
+            <span
+              ><app-icon name="users" />{{ detail()!.game.confirmed }}/{{
+                capacity()
+              }}
+              confirmados</span
             >
           </div>
-          @if (!demo() && editable()) {
-            @if (mine()) {
-              <button class="button attendance" (click)="open('leave')" [disabled]="busy()">
-                <app-icon name="check" />{{
-                  mine()!.status === 'WAITING' ? 'Na lista de espera' : 'Estou dentro'
-                }}
+          @if (demo() && demoFinished()) {
+            <button class="button banner-link" (click)="showDemo(false)">Ver próxima pelada</button>
+          }
+          @if (!demo()) {
+            <div class="match-actions">
+              <button class="button banner-link" (click)="share(detail()!.club)">
+                <app-icon name="user-plus" />Convidar galera
               </button>
-            } @else {
-              <button class="button primary" (click)="attend()" [disabled]="busy()">
-                {{
-                  detail()!.game.confirmed >= capacity() ? 'Entrar na espera' : 'Confirmar presença'
-                }}
-              </button>
-            }
+              @if (editable()) {
+                @if (mine()) {
+                  <button class="button attendance" (click)="open('leave')" [disabled]="busy()">
+                    <app-icon name="check" />{{
+                      mine()!.status === 'WAITING' ? 'Na lista de espera' : 'Estou dentro'
+                    }}
+                  </button>
+                } @else {
+                  <button class="button primary" (click)="attend()" [disabled]="busy()">
+                    {{
+                      detail()!.game.confirmed >= capacity()
+                        ? 'Entrar na espera'
+                        : 'Confirmar presença'
+                    }}
+                  </button>
+                }
+              }
+            </div>
           }
         </section>
         <div class="content-tabs">
@@ -225,23 +203,21 @@
               [class.active]="tab() === 'lineup'"
               (click)="tab.set('lineup')"
             >
-              <app-icon name="pitch" />Escalações</button
+              Escalações</button
             ><button
               role="tab"
               [attr.aria-selected]="tab() === 'players'"
               [class.active]="tab() === 'players'"
               (click)="tab.set('players')"
             >
-              <app-icon name="users" />Jogadores
-              <span class="count">{{ detail()!.game.confirmed }}</span></button
+              Jogadores</button
             ><button
               role="tab"
               [attr.aria-selected]="tab() === 'waiting'"
               [class.active]="tab() === 'waiting'"
               (click)="tab.set('waiting')"
             >
-              <app-icon name="clock" />Lista de espera
-              <span class="count">{{ waiting().length }}</span>
+              Lista de espera
             </button>
             @if (detail()!.game.liveEnabled) {
               <button
@@ -250,7 +226,7 @@
                 [class.active]="tab() === 'match'"
                 (click)="tab.set('match')"
               >
-                <app-icon name="ball" />Partida
+                Partida
               </button>
               <button
                 role="tab"
@@ -258,7 +234,7 @@
                 [class.active]="tab() === 'ratings'"
                 (click)="tab.set('ratings')"
               >
-                <app-icon name="star" />Notas
+                Notas
               </button>
             }
           </div>
@@ -271,14 +247,8 @@
         </div>
         @if (tab() === 'lineup' && team()) {
           <div class="lineup-layout">
-            <section class="panel lineup-panel">
-              <div class="panel-heading">
-                <div>
-                  <h2>Seu time em campo<span class="small-dot">.</span></h2>
-                  <p>Cada posição faz a diferença.</p>
-                </div>
-                <span class="outline-tag">5 EM CAMPO</span>
-              </div>
+            <section class="panel lineup-panel" [class.lineup-editable]="captain()">
+              <h2 class="sr-only">Escalação de {{ team()!.name }}</h2>
               <div class="team-tabs" role="tablist" aria-label="Times">
                 @for (t of detail()!.teams; track t.id) {
                   <button
@@ -304,46 +274,6 @@
               />
             </section>
             <aside class="detail-column">
-              <section class="panel team-summary">
-                <div class="section-kicker">CONHEÇA O TIME</div>
-                <div class="team-identity">
-                  <span class="team-crest" [style.background]="team()!.color"
-                    ><app-icon name="shield"
-                  /></span>
-                  <div>
-                    <h2>{{ team()!.name }}</h2>
-                    <span>{{ roster().length }} de {{ detail()!.game.teamSize }} jogadores</span>
-                  </div>
-                </div>
-                <div class="captain-row">
-                  <span class="avatar">{{
-                    team()!.captainId ? initials(captainName(team()!)) : '?'
-                  }}</span>
-                  <div>
-                    <span>NA BRAÇADEIRA</span><strong>{{ captainName(team()!) }}</strong>
-                  </div>
-                  <span class="captain-badge">C</span>
-                </div>
-                <div class="team-stats">
-                  <div>
-                    <strong>{{ roster().length }}</strong
-                    ><span>NO ELENCO</span>
-                  </div>
-                  <div>
-                    <strong>{{ roster().length - benchCount() }}</strong
-                    ><span>TITULARES</span>
-                  </div>
-                  <div>
-                    <strong>{{ benchCount() }}</strong
-                    ><span>RESERVAS</span>
-                  </div>
-                </div>
-                @if (owner() && teamEditable()) {
-                  <button class="button secondary full-width" (click)="open('team')">
-                    <app-icon name="edit" />Configurar time e capitão
-                  </button>
-                }
-              </section>
               @if (owner() && teamEditable()) {
                 <section class="panel draw-panel">
                   <div class="section-kicker">TIMES</div>
@@ -362,17 +292,18 @@
               }
               <section class="panel roster-panel">
                 <div class="compact-heading">
-                  <h3>Relacionados</h3>
-                  <span class="count">{{ roster().length }}</span>
+                  <h3>{{ team()!.name }}</h3>
+                  <span>{{ roster().length }} jogadores</span>
                 </div>
-                @for (p of roster(); track p.id) {
+                @for (p of rosterDisplay(); track p.id; let index = $index) {
+                  @if (index === starters().length && reserves().length) {
+                    <h4 class="reserve-divider">Reservas ({{ reserves().length }})</h4>
+                  }
                   <div class="roster-row">
-                    <span class="roster-number">{{
-                      p.slot === null ? '—' : '0' + (p.slot + 1)
-                    }}</span>
+                    <span class="roster-number">{{ squadNumber(p) }}</span>
                     <div>
-                      <strong>{{ p.name }}</strong
-                      ><span>{{
+                      <strong>{{ p.name }}</strong>
+                      <span class="sr-only">{{
                         p.slot === null
                           ? 'Banco de reservas'
                           : p.slot === 0
@@ -391,8 +322,6 @@
                       >
                         <app-icon name="close" />
                       </button>
-                    } @else {
-                      <span class="roster-dot"></span>
                     }
                   </div>
                 }
@@ -400,6 +329,23 @@
                   <p class="muted small">
                     O organizador indica o capitão. Depois, ele escolhe os jogadores.
                   </p>
+                }
+                @if (demo()) {
+                  <button
+                    class="button primary demo-cta"
+                    (click)="user() ? navigate('groups') : openAuth('register')"
+                  >
+                    <app-icon name="plus" />Criar minha pelada
+                  </button>
+                  <button class="text-button demo-switch" (click)="showDemo(!demoFinished())">
+                    {{ demoFinished() ? 'Ver próxima pelada' : 'Ver partida concluída' }}
+                    <app-icon name="arrow" />
+                  </button>
+                }
+                @if (owner() && teamEditable()) {
+                  <button class="button secondary full-width roster-config" (click)="open('team')">
+                    <app-icon name="edit" />Configurar time e capitão
+                  </button>
                 }
               </section>
               @if (captain()) {
@@ -426,21 +372,23 @@
                   }
                 </section>
               }
-              <div class="tip-card">
-                <app-icon name="info" />
-                <div>
-                  <strong>{{
-                    demo() ? 'Aqui, todo mundo joga junto.' : 'O time é do capitão.'
-                  }}</strong>
-                  <p>
-                    {{
-                      demo()
-                        ? 'Explore os times e as formações. Crie sua conta para organizar a próxima resenha.'
-                        : 'Somente o capitão pode escolher os jogadores e alterar a escalação do próprio time.'
-                    }}
-                  </p>
+              @if (!demo()) {
+                <div class="tip-card">
+                  <app-icon name="info" />
+                  <div>
+                    <strong>{{
+                      demo() ? 'Aqui, todo mundo joga junto.' : 'O time é do capitão.'
+                    }}</strong>
+                    <p>
+                      {{
+                        demo()
+                          ? 'Explore os times e as formações. Crie sua conta para organizar a próxima resenha.'
+                          : 'Somente o capitão pode escolher os jogadores e alterar a escalação do próprio time.'
+                      }}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              }
             </aside>
           </div>
         } @else if (tab() === 'match' && detail()!.game.liveEnabled) {
