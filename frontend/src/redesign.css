@@ -28,17 +28,17 @@
 }
 
 :root[data-theme='dark'] {
-  --ui-canvas: #10251c;
-  --ui-surface: #193428;
-  --ui-soft: #254534;
-  --ui-ink: #f0f5ec;
-  --ui-muted: #c3d1c4;
-  --ui-line: #45614d;
+  --ui-canvas: #14171a;
+  --ui-surface: #202428;
+  --ui-soft: #2b3034;
+  --ui-ink: #f0f2ef;
+  --ui-muted: #b9c2c4;
+  --ui-line: #434b4e;
   --ui-action: #d8f36a;
-  --ui-action-ink: #14281d;
-  --ui-sidebar: #0b2017;
-  --ui-sidebar-ink: #f0f5ec;
-  --ui-sidebar-muted: #c2d2c4;
+  --ui-action-ink: #1b2114;
+  --ui-sidebar: #111416;
+  --ui-sidebar-ink: #f0f2ef;
+  --ui-sidebar-muted: #bac3c5;
   --ui-field: #32643f;
   --ui-field-alt: #2f5d3b;
   --ui-danger: #ffb3a5;
@@ -763,6 +763,26 @@ textarea::placeholder {
   color: #b17a12;
 }
 
+:root[data-theme='dark'] .match-banner {
+  background: #29372f;
+}
+
+:root[data-theme='dark'] .modal-overlay {
+  background: #080b0dd9;
+}
+
+:root[data-theme='dark'] .sidebar-scrim {
+  background: #080b0da6;
+}
+
+:root[data-theme='dark'] .sidebar-caption,
+:root[data-theme='dark'] .sidebar-group div span,
+:root[data-theme='dark'] .nav-label,
+:root[data-theme='dark'] .sidebar-card p,
+:root[data-theme='dark'] .sidebar-footer {
+  color: var(--ui-sidebar-muted);
+}
+
 :root[data-theme='dark'] .stars button.selected {
   color: #f4cd72;
 }
@@ -770,12 +790,12 @@ textarea::placeholder {
 :root[data-theme='dark'] .avatar:not([style]),
 :root[data-theme='dark'] .captain-row .avatar,
 :root[data-theme='dark'] .avatar.more {
-  background: #355640;
+  background: #3a4346;
   color: #fff;
 }
 
 :root[data-theme='dark'] .team-crest {
-  color: #eaf4d9;
+  color: var(--ui-ink);
 }
 
 :root[data-theme='dark'] .group-card-icon,

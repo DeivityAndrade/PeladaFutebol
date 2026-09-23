@@ -1,6 +1,6 @@
 # Redesenho da interface
 
-A interface mantém a identidade verde do Pelada com uma leitura mais simples para agenda, escalação, partida, notas, grupos e churrascos. O campo e as ações reais continuam os mesmos. O menu recolhe de 232 px para 72 px em telas grandes; em telas menores que 960 px funciona como gaveta. Claro é o padrão, e a escolha do tema e do menu fica apenas neste navegador.
+A interface mantém a identidade verde do Pelada com uma leitura mais simples para agenda, escalação, partida, notas, grupos e churrascos. No modo noturno, o fundo, o menu e os cartões usam grafite neutro; o verde fica concentrado no campo e o verde-lima destaca ações e seleções. O campo e as ações reais continuam os mesmos. O menu recolhe de 232 px para 72 px em telas grandes; em telas menores que 960 px funciona como gaveta. Claro é o padrão, e a escolha do tema e do menu fica apenas neste navegador.
 
 ## Capturas
 

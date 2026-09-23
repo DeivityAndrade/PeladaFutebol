@@ -170,6 +170,11 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   ).toBe('block');
   await page.getByRole('button', { name: 'Modo noturno' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 23, 26)');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(17, 20, 22)');
+  await expect(page.locator('.panel').first()).toHaveCSS('background-color', 'rgb(32, 36, 40)');
+  await expect(page.locator('.match-banner')).toHaveCSS('background-color', 'rgb(41, 55, 47)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#14171a');
   await expect(page.getByRole('button', { name: 'Modo noturno' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -177,6 +182,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-sidebar', 'collapsed');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#14171a');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/desktop-noturno.png'),
     animations: 'disabled',
@@ -185,6 +191,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.getByLabel('E-mail', { exact: true }).fill('exemplo@pelada.com');
   await page.mouse.click(10, 100);
   await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCSS('background-color', 'rgb(32, 36, 40)');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/acesso-noturno.png'),
     animations: 'disabled',
@@ -224,6 +231,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.getByRole('button', { name: 'Fechar menu' }).first().click();
   await expect(page.locator('.sidebar')).not.toHaveClass(/mobile-open/);
   await page.getByRole('button', { name: 'Modo noturno' }).click();
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f7f8f3');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/mobile.png'),
     fullPage: true,

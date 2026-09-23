@@ -11,5 +11,5 @@
   document.documentElement.dataset.sidebar = sidebar;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', theme === 'dark' ? '#10251c' : '#f7f8f3');
+    ?.setAttribute('content', theme === 'dark' ? '#14171a' : '#f7f8f3');
 })();
