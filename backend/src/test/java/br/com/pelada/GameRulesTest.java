@@ -489,7 +489,8 @@ class GameRulesTest {
   }
 
   @Test
-  void monthlyBarbecueKeepsMonthEndAndReplenishesAfterAnIsolatedCancellation() {
+  void monthlyBarbecueKeepsMonthEndAndReplenishesAfterAnIsolatedCancellation()
+    throws Exception {
     ClubView recurring = groups.create(
       owner,
       new CreateClub("Grupo do churrasco", "", "MONTHLY")
