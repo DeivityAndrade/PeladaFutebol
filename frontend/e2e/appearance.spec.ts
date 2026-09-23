@@ -271,8 +271,13 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
   await expect(page).toHaveURL(/#groups$/);
   await expect(page.getByRole('heading', { name: 'Seus grupos.' })).toBeVisible();
   await page.getByRole('button', { name: /Pelada de quinta/ }).click();
+  await expect(page.getByRole('button', { name: 'Convidar galera' })).toBeVisible();
   await page.getByRole('tab', { name: 'Churrasco' }).click();
+  await expect(page.getByRole('button', { name: 'Convidar galera' })).toHaveCount(0);
   await expect(page.locator('.barbecue-card')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /Convidar alguém para o churrasco de/ }),
+  ).toBeVisible();
   await page.screenshot({
     path: path.resolve('../docs/screenshots/churrasco.png'),
     fullPage: true,
