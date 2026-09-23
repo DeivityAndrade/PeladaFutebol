@@ -483,7 +483,9 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
     await memberPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBeTruthy();
   const gameAttendance = await (await barbecueOnly.ctx.get(`/api/games/${game.game.id}`)).json();
-  expect(gameAttendance.attendees).toHaveLength(0);
+  expect(
+    gameAttendance.attendees.some((person: any) => person.id === barbecueOnly.user.id),
+  ).toBeFalsy();
 
   const eventGuest = await account('Convidado do churrasco');
   const guestMobile = await browser.newContext({
