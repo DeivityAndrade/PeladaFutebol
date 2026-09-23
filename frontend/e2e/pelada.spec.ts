@@ -261,15 +261,15 @@ test('partida ao vivo, gol, encerramento e avaliação em desktop e celular', as
     expect((await mutate(person.ctx, '/invites/' + club.invite + '/join')).ok()).toBeTruthy();
   }
   const kickoff = Date.now() + 20_000;
-  const game = await (
-    await mutate(organizer.ctx, '/groups/' + club.id + '/games', 'POST', {
-      title: 'Jogo ao vivo',
-      location: 'Quadra teste',
-      startsAt: new Date(kickoff).toISOString(),
-      teamCount: 2,
-      teamSize: 5,
-    })
-  ).json();
+  const createGame = await mutate(organizer.ctx, '/groups/' + club.id + '/games', 'POST', {
+    title: 'Jogo ao vivo',
+    location: 'Quadra teste',
+    startsAt: new Date(kickoff).toISOString(),
+    teamCount: 2,
+    teamSize: 5,
+  });
+  expect(createGame.ok(), await createGame.text()).toBeTruthy();
+  const game = await createGame.json();
   for (const person of [organizer, mate, opponent]) {
     expect((await mutate(person.ctx, '/games/' + game.game.id + '/attendance')).ok()).toBeTruthy();
   }
@@ -376,15 +376,15 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
   for (const person of [...players, barbecueOnly]) {
     expect((await mutate(person.ctx, `/invites/${club.invite}/join`)).ok()).toBeTruthy();
   }
-  const game = await (
-    await mutate(organizer.ctx, `/groups/${club.id}/games`, 'POST', {
-      title: 'Pelada com sorteio',
-      location: 'Campo do bairro',
-      startsAt: new Date(Date.now() + 86400000).toISOString(),
-      teamCount: 2,
-      teamSize: 5,
-    })
-  ).json();
+  const createGame = await mutate(organizer.ctx, `/groups/${club.id}/games`, 'POST', {
+    title: 'Pelada com sorteio',
+    location: 'Campo do bairro',
+    startsAt: new Date(Date.now() + 86400000).toISOString(),
+    teamCount: 2,
+    teamSize: 5,
+  });
+  expect(createGame.ok(), await createGame.text()).toBeTruthy();
+  const game = await createGame.json();
   for (const person of [organizer, ...players]) {
     expect((await mutate(person.ctx, `/games/${game.game.id}/attendance`)).ok()).toBeTruthy();
   }

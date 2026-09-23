@@ -85,9 +85,13 @@ public final class Contracts {
     @NotNull Instant startsAt,
     @Min(2) @Max(6) int teamCount,
     @Min(5) @Max(12) int teamSize,
-    boolean chargeOccasional,
+    Boolean chargeOccasional,
     @PositiveOrZero Long occasionalAmountCents
   ) {
+    public CreateGame {
+      if (chargeOccasional == null) chargeOccasional = false;
+    }
+
     public CreateGame(
       String title,
       String location,
