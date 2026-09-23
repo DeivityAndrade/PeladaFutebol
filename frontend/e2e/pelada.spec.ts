@@ -515,3 +515,172 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
     await person.ctx.dispose();
   }
 });
+
+test('financeiro do grupo: avulsos, comprovante, revisão e privacidade no celular', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const organizer = await account('Organizador Financeiro');
+  const captain = await account('Capitão Financeiro');
+  const occasional = await account('Jogador Avulso Financeiro');
+  const club = await (
+    await mutate(organizer.ctx, '/groups', 'POST', {
+      name: 'Grupo Financeiro',
+      description: 'Mensalidades e peladas avulsas.',
+      monthlyAmountCents: 5000,
+      billingDueDay: 10,
+      occasionalAmountCents: 1800,
+      pixInstructions: 'Chave Pix: financeiro@example.com',
+    })
+  ).json();
+  for (const person of [captain, occasional]) {
+    expect((await mutate(person.ctx, `/invites/${club.invite}/join`)).ok()).toBeTruthy();
+  }
+  const kickoff = Date.now() + 5000;
+  const game = await (
+    await mutate(organizer.ctx, `/groups/${club.id}/games`, 'POST', {
+      title: 'Pelada com cobrança',
+      location: 'Quadra financeira',
+      startsAt: new Date(kickoff).toISOString(),
+      teamCount: 2,
+      teamSize: 5,
+      chargeOccasional: true,
+      occasionalAmountCents: 2200,
+    })
+  ).json();
+  for (const person of [organizer, captain, occasional]) {
+    expect((await mutate(person.ctx, `/games/${game.game.id}/attendance`)).ok()).toBeTruthy();
+  }
+  const [firstTeam, secondTeam] = game.teams;
+  expect(
+    (
+      await mutate(organizer.ctx, `/games/${game.game.id}/teams/${firstTeam.id}`, 'PUT', {
+        name: 'Verde',
+        color: '#d8f36a',
+        captainId: organizer.user.id,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await mutate(organizer.ctx, `/games/${game.game.id}/teams/${secondTeam.id}`, 'PUT', {
+        name: 'Azul',
+        color: '#8d9dff',
+        captainId: captain.user.id,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await mutate(captain.ctx, `/games/${game.game.id}/teams/${secondTeam.id}/players`, 'POST', {
+        playerId: occasional.user.id,
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, kickoff - Date.now() + 100)));
+  expect((await mutate(organizer.ctx, `/games/${game.game.id}/match/start`)).ok()).toBeTruthy();
+  const classification = await mutate(
+    organizer.ctx,
+    `/groups/${club.id}/finance/members/${occasional.user.id}`,
+    'PUT',
+    { monthly: true },
+  );
+  expect(classification.ok()).toBeTruthy();
+  const classificationData = await classification.json();
+  expect(
+    classificationData.members.find((member: any) => member.playerId === occasional.user.id)
+      .monthlyFrom,
+  ).toMatch(/^\d{4}-\d{2}-01$/);
+
+  const period = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date(kickoff));
+  const summary = await (
+    await organizer.ctx.get(
+      `/api/groups/${club.id}/finance?period=${period}&gameId=${game.game.id}`,
+    )
+  ).json();
+  const gameCharges = summary.charges.filter((charge: any) => charge.type === 'GAME');
+  expect(gameCharges).toHaveLength(3);
+  expect(gameCharges.map((charge: any) => charge.amountCents)).toEqual([2200, 2200, 2200]);
+  const occasionalCharge = gameCharges.find(
+    (charge: any) => charge.playerId === occasional.user.id,
+  );
+  const ownerCharge = gameCharges.find((charge: any) => charge.playerId === organizer.user.id);
+  expect(occasionalCharge).toBeDefined();
+  expect(ownerCharge).toBeDefined();
+
+  const ownerDesktop = await browser.newContext({
+    storageState: await organizer.ctx.storageState(),
+    viewport: { width: 1440, height: 1000 },
+  });
+  const playerMobile = await browser.newContext({
+    storageState: await occasional.ctx.storageState(),
+    viewport: { width: 390, height: 844 },
+  });
+  const ownerPage = await ownerDesktop.newPage();
+  const playerPage = await playerMobile.newPage();
+  await ownerPage.goto(`/#group/${club.id}`);
+  await ownerPage.getByRole('tab', { name: 'Financeiro' }).click();
+  await expect(ownerPage.getByText('Chave Pix: financeiro@example.com')).toBeVisible();
+  await expect(ownerPage.locator('.finance-charge')).toHaveCount(3);
+  await expect(ownerPage.locator('.finance-charge').first()).toContainText('Pelada com cobrança');
+  await expect(
+    ownerPage
+      .locator('.finance-charge')
+      .first()
+      .getByRole('link', { name: 'Lembrar pelo WhatsApp' }),
+  ).toHaveAttribute('href', /^https:\/\/wa\.me\/\?text=/);
+  await ownerPage.screenshot({
+    path: path.resolve('../docs/screenshots/finance-desktop.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+
+  await playerPage.goto(`/#group/${club.id}`);
+  await playerPage.getByRole('tab', { name: 'Financeiro' }).click();
+  await expect(playerPage.locator('.finance-charge')).toHaveCount(1);
+  await expect(playerPage.locator('.finance-charge')).toContainText('R$ 22,00');
+  await playerPage.locator('.receipt-input').setInputFiles({
+    name: 'comprovante.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  });
+  await expect(playerPage.getByText('Comprovante enviado para conferência.')).toBeVisible();
+  expect(
+    (await occasional.ctx.get(`/api/finance/charges/${ownerCharge.id}/receipt`)).status(),
+  ).toBe(403);
+  expect(
+    await playerPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+  await playerPage.screenshot({
+    path: path.resolve('../docs/screenshots/finance-mobile.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+
+  await ownerPage.reload();
+  await ownerPage.getByRole('tab', { name: 'Financeiro' }).click();
+  const playerRow = ownerPage
+    .locator('.finance-charge')
+    .filter({ hasText: 'Jogador Avulso Financeiro' });
+  await expect(playerRow).toContainText('Aguardando conferência');
+  await playerRow.getByRole('button', { name: 'Aprovar' }).click();
+  await ownerPage.getByRole('button', { name: 'Aprovar pagamento' }).click();
+  await expect(playerRow).toContainText('Pago');
+  const ownerRow = ownerPage
+    .locator('.finance-charge')
+    .filter({ hasText: 'Organizador Financeiro' });
+  await ownerRow.getByRole('button', { name: 'Registrar em dinheiro' }).click();
+  await ownerPage.getByRole('button', { name: 'Confirmar pagamento' }).click();
+  await expect(ownerRow).toContainText('Pago em dinheiro');
+  expect(
+    await ownerPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+
+  await ownerDesktop.close();
+  await playerMobile.close();
+  for (const person of [organizer, captain, occasional]) await person.ctx.dispose();
+});

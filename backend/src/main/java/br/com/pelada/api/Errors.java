@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class Errors {
@@ -25,6 +26,11 @@ public class Errors {
   })
   ResponseEntity<?> validation(Exception ex) {
     return response(400, "Confira os campos informados e tente novamente.");
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  ResponseEntity<?> uploadTooLarge(MaxUploadSizeExceededException ex) {
+    return response(413, "O comprovante deve ter no máximo 2 MB.");
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)

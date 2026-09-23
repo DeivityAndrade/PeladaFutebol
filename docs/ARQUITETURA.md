@@ -21,7 +21,7 @@ O Angular usa componentes standalone, signals para estado derivado e rotas por f
 | Entidade | Responsabilidade |
 | --- | --- |
 | Player | Identidade, e-mail normalizado e hash BCrypt |
-| Club / Member | Grupo privado, organizador, convite e participantes |
+| Club / Member | Grupo privado, organizador, convite, participantes e configuração de cobrança |
 | BarbecueSeries | Frequência, data de referência, fuso e estado da recorrência |
 | Barbecue | Edição avulsa ou recorrente, horário, local, cancelamento e convite individual |
 | BarbecueAttendance | Confirmação independente do futebol, inclusive de convidados do evento |
@@ -30,6 +30,8 @@ O Angular usa componentes standalone, signals para estado derivado e rotas por f
 | Team | Identidade, capitão, formação e revisão da escalação |
 | Goal | Lance com time beneficiado, autor, minuto, gol contra e anulação |
 | Rating | Nota privada de um confirmado a um colega do mesmo time |
+| FinanceCharge | Mensalidade ou cobrança avulsa com valor congelado, vencimento e revisão do pagamento |
+| FinanceReceiptFile | Arquivo privado do comprovante, guardado no PostgreSQL por até 90 dias |
 | Spring Session | Sessão autenticada e token CSRF persistidos no banco |
 
 A escalação é representada pela formação do time e pelo `slot` de cada participação. `slot = 0` é goleiro; `1..4` são jogadores de linha; `null`, quando existe time, significa reserva. Não é preciso criar uma tabela adicional para esse conjunto de cinco posições.
@@ -62,6 +64,9 @@ Capacidade: `quantidade de times × jogadores por time`. De dois a seis times, c
 - Capitão escolhe e libera jogadores, define formação e escala apenas o próprio time.
 - Participante confirma/desiste da própria presença e consulta os times.
 - Apenas o organizador sorteia times e cria, altera, cancela ou pausa churrascos. Membros confirmam presença sem relação com a pelada.
+- O organizador configura cobranças, classifica mensalistas e avulsos, registra dinheiro e aprova ou recusa comprovantes. Capitães do grupo podem consultar cobranças e arquivos; cada participante só consulta as próprias cobranças e comprovantes.
+- Cobranças mensais são geradas ao consultar o financeiro, com restrição única por pessoa e competência. A classificação como mensalista começa no mês seguinte; cada cobrança mantém seu valor. Cobranças avulsas são criadas uma vez para cada participante confirmado no início da pelada.
+- O aplicativo registra pagamentos externos, sem movimentar dinheiro nem validar transações bancárias. Comprovantes são validados por formato e tamanho (2 MB), e o organizador continua responsável pela conferência humana. Arquivos expiram após 90 dias e são removidos na consulta financeira seguinte.
 - Um convite de churrasco é uma credencial específica daquela edição: uma conta autenticada pode consultá-la e confirmar presença sem entrar no grupo. Ela não recebe acesso às outras peladas ou churrascos.
 - Demonstração pública aceita somente leitura; senhas dos perfis fictícios são desabilitadas.
 - Presenças fecham no horário marcado. Em peladas de dois times, os elencos e escalações permanecem editáveis até o início manual, que exige todos os confirmados distribuídos e ao menos um jogador por time.
@@ -91,6 +96,12 @@ Capacidade: `quantidade de times × jogadores por time`. De dois a seis times, c
 | `POST, DELETE /api/barbecues/{id}/attendance` | Confirmar ou desistir como membro do grupo |
 | `GET /api/barbecue-invites/{token}` | Consultar edição compartilhada |
 | `POST, DELETE /api/barbecue-invites/{token}/attendance` | Confirmar ou desistir como convidado |
+| `GET /api/groups/{id}/finance` | Resumo e cobranças do mês, com filtros por jogador e pelada |
+| `PUT /api/groups/{id}/finance/settings` | Atualizar valores, vencimento e instruções Pix |
+| `PUT /api/groups/{id}/finance/members/{playerId}` | Classificar participante como mensalista ou avulso |
+| `POST /api/finance/charges/{id}/receipt` / `GET .../receipt` | Enviar / baixar comprovante protegido |
+| `POST /api/finance/charges/{id}/approve` / `reject` | Aprovar ou recusar comprovante (organizador) |
+| `POST /api/finance/charges/{id}/cash` | Registrar pagamento em dinheiro (organizador) |
 | `GET, POST /api/groups/{id}/games` | Agenda / criação de pelada |
 | `GET /api/games/{id}` | Evento, times, placar, gols e notas publicadas |
 | `POST, DELETE /api/games/{id}/attendance` | Confirmar / desistir |

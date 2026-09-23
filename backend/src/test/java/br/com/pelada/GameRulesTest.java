@@ -8,6 +8,7 @@ import br.com.pelada.domain.Domain.*;
 import br.com.pelada.games.Games;
 import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Barbecues;
+import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
 import java.time.*;
 import java.util.*;
@@ -37,6 +38,9 @@ class GameRulesTest {
   Barbecues barbecues;
 
   @Autowired
+  Finance finance;
+
+  @Autowired
   Store store;
 
   @Autowired
@@ -51,7 +55,7 @@ class GameRulesTest {
   @BeforeEach
   void setup() {
     jdbc.execute(
-      "TRUNCATE spring_session,barbecue_attendance,barbecues,barbecue_series,participations,teams,games,members,clubs,players CASCADE"
+      "TRUNCATE spring_session,finance_receipt_files,finance_charges,barbecue_attendance,barbecues,barbecue_series,participations,teams,games,members,clubs,players CASCADE"
     );
     players = tx.execute(status -> {
       List<UUID> result = new ArrayList<>();
@@ -154,6 +158,392 @@ class GameRulesTest {
     games.leave(owner, game);
     games.leave(owner, game);
     assertThat(games.get(owner, game).attendees()).isEmpty();
+  }
+
+  @Test
+  void monthlyPlansStartNextCycleAndInvoicesAreGeneratedOnlyOnce() {
+    YearMonth current = YearMonth.from(
+      LocalDate.now(Clock.systemUTC().withZone(ZoneId.of("America/Sao_Paulo")))
+    );
+    finance.updateSettings(
+      owner,
+      club,
+      new FinanceSettingsInput(5000L, 31, 1800L, "pix@exemplo.com")
+    );
+    FinanceSummary assigned = finance.classifyMember(
+      owner,
+      club,
+      players.get(1),
+      true
+    );
+    FinanceMemberView member = assigned
+      .members()
+      .stream()
+      .filter(item -> item.playerId().equals(players.get(1)))
+      .findFirst()
+      .orElseThrow();
+    assertThat(member.monthlyFrom()).isEqualTo(current.plusMonths(1).atDay(1));
+    assertThat(
+      finance
+        .summary(owner, club, current.toString(), null, null)
+        .charges()
+        .stream()
+        .noneMatch(
+          c -> c.type().equals("MONTHLY") && c.playerId().equals(players.get(1))
+        )
+    ).isTrue();
+
+    jdbc.update(
+      "update members set monthly_from=?,monthly_through=null where club_id=? and player_id=?",
+      java.sql.Date.valueOf(current.atDay(1)),
+      club,
+      players.get(1)
+    );
+    FinanceSummary generated = finance.summary(
+      owner,
+      club,
+      current.toString(),
+      null,
+      null
+    );
+    List<FinanceChargeView> invoices = generated
+      .charges()
+      .stream()
+      .filter(
+        c -> c.type().equals("MONTHLY") && c.playerId().equals(players.get(1))
+      )
+      .toList();
+    assertThat(invoices).hasSize(1);
+    assertThat(invoices.getFirst().amountCents()).isEqualTo(5000L);
+    assertThat(invoices.getFirst().dueDate()).isEqualTo(current.atEndOfMonth());
+    assertThat(
+      finance
+        .summary(owner, club, current.toString(), null, null)
+        .charges()
+        .stream()
+        .filter(
+          c -> c.type().equals("MONTHLY") && c.playerId().equals(players.get(1))
+        )
+    ).hasSize(1);
+  }
+
+  @Test
+  void gameStartChargesConfirmedOccasionalPlayersOnceAndLeavesMonthlyAndWaitingOut() {
+    YearMonth current = YearMonth.from(
+      LocalDate.now(Clock.systemUTC().withZone(ZoneId.of("America/Sao_Paulo")))
+    );
+    confirmed(12);
+    var teams = captains();
+    games.draw(owner, game);
+    tx.executeWithoutResult(status -> {
+      Game scheduled = store.get(Game.class, game);
+      scheduled.startsAt = Instant.now().minusSeconds(60);
+      scheduled.chargeOccasional = true;
+      scheduled.occasionalAmountCents = 1800L;
+      Member monthly = store
+        .first(
+          Member.class,
+          "from Member where clubId=:club and playerId=:player",
+          "club",
+          club,
+          "player",
+          players.get(1)
+        )
+        .orElseThrow();
+      monthly.billingType = "MONTHLY";
+      monthly.monthlyFrom = current.atDay(1);
+      monthly.monthlyAmountCents = 5000L;
+    });
+
+    matches.start(owner, game);
+    List<FinanceChargeView> gameCharges = finance
+      .summary(owner, club, current.toString(), null, game)
+      .charges()
+      .stream()
+      .filter(charge -> charge.type().equals("GAME"))
+      .toList();
+    assertThat(gameCharges).hasSize(9);
+    assertThat(gameCharges).allMatch(charge -> charge.amountCents() == 1800L);
+    assertThat(gameCharges).noneMatch(charge ->
+      charge.playerId().equals(players.get(1))
+    );
+    assertThat(gameCharges).noneMatch(
+      charge ->
+        charge.playerId().equals(players.get(10)) ||
+        charge.playerId().equals(players.get(11))
+    );
+    assertThatThrownBy(() -> matches.start(owner, game)).isInstanceOf(
+      ApiException.class
+    );
+    assertThat(
+      finance
+        .summary(owner, club, current.toString(), null, game)
+        .charges()
+        .stream()
+        .filter(charge -> charge.type().equals("GAME"))
+    ).hasSize(9);
+  }
+
+  @Test
+  void cancellingPeladaCancelsItsOutstandingChargesAndKeepsRecordedPayments() {
+    LocalDate gameDate = tx.execute(status ->
+      store
+        .get(Game.class, game)
+        .startsAt.atZone(ZoneId.of("America/Sao_Paulo"))
+        .toLocalDate()
+    );
+    FinanceCharge pending = tx.execute(status ->
+      store.save(
+        new FinanceCharge(
+          club,
+          store
+            .first(
+              Member.class,
+              "from Member where clubId=:club and playerId=:player",
+              "club",
+              club,
+              "player",
+              players.get(1)
+            )
+            .orElseThrow()
+            .id,
+          players.get(1),
+          game,
+          "GAME",
+          null,
+          1800L,
+          gameDate,
+          Instant.now()
+        )
+      )
+    );
+    FinanceCharge paid = tx.execute(status ->
+      store.save(
+        new FinanceCharge(
+          club,
+          store
+            .first(
+              Member.class,
+              "from Member where clubId=:club and playerId=:player",
+              "club",
+              club,
+              "player",
+              players.get(2)
+            )
+            .orElseThrow()
+            .id,
+          players.get(2),
+          game,
+          "GAME",
+          null,
+          1800L,
+          gameDate,
+          Instant.now()
+        )
+      )
+    );
+    finance.markCash(owner, paid.id);
+
+    games.cancel(owner, game);
+
+    YearMonth gamePeriod = YearMonth.from(gameDate);
+    List<FinanceChargeView> charges = finance
+      .summary(owner, club, gamePeriod.toString(), null, game)
+      .charges();
+    assertThat(charges)
+      .filteredOn(charge -> charge.id().equals(pending.id))
+      .singleElement()
+      .extracting(FinanceChargeView::status)
+      .isEqualTo("CANCELLED");
+    assertThat(charges)
+      .filteredOn(charge -> charge.id().equals(paid.id))
+      .singleElement()
+      .extracting(FinanceChargeView::status)
+      .isEqualTo("PAID");
+  }
+
+  @Test
+  void proofReviewPrivacyCashPaymentsAndNinetyDayExpiryAreEnforced() {
+    LocalDate today = LocalDate.now(
+      Clock.systemUTC().withZone(ZoneId.of("America/Sao_Paulo"))
+    );
+    confirmed(2);
+    captains();
+    FinanceCharge proofCharge = tx.execute(status ->
+      store.save(
+        new FinanceCharge(
+          club,
+          store
+            .first(
+              Member.class,
+              "from Member where clubId=:club and playerId=:player",
+              "club",
+              club,
+              "player",
+              players.get(2)
+            )
+            .orElseThrow()
+            .id,
+          players.get(2),
+          null,
+          "MONTHLY",
+          YearMonth.from(today).toString(),
+          2400L,
+          today,
+          Instant.now()
+        )
+      )
+    );
+    byte[] pngSignature = new byte[] {
+      (byte) 0x89,
+      0x50,
+      0x4e,
+      0x47,
+      0x0d,
+      0x0a,
+      0x1a,
+      0x0a,
+    };
+    assertThatThrownBy(() ->
+      finance.uploadReceipt(
+        players.get(2),
+        proofCharge.id,
+        "grande.png",
+        "image/png",
+        new byte[Finance.MAX_RECEIPT_BYTES + 1]
+      )
+    )
+      .isInstanceOf(ApiException.class)
+      .hasFieldOrPropertyWithValue("status", 413);
+    assertThatThrownBy(() ->
+      finance.uploadReceipt(
+        players.get(2),
+        proofCharge.id,
+        "arquivo.txt",
+        "text/plain",
+        new byte[] { 1, 2, 3 }
+      )
+    )
+      .isInstanceOf(ApiException.class)
+      .hasFieldOrPropertyWithValue("status", 400);
+    FinanceChargeView uploaded = finance.uploadReceipt(
+      players.get(2),
+      proofCharge.id,
+      "..\\comprovante.png",
+      "image/png",
+      pngSignature
+    );
+    assertThat(uploaded.status()).isEqualTo("AWAITING_REVIEW");
+    assertThat(finance.receipt(owner, proofCharge.id).data()).containsExactly(
+      pngSignature
+    );
+    assertThatThrownBy(() -> finance.receipt(players.get(3), proofCharge.id))
+      .isInstanceOf(ApiException.class)
+      .hasFieldOrPropertyWithValue("status", 403);
+    FinanceSummary captainSummary = finance.summary(
+      players.get(1),
+      club,
+      YearMonth.from(today).toString(),
+      null,
+      null
+    );
+    assertThat(captainSummary.canViewAll()).isTrue();
+    assertThat(captainSummary.canManage()).isFalse();
+    assertThat(captainSummary.charges()).anyMatch(c ->
+      c.id().equals(proofCharge.id)
+    );
+    assertThatThrownBy(() ->
+      finance.updateSettings(
+        players.get(1),
+        club,
+        new FinanceSettingsInput(4000L, 5, 1500L, "")
+      )
+    ).isInstanceOf(ApiException.class);
+
+    assertThat(
+      finance.review(owner, proofCharge.id, true, null).status()
+    ).isEqualTo("PAID");
+    FinanceCharge cashCharge = tx.execute(status ->
+      store.save(
+        new FinanceCharge(
+          club,
+          store
+            .first(
+              Member.class,
+              "from Member where clubId=:club and playerId=:player",
+              "club",
+              club,
+              "player",
+              players.get(4)
+            )
+            .orElseThrow()
+            .id,
+          players.get(4),
+          game,
+          "GAME",
+          null,
+          1200L,
+          today,
+          Instant.now()
+        )
+      )
+    );
+    FinanceChargeView cashPayment = finance.markCash(owner, cashCharge.id);
+    assertThat(cashPayment.status()).isEqualTo("PAID");
+    assertThat(cashPayment.manual()).isTrue();
+
+    FinanceCharge expiredCharge = tx.execute(status -> {
+      Member member = store
+        .first(
+          Member.class,
+          "from Member where clubId=:club and playerId=:player",
+          "club",
+          club,
+          "player",
+          players.get(5)
+        )
+        .orElseThrow();
+      FinanceCharge charge = store.save(
+        new FinanceCharge(
+          club,
+          member.id,
+          players.get(5),
+          null,
+          "MONTHLY",
+          YearMonth.from(today).toString(),
+          1200L,
+          today.minusDays(30),
+          Instant.now()
+        )
+      );
+      charge.status = "AWAITING_REVIEW";
+      charge.receiptUploadedAt = Instant.now().minus(Duration.ofDays(91));
+      charge.receiptFilename = "antigo.png";
+      charge.receiptContentType = "image/png";
+      store.save(new FinanceReceiptFile(charge.id, pngSignature));
+      return charge;
+    });
+    FinanceSummary afterExpiry = finance.summary(
+      owner,
+      club,
+      YearMonth.from(today).toString(),
+      null,
+      null
+    );
+    assertThat(afterExpiry.charges()).anyMatch(
+      c -> c.id().equals(expiredCharge.id) && !c.receiptAvailable()
+    );
+    assertThat(
+      store.first(
+        FinanceReceiptFile.class,
+        "from FinanceReceiptFile where chargeId=:charge",
+        "charge",
+        expiredCharge.id
+      )
+    ).isEmpty();
+    assertThatThrownBy(() -> finance.receipt(owner, expiredCharge.id))
+      .isInstanceOf(ApiException.class)
+      .hasFieldOrPropertyWithValue("status", 410);
   }
 
   @Test

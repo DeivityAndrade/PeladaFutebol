@@ -10,9 +10,30 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Api, ApiError } from './api';
-import { Barbecue, Club, Detail, Game, Player, PlayerProfile, Team, User } from './models';
+import {
+  Barbecue,
+  Club,
+  Detail,
+  FinanceCharge,
+  FinanceMember,
+  FinanceSummary,
+  Game,
+  Player,
+  PlayerProfile,
+  Team,
+  User,
+} from './models';
 import { Icon } from './icon';
 import { Pitch } from './pitch';
+
+function currentBillingPeriod() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date());
+  return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}`;
+}
 
 @Component({
   selector: 'app-root',
@@ -28,6 +49,11 @@ export class App implements OnInit, OnDestroy {
   detail = signal<Detail | null>(null);
   club = signal<Club | null>(null);
   barbecues = signal<Barbecue[]>([]);
+  financeData = signal<FinanceSummary | null>(null);
+  financePeriod = signal(currentBillingPeriod());
+  financePlayerFilter = signal('');
+  financeGameFilter = signal('');
+  financeLoading = signal(false);
   barbecueInvite = signal<Barbecue | null>(null);
   page = signal('demo');
   loading = signal(true);
@@ -178,6 +204,10 @@ export class App implements OnInit, OnDestroy {
         this.barbecues.set(
           await this.api.request<Barbecue[]>('/groups/' + parts[1] + '/barbecues'),
         );
+        this.financeData.set(null);
+        this.financePlayerFilter.set('');
+        this.financeGameFilter.set('');
+        if (this.groupTab() === 'finance') await this.loadFinance();
       } else if (page === 'barbecue-invite') {
         this.barbecueInvite.set(
           await this.api.request<Barbecue>('/barbecue-invites/' + encodeURIComponent(parts[1])),
@@ -287,8 +317,33 @@ export class App implements OnInit, OnDestroy {
   open(name: string) {
     this.error.set('');
     this.form = {};
-    if (name === 'game') this.form = { title: 'Pelada da semana', teamCount: 2, teamSize: 7 };
-    if (name === 'club') this.form = { name: '', description: '', barbecueFrequency: 'NONE' };
+    if (name === 'game')
+      this.form = {
+        title: 'Pelada da semana',
+        teamCount: 2,
+        teamSize: 7,
+        chargeOccasional: !!this.club()?.occasionalAmountCents,
+        occasionalAmount: this.toAmountInput(this.club()?.occasionalAmountCents ?? null),
+      };
+    if (name === 'club')
+      this.form = {
+        name: '',
+        description: '',
+        barbecueFrequency: 'NONE',
+        monthlyAmount: '',
+        billingDueDay: 10,
+        occasionalAmount: '',
+        pixInstructions: '',
+      };
+    if (name === 'finance-settings') {
+      const settings = this.financeData()?.settings || this.club();
+      this.form = {
+        monthlyAmount: this.toAmountInput(settings?.monthlyAmountCents ?? null),
+        billingDueDay: settings?.billingDueDay ?? 10,
+        occasionalAmount: this.toAmountInput(settings?.occasionalAmountCents ?? null),
+        pixInstructions: settings?.pixInstructions ?? '',
+      };
+    }
     if (name === 'barbecue-series' || name === 'barbecue')
       this.form = { startsAt: '', location: '' };
     if (name === 'team' && this.team())
@@ -365,6 +420,10 @@ export class App implements OnInit, OnDestroy {
         name: this.form['name'],
         description: this.form['description'] || '',
         barbecueFrequency: this.form['barbecueFrequency'] || 'NONE',
+        monthlyAmountCents: this.toCents(this.form['monthlyAmount']),
+        billingDueDay: Number(this.form['billingDueDay'] || 10),
+        occasionalAmountCents: this.toCents(this.form['occasionalAmount']),
+        pixInstructions: this.form['pixInstructions'] || '',
       });
       this.modal.set('');
       this.groupTab.set(c.barbecueFrequency === 'NONE' ? 'games' : 'barbecue');
@@ -388,14 +447,205 @@ export class App implements OnInit, OnDestroy {
   createGame() {
     void this.action(async () => {
       const d = await this.api.request<Detail>('/groups/' + this.club()!.id + '/games', 'POST', {
-        ...this.form,
+        title: this.form['title'],
+        location: this.form['location'],
         startsAt: new Date(this.form['startsAt']).toISOString(),
+        teamCount: Number(this.form['teamCount']),
+        teamSize: Number(this.form['teamSize']),
+        chargeOccasional: !!this.form['chargeOccasional'],
+        occasionalAmountCents: this.form['chargeOccasional']
+          ? this.toCents(this.form['occasionalAmount'])
+          : null,
       });
       this.setDetail(d);
       this.modal.set('');
       this.navigate('game/' + d.game.id);
       this.notify('Pelada marcada!');
     });
+  }
+
+  selectGroupTab(tab: string) {
+    this.groupTab.set(tab);
+    if (tab === 'finance') void this.loadFinance();
+  }
+
+  async loadFinance() {
+    const club = this.club();
+    if (!club) return;
+    this.financeLoading.set(true);
+    try {
+      this.financeData.set(
+        await this.api.request<FinanceSummary>(this.financeRequestPath(club.id)),
+      );
+    } catch (e) {
+      this.showError(e);
+    } finally {
+      this.financeLoading.set(false);
+    }
+  }
+
+  private financeRequestPath(clubId: string) {
+    const params = new URLSearchParams({ period: this.financePeriod() });
+    if (this.financePlayerFilter()) params.set('playerId', this.financePlayerFilter());
+    if (this.financeGameFilter()) params.set('gameId', this.financeGameFilter());
+    return `/groups/${clubId}/finance?${params.toString()}`;
+  }
+
+  updateFinanceFilters() {
+    void this.loadFinance();
+  }
+
+  saveFinanceSettings() {
+    const club = this.club();
+    if (!club) return;
+    void this.action(async () => {
+      const summary = await this.api.request<FinanceSummary>(
+        `/groups/${club.id}/finance/settings`,
+        'PUT',
+        {
+          monthlyAmountCents: this.toCents(this.form['monthlyAmount']),
+          billingDueDay: Number(this.form['billingDueDay']),
+          occasionalAmountCents: this.toCents(this.form['occasionalAmount']),
+          pixInstructions: this.form['pixInstructions'] || '',
+        },
+      );
+      this.club.set({ ...club, ...summary.settings });
+      this.modal.set('');
+      await this.loadFinance();
+      this.notify('Configuração financeira atualizada.');
+    });
+  }
+
+  classifyMember(member: FinanceMember) {
+    const club = this.club();
+    if (!club) return;
+    const monthly = member.billingType !== 'MONTHLY';
+    void this.action(async () => {
+      await this.api.request<FinanceSummary>(
+        `/groups/${club.id}/finance/members/${member.playerId}`,
+        'PUT',
+        { monthly },
+      );
+      await this.loadFinance();
+      this.notify(
+        monthly
+          ? `${member.playerName} passa a mensalista no próximo mês.`
+          : `${member.playerName} passa a pagar por pelada no próximo mês.`,
+      );
+    });
+  }
+
+  uploadReceipt(charge: FinanceCharge, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      this.showError(new Error('O comprovante deve ter no máximo 2 MB.'));
+      return;
+    }
+    const club = this.club();
+    if (!club) return;
+    void this.action(async () => {
+      await this.api.upload(`/finance/charges/${charge.id}/receipt`, file);
+      await this.loadFinance();
+      this.notify('Comprovante enviado para conferência.');
+    });
+  }
+
+  openFinanceReview(charge: FinanceCharge, approve: boolean) {
+    this.open('finance-review');
+    this.form = { chargeId: charge.id, playerName: charge.playerName, approve, note: '' };
+  }
+
+  submitFinanceReview() {
+    const approve = !!this.form['approve'];
+    const path = `/finance/charges/${this.form['chargeId']}/${approve ? 'approve' : 'reject'}`;
+    void this.action(async () => {
+      await this.api.request(path, 'POST', approve ? undefined : { note: this.form['note'] || '' });
+      this.modal.set('');
+      await this.loadFinance();
+      this.notify(approve ? 'Pagamento aprovado.' : 'Comprovante recusado.');
+    });
+  }
+
+  openCashPayment(charge: FinanceCharge) {
+    this.open('finance-cash');
+    this.form = {
+      chargeId: charge.id,
+      playerName: charge.playerName,
+      amountCents: charge.amountCents,
+    };
+  }
+
+  markCashPayment() {
+    void this.action(async () => {
+      await this.api.request(`/finance/charges/${this.form['chargeId']}/cash`, 'POST');
+      this.modal.set('');
+      await this.loadFinance();
+      this.notify('Pagamento em dinheiro registrado.');
+    });
+  }
+
+  financeStatus(charge: FinanceCharge) {
+    if (charge.status === 'PAID') return charge.manual ? 'Pago em dinheiro' : 'Pago';
+    if (charge.status === 'CANCELLED') return 'Cancelada';
+    if (charge.status === 'AWAITING_REVIEW') return 'Aguardando conferência';
+    if (charge.status === 'REJECTED')
+      return charge.overdue ? 'Vencida · comprovante recusado' : 'Comprovante recusado';
+    return charge.overdue ? 'Vencida' : charge.dueSoon ? 'Vence em breve' : 'Pendente';
+  }
+
+  chargeType(charge: FinanceCharge) {
+    return charge.type === 'MONTHLY'
+      ? `Mensalidade · ${this.periodLabel(charge.period)}`
+      : `Pelada avulsa · ${charge.gameTitle || 'Pelada'}`;
+  }
+
+  money(cents: number | null | undefined) {
+    if (cents == null) return 'Não configurado';
+    return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  private toAmountInput(cents: number | null) {
+    return cents == null ? '' : (cents / 100).toFixed(2);
+  }
+
+  private toCents(value: unknown): number | null {
+    if (value == null || String(value).trim() === '') return null;
+    const amount = Number(String(value).replace(',', '.'));
+    return Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) : null;
+  }
+
+  periodLabel(period: string | null) {
+    if (!period) return '';
+    const [year, month] = period.split('-').map(Number);
+    return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+      new Date(year, month - 1, 1, 12),
+    );
+  }
+
+  dueDateLabel(date: string) {
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(
+      new Date(`${date}T12:00:00`),
+    );
+  }
+
+  whatsappReminder(charge: FinanceCharge) {
+    const firstName = charge.playerName.split(' ')[0];
+    const kind =
+      charge.type === 'MONTHLY'
+        ? `a mensalidade de ${this.periodLabel(charge.period)}`
+        : `a pelada ${charge.gameTitle || ''}`;
+    const message = `Oi, ${firstName}! Passando para lembrar de ${kind} do grupo ${this.club()?.name}. O vencimento é ${this.dueDateLabel(charge.dueDate)} e o valor é ${this.money(charge.amountCents)}. Se já pagou, pode enviar o comprovante pelo Pelada. Obrigado!`;
+    return 'https://wa.me/?text=' + encodeURIComponent(message);
+  }
+
+  memberBillingLabel(member: FinanceMember) {
+    if (member.billingType !== 'MONTHLY') return 'Por pelada';
+    return member.monthlyFrom
+      ? `Mensal desde ${this.periodLabel(member.monthlyFrom.slice(0, 7))}`
+      : 'Mensalista';
   }
   async createBarbecueSeries() {
     const club = this.club();

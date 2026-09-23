@@ -2,6 +2,7 @@ package br.com.pelada.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /** Small aggregate entities. Cross-aggregate references are explicit UUIDs. */
@@ -42,6 +43,10 @@ public final class Domain {
     public UUID invite = UUID.randomUUID();
     public boolean demo;
     public String barbecueFrequency = "NONE";
+    public Long monthlyAmountCents;
+    public int billingDueDay = 1;
+    public Long occasionalAmountCents;
+    public String pixInstructions = "";
 
     protected Club() {}
 
@@ -61,6 +66,10 @@ public final class Domain {
 
     public UUID clubId;
     public UUID playerId;
+    public String billingType = "OCCASIONAL";
+    public LocalDate monthlyFrom;
+    public LocalDate monthlyThrough;
+    public Long monthlyAmountCents;
 
     protected Member() {}
 
@@ -164,6 +173,77 @@ public final class Domain {
     }
   }
 
+  @Entity(name = "FinanceCharge")
+  @Table(name = "finance_charges")
+  public static class FinanceCharge {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID clubId;
+    public UUID memberId;
+    public UUID playerId;
+    public UUID gameId;
+    public String type;
+    public String period;
+    public long amountCents;
+    public LocalDate dueDate;
+    public String status = "PENDING";
+    public boolean manual;
+    public String reviewNote;
+    public Instant createdAt;
+    public Instant paymentSubmittedAt;
+    public Instant paidAt;
+    public Instant reviewedAt;
+    public UUID reviewedBy;
+    public Instant receiptUploadedAt;
+    public String receiptFilename;
+    public String receiptContentType;
+    public Instant receiptDeletedAt;
+
+    protected FinanceCharge() {}
+
+    public FinanceCharge(
+      UUID clubId,
+      UUID memberId,
+      UUID playerId,
+      UUID gameId,
+      String type,
+      String period,
+      long amountCents,
+      LocalDate dueDate,
+      Instant createdAt
+    ) {
+      this.clubId = clubId;
+      this.memberId = memberId;
+      this.playerId = playerId;
+      this.gameId = gameId;
+      this.type = type;
+      this.period = period;
+      this.amountCents = amountCents;
+      this.dueDate = dueDate;
+      this.createdAt = createdAt;
+    }
+  }
+
+  @Entity(name = "FinanceReceiptFile")
+  @Table(name = "finance_receipt_files")
+  public static class FinanceReceiptFile {
+
+    @Id
+    public UUID chargeId;
+
+    @Column(columnDefinition = "bytea")
+    public byte[] data;
+
+    protected FinanceReceiptFile() {}
+
+    public FinanceReceiptFile(UUID chargeId, byte[] data) {
+      this.chargeId = chargeId;
+      this.data = data;
+    }
+  }
+
   @Entity(name = "Game")
   @Table(name = "games")
   public static class Game {
@@ -183,6 +263,8 @@ public final class Domain {
     public Instant matchEndedAt;
     public Integer matchDurationSeconds;
     public boolean correctionOpen;
+    public boolean chargeOccasional;
+    public Long occasionalAmountCents;
 
     protected Game() {}
 

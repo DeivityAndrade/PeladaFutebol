@@ -20,6 +20,10 @@
   Depois desse prazo, consultar médias anônimas por partida e a média geral no perfil.
 - Organizar churrascos avulsos ou recorrentes por mês, a cada dois meses ou a cada três meses.
   Cada edição tem local, horário, confirmação independente do futebol e convite próprio para convidados.
+- Controlar mensalidades e cobranças avulsas por pelada, classificar mensalistas, receber comprovantes
+  de até 2 MB e conferir pagamentos manualmente. Os pagamentos Pix continuam fora do aplicativo.
+- Consultar valores pagos, pendentes e vencidos, baixar comprovantes privados por 90 dias e preparar
+  lembretes para compartilhar pelo WhatsApp.
 - Alternar entre visual claro e noturno e recolher o menu no computador. As preferências ficam salvas no navegador.
 
 Reservas já têm vaga na pelada e pertencem a um time. A lista de espera é para quem ainda não tem vaga no evento.
@@ -98,13 +102,15 @@ Encerre o processo Java antes de reconstruir o mesmo arquivo JAR no Windows.
 6. Como organizador, use **Sortear times** para distribuir os confirmados; o sorteio pode ser refeito até começar a partida.
 7. Como capitão, use **Disponíveis** para adicionar jogadores. Depois toque em uma posição do campo e escolha um nome.
 8. Na aba **Churrasco**, configure a recorrência do grupo ou marque uma edição avulsa. Compartilhe um convite específico para quem não faz parte do grupo.
-9. Troque a formação, mova jogadores ao banco e recarregue a página: as alterações permanecem salvas.
-10. Depois do horário marcado, com todos os confirmados distribuídos entre os dois times,
+9. Na aba **Financeiro**, informe mensalidade, vencimento, valor avulso e chave Pix; classifique quem paga por mês. Quando marcar uma pelada, escolha se ela gera cobranças avulsas.
+10. Depois do início da pelada, cada avulso confirmado encontra sua cobrança no financeiro do grupo. O jogador envia um comprovante; o organizador confere e aprova ou recusa, ou registra pagamento em dinheiro.
+11. Troque a formação, mova jogadores ao banco e recarregue a página: as alterações permanecem salvas.
+12. Depois do horário marcado, com todos os confirmados distribuídos entre os dois times,
    qualquer membro pode tocar em **Começar partida**. Até esse início manual, capitães ainda
    podem completar elencos e escalações; as presenças fecham no horário marcado.
-11. Jogadores confirmados podem registrar ou anular gols e encerrar a partida. O organizador
+13. Jogadores confirmados podem registrar ou anular gols e encerrar a partida. O organizador
    pode abrir o modo de correção após o fim para ajustar gols e duração sem reiniciar o relógio.
-12. Na aba **Notas**, cada confirmado pode avaliar colegas do próprio time por 24 horas.
+14. Na aba **Notas**, cada confirmado pode avaliar colegas do próprio time por 24 horas.
     As médias aparecem depois do prazo. A demonstração inclui uma partida concluída.
 
 O organizador só edita a escalação se também for o capitão daquele time. Trocar o capitão não remove o capitão anterior do elenco; o novo capitão pode liberá-lo. Um capitão que desiste deixa o posto vago até o organizador indicar um substituto.
@@ -160,5 +166,7 @@ Render e Neon. A partida ao vivo e as avaliações estão disponíveis para pela
 Peladas de três ou mais times continuam com agenda e escalações, sem placar ou notas.
 Peladas encerradas antes da migração não recebem avaliações retroativas.
 
-Ficam de fora pagamentos, custos, chat, recuperação de senha e notificações externas. Os convites
-são compartilhados copiando o link; não existe integração com WhatsApp.
+O aplicativo registra cobranças e pagamentos feitos externamente; não processa Pix, valida transações
+bancárias nem aprova comprovantes automaticamente. O envio de lembretes pelo WhatsApp é manual: o
+Pelada apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas, chat,
+recuperação de senha ou notificações externas. Os convites são compartilhados copiando o link.

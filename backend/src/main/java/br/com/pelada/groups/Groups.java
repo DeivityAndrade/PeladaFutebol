@@ -22,6 +22,10 @@ public class Groups {
       new Club(input.name().strip(), input.description().strip(), user)
     );
     club.barbecueFrequency = input.barbecueFrequency();
+    club.monthlyAmountCents = positive(input.monthlyAmountCents());
+    club.billingDueDay = input.billingDueDay();
+    club.occasionalAmountCents = positive(input.occasionalAmountCents());
+    club.pixInstructions = input.pixInstructions().strip();
     store.save(new Member(club.id, user));
     return view(club);
   }
@@ -108,7 +112,15 @@ public class Groups {
           "club",
           club.id
         )
-        .isPresent()
+        .isPresent(),
+      club.monthlyAmountCents,
+      club.billingDueDay,
+      club.occasionalAmountCents,
+      club.pixInstructions
     );
+  }
+
+  private Long positive(Long amount) {
+    return amount == null || amount <= 0 ? null : amount;
   }
 }
