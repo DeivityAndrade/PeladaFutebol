@@ -1,61 +1,78 @@
 <a class="skip-link" href="#main" (click)="skipToMain($event)">Pular para o conteúdo</a>
 <div class="app-shell">
   @if (sidebar()) {
-    <button class="sidebar-scrim" aria-label="Fechar menu" (click)="sidebar.set(false)"></button>
+    <button class="sidebar-scrim" aria-label="Fechar menu" (click)="closeSidebar(true)"></button>
   }
-  <aside class="sidebar" [class.mobile-open]="sidebar()">
-    <a class="brand" href="#demo" aria-label="Pelada, início"
-      ><span class="brand-icon"><app-icon name="ball" /></span>pelada<span class="brand-dot"
-        >.</span
-      ></a
-    >
-    <span class="sidebar-caption">SEU FUTEBOL, ORGANIZADO.</span>
-    <div class="sidebar-group">
-      <span class="group-avatar"><app-icon name="shield" /></span>
-      <div>
-        <strong>{{ detail()?.club?.name || 'Sua próxima resenha' }}</strong
-        ><span>{{ demo() ? 'Grupo de demonstração' : 'Juntos dentro de campo' }}</span>
-      </div>
-    </div>
-    <span class="nav-label">VESTIÁRIO</span>
-    <nav aria-label="Navegação principal">
-      <a href="#demo" [class.active]="page() === 'demo'"
-        ><app-icon name="grid" />Visão geral
-        @if (demo()) {
-          <span class="nav-indicator"></span>
-        }
-      </a>
-      <a href="#groups" [class.active]="page() === 'groups'"
-        ><app-icon name="users" />Meus grupos</a
+  <aside class="sidebar" [class.mobile-open]="sidebar()" aria-label="Menu principal">
+    <div class="sidebar-head">
+      <a class="brand" href="#demo" aria-label="Pelada, início"
+        ><span class="brand-icon"><app-icon name="ball" /></span
+        ><span class="brand-wordmark">pelada<span class="brand-dot">.</span></span></a
       >
       <button
+        class="icon-button sidebar-toggle"
+        type="button"
+        [attr.aria-label]="sidebarCollapsed() ? 'Expandir menu' : 'Recolher menu'"
+        [attr.aria-expanded]="!sidebarCollapsed()"
+        aria-controls="primary-navigation"
+        (click)="toggleSidebarCollapsed()"
+      >
+        <app-icon name="panel" />
+      </button>
+      <button
+        class="icon-button sidebar-mobile-close"
+        type="button"
+        aria-label="Fechar menu"
+        (click)="closeSidebar(true)"
+      >
+        <app-icon name="close" />
+      </button>
+    </div>
+    <nav id="primary-navigation" aria-label="Navegação principal">
+      <a
+        href="#demo"
+        data-label="Visão geral"
+        aria-label="Visão geral"
+        [class.active]="page() === 'demo'"
+        ><app-icon name="grid" /><span class="nav-text">Visão geral</span></a
+      >
+      <a
+        href="#groups"
+        data-label="Meus grupos"
+        aria-label="Meus grupos"
+        [class.active]="page() === 'groups'"
+        ><app-icon name="users" /><span class="nav-text">Meus grupos</span></a
+      >
+      <button
+        data-label="Agenda de jogos"
+        aria-label="Agenda de jogos"
         (click)="detail() && !demo() ? navigate('group/' + detail()!.club.id) : navigate('groups')"
         [class.active]="page() === 'group'"
       >
-        <app-icon name="calendar" />Agenda de jogos
+        <app-icon name="calendar" /><span class="nav-text">Agenda de jogos</span>
       </button>
       @if (detail() && !demo()) {
-        <button (click)="navigate('game/' + detail()!.game.id)" [class.active]="page() === 'game'">
-          <app-icon name="pitch" />A pelada
+        <button
+          data-label="A pelada"
+          aria-label="A pelada"
+          (click)="navigate('game/' + detail()!.game.id)"
+          [class.active]="page() === 'game'"
+        >
+          <app-icon name="pitch" /><span class="nav-text">A pelada</span>
         </button>
       }
     </nav>
-    <div class="sidebar-bottom">
-      <div class="sidebar-card">
-        <span class="mini-ball"><app-icon name="ball" /></span
-        ><strong>Menos conversa.<br />Mais bola rolando.</strong>
-        <p>Reúna a galera e deixe a organização com a gente.</p>
-        <button (click)="user() ? navigate('groups') : openAuth('register')">
-          Organizar minha pelada <app-icon name="arrow" />
-        </button>
-      </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> FEITO PARA QUEM JOGA</div>
-    </div>
   </aside>
-  <div class="workspace">
+  <div class="workspace" [attr.inert]="sidebar() ? '' : null">
     <header class="topbar">
       <div class="breadcrumbs">
-        <button class="icon-button mobile-menu" aria-label="Abrir menu" (click)="sidebar.set(true)">
+        <button
+          class="icon-button mobile-menu"
+          aria-label="Abrir menu"
+          aria-controls="primary-navigation"
+          [attr.aria-expanded]="sidebar()"
+          (click)="openSidebar()"
+        >
           <app-icon name="menu" /></button
         ><span>Vestiário</span><app-icon name="chevron" /><strong>{{
           page() === 'groups'
@@ -70,6 +87,16 @@
         }}</strong>
       </div>
       <div class="account-actions">
+        <button
+          class="icon-button theme-toggle"
+          type="button"
+          aria-label="Modo noturno"
+          [attr.aria-pressed]="theme() === 'dark'"
+          (click)="toggleTheme()"
+        >
+          <app-icon [name]="theme() === 'dark' ? 'sun' : 'moon'" />
+          <span>Modo noturno</span>
+        </button>
         @if (demo()) {
           <span class="demo-tag"><span></span> MODO DEMONSTRAÇÃO</span>
         }

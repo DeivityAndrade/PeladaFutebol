@@ -20,6 +20,7 @@
   Depois desse prazo, consultar médias anônimas por partida e a média geral no perfil.
 - Organizar churrascos avulsos ou recorrentes por mês, a cada dois meses ou a cada três meses.
   Cada edição tem local, horário, confirmação independente do futebol e convite próprio para convidados.
+- Alternar entre visual claro e noturno e recolher o menu no computador. As preferências ficam salvas no navegador.
 
 Reservas já têm vaga na pelada e pertencem a um time. A lista de espera é para quem ainda não tem vaga no evento.
 
@@ -150,6 +151,7 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 - [Documentação interativa da API, quando executando](http://localhost:8080/api/docs)
 - [OpenAPI JSON, quando executando](http://localhost:8080/api/openapi)
 - [Tela em celular](docs/screenshots/mobile.png)
+- [Redesenho: telas em claro, noturno e celular](docs/REDESENHO.md)
 
 ## Estado da entrega
 
