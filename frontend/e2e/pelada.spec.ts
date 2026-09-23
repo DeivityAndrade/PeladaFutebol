@@ -241,7 +241,10 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   ).toBe(403);
   await page.getByRole('button', { name: 'Estou dentro' }).click();
   await page.getByRole('button', { name: 'Confirmar desistência' }).click();
-  await expect(page.locator('.captain-row')).toContainText('A definir');
+  await expect(page.locator('.roster-panel')).toContainText('Lucas da Integração');
+  await expect(page.locator('.roster-panel')).not.toContainText('Capitão do Teste');
+  await page.getByRole('button', { name: 'Configurar time e capitão' }).click();
+  await expect(page.getByLabel('Capitão', { exact: true })).toHaveValue('');
   await teammateContext.close();
   await teammate.ctx.dispose();
 });
