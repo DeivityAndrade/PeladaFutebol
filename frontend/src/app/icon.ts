@@ -1,10 +1,12 @@
 import { Component, Input } from '@angular/core';
 const paths: Record<string, string> = {
+  home: 'M3 10.5 12 3l9 7.5 M5 9v12h14V9 M9 21v-7h6v7',
   grid: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   calendar:
     'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2 M7 14h2 M12 14h2 M7 18h2',
   users:
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M9 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8',
+  person: 'M20 21a8 8 0 0 0-16 0 M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10',
   'user-plus':
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8 M20 4v6 M17 7h6',
   pitch: 'M3 3h18v18H3z M3 12h18 M9 3v4h6V3 M9 21v-4h6v4 M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6',

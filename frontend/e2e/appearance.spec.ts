@@ -148,12 +148,46 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.goto('/#demo');
   await expect(page.getByRole('heading', { name: 'O jogo começa aqui.' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.locator('.sidebar')).toHaveCSS('width', '232px');
-  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(24, 57, 45)');
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '252px');
+  await expect(page.locator('.sidebar')).toHaveCSS('background-image', /linear-gradient/);
+  await expect(page.locator('.jersey svg').first()).toHaveCSS('display', 'block');
+  const keeperTop = await page
+    .locator('.field-player')
+    .first()
+    .evaluate((el) => el.getBoundingClientRect().top);
+  const forwardTop = await page
+    .locator('.field-player')
+    .last()
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(keeperTop).toBeLessThan(forwardTop);
+  const fieldTop = await page.locator('.field').evaluate((el) => el.getBoundingClientRect().top);
+  const rosterTop = await page
+    .locator('.roster-panel')
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(Math.abs(fieldTop - rosterTop)).toBeLessThan(12);
   await page.screenshot({
     path: path.resolve('../docs/screenshots/desktop.png'),
     animations: 'disabled',
   });
+  await page.getByRole('tab', { name: 'Jogadores' }).click();
+  await expect(page.locator('.person-row')).toHaveCount(12);
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/jogadores.png'),
+    animations: 'disabled',
+  });
+  await page.getByRole('tab', { name: 'Lista de espera' }).click();
+  await expect(page.locator('.person-row')).toHaveCount(2);
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/espera.png'),
+    animations: 'disabled',
+  });
+  await page.getByRole('tab', { name: 'Escalações' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/acesso.png'),
+    animations: 'disabled',
+  });
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Recolher menu' }).click();
   await expect(page.locator('.sidebar')).toHaveCSS('width', '72px');
@@ -172,7 +206,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 23, 26)');
   await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(17, 20, 22)');
-  await expect(page.locator('.panel').first()).toHaveCSS('background-color', 'rgb(32, 36, 40)');
+  await expect(page.locator('.roster-panel')).toHaveCSS('background-color', 'rgb(32, 36, 40)');
   await expect(page.locator('.match-banner')).toHaveCSS('background-color', 'rgb(41, 55, 47)');
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#14171a');
   await expect(page.getByRole('button', { name: 'Modo noturno' })).toHaveAttribute(
@@ -214,15 +248,29 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('.workspace')).toHaveCSS('margin-left', '0px');
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollHeight))
+    .toBeGreaterThan(844);
   await expect(page.getByRole('tab', { name: 'Notas' })).toBeVisible();
   await page.getByRole('tab', { name: 'Notas' }).click();
   await expect(page.getByRole('heading', { name: 'A resenha continua.' })).toBeVisible();
   await page.getByRole('tab', { name: 'Escalações' }).click();
+  await expect(page.locator('.roster-panel')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollHeight))
+    .toBeGreaterThan(1200);
   await page.screenshot({
     path: path.resolve('../docs/screenshots/mobile-noturno.png'),
     fullPage: true,
     animations: 'disabled',
   });
+  const fieldBottom = await page
+    .locator('.field')
+    .evaluate((el) => el.getBoundingClientRect().bottom);
+  const mobileRosterTop = await page
+    .locator('.roster-panel')
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(mobileRosterTop).toBeGreaterThan(fieldBottom);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBeTruthy();
@@ -231,7 +279,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.getByRole('button', { name: 'Fechar menu' }).first().click();
   await expect(page.locator('.sidebar')).not.toHaveClass(/mobile-open/);
   await page.getByRole('button', { name: 'Modo noturno' }).click();
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f7f8f3');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#fbfcf8');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/mobile.png'),
     fullPage: true,
@@ -270,8 +318,25 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/#groups$/);
   await expect(page.getByRole('heading', { name: 'Seus grupos.' })).toBeVisible();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/grupos.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
   await page.getByRole('button', { name: /Pelada de quinta/ }).click();
   await expect(page.getByRole('button', { name: 'Convidar galera' })).toBeVisible();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/agenda.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+  await page.getByRole('button', { name: 'Marcar pelada' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/formulario.png'),
+    animations: 'disabled',
+  });
+  await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: 'Churrasco' }).click();
   await expect(page.getByRole('button', { name: 'Convidar galera' })).toHaveCount(0);
   await expect(page.locator('.barbecue-card')).toBeVisible();
@@ -283,6 +348,13 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
     fullPage: true,
     animations: 'disabled',
   });
+  await page.getByRole('button', { name: /Editar churrasco de/ }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/churrasco-formulario.png'),
+    animations: 'disabled',
+  });
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Modo noturno' }).click();
   await page.screenshot({
     path: path.resolve('../docs/screenshots/churrasco-noturno.png'),
@@ -298,6 +370,45 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
   ).toBeTruthy();
   await page.screenshot({
     path: path.resolve('../docs/screenshots/churrasco-mobile.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+  await page.route('**/api/barbecue-invites/bbq-invite', (route) =>
+    route.fulfill({
+      json: {
+        id: 'bbq-visual',
+        clubId: club.id,
+        clubName: club.name,
+        startsAt: '2099-10-12T15:00:00Z',
+        location: 'Salão da esquina',
+        cancelled: false,
+        recurring: true,
+        confirmed: 2,
+        attending: false,
+        inviteToken: 'bbq-invite',
+        attendees: [
+          { id: 'p1', name: 'João Pereira' },
+          { id: 'p2', name: 'Lucas Almeida' },
+        ],
+      },
+    }),
+  );
+  await page.getByRole('button', { name: 'Modo noturno' }).click();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#barbecue-invite/bbq-invite');
+  await expect(page.getByRole('heading', { name: 'Você está convidado.' })).toBeVisible();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/convite.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Modo noturno' }).click();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/convite-mobile-noturno.png'),
     fullPage: true,
     animations: 'disabled',
   });

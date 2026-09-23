@@ -68,6 +68,13 @@ export class App implements OnInit, OnDestroy {
   roster = computed(
     () => this.detail()?.attendees.filter((p) => p.teamId === this.team()?.id) || [],
   );
+  starters = computed(() =>
+    this.roster()
+      .filter((p) => p.slot !== null)
+      .sort((a, b) => a.slot! - b.slot!),
+  );
+  reserves = computed(() => this.roster().filter((p) => p.slot === null));
+  rosterDisplay = computed(() => [...this.starters(), ...this.reserves()]);
   benchCount = computed(() => this.roster().filter((p) => p.slot === null).length);
   available = computed(
     () => this.detail()?.attendees.filter((p) => p.status === 'CONFIRMED' && !p.teamId) || [],
@@ -80,6 +87,9 @@ export class App implements OnInit, OnDestroy {
   capacity = computed(
     () => (this.detail()?.game.teamCount || 0) * (this.detail()?.game.teamSize || 0),
   );
+  squadNumber(player: Player) {
+    return this.roster().findIndex((member) => member.id === player.id) + 1;
+  }
   live = computed(() => this.detail()?.game.matchStatus === 'LIVE');
   finished = computed(() => this.detail()?.game.matchStatus === 'FINISHED');
   canStart = computed(() => {
@@ -197,7 +207,7 @@ export class App implements OnInit, OnDestroy {
     document.documentElement.dataset['theme'] = next;
     document
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', next === 'dark' ? '#14171a' : '#f7f8f3');
+      ?.setAttribute('content', next === 'dark' ? '#14171a' : '#fbfcf8');
     try {
       localStorage.setItem('pelada.theme', next);
     } catch {

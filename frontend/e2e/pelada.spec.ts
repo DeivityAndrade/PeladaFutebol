@@ -40,7 +40,7 @@ test('demonstração, navegação, teclado e layout desktop/mobile', async ({ pa
     animations: 'disabled',
   });
   await page.getByRole('tab', { name: 'Boleiros FC' }).click();
-  await expect(page.locator('.team-identity')).toContainText('Boleiros FC');
+  await expect(page.locator('.roster-panel .compact-heading')).toContainText('Boleiros FC');
   await page.getByRole('tab', { name: /Lista de espera/ }).click();
   await expect(page.locator('.person-row')).toHaveCount(2);
   await page.getByRole('tab', { name: 'Escalações', exact: true }).click();
@@ -211,6 +211,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await expect(
     page.getByRole('button', { name: 'Escalar FIXO E: Capitão do Teste' }),
   ).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 1440 });
   await page
     .getByRole('button', { name: 'Escalar GOL: Lucas da Integração' })
     .dragTo(page.locator('.bench'));
@@ -240,7 +241,10 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   ).toBe(403);
   await page.getByRole('button', { name: 'Estou dentro' }).click();
   await page.getByRole('button', { name: 'Confirmar desistência' }).click();
-  await expect(page.locator('.captain-row')).toContainText('A definir');
+  await expect(page.locator('.roster-panel')).toContainText('Lucas da Integração');
+  await expect(page.locator('.roster-panel')).not.toContainText('Capitão do Teste');
+  await page.getByRole('button', { name: 'Configurar time e capitão' }).click();
+  await expect(page.getByLabel('Capitão', { exact: true })).toHaveValue('');
   await teammateContext.close();
   await teammate.ctx.dispose();
 });
