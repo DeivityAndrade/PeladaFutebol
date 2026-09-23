@@ -407,7 +407,13 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
   const ownerPage = await desktop.newPage();
   await ownerPage.goto('/#game/' + game.game.id);
   await ownerPage.getByRole('button', { name: 'Sortear times' }).click();
+  const firstDraw = ownerPage.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/games/${game.game.id}/teams/draw`) &&
+      response.request().method() === 'POST',
+  );
   await ownerPage.getByRole('dialog').getByRole('button', { name: 'Sortear agora' }).click();
+  expect((await firstDraw).ok()).toBeTruthy();
   let detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
   expect(detail.attendees.filter((person: any) => person.status === 'CONFIRMED')).toHaveLength(6);
   expect(
@@ -430,7 +436,13 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
   ).toBeNull();
   await ownerPage.reload();
   await ownerPage.getByRole('button', { name: 'Sortear times' }).click();
+  const secondDraw = ownerPage.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/games/${game.game.id}/teams/draw`) &&
+      response.request().method() === 'POST',
+  );
   await ownerPage.getByRole('dialog').getByRole('button', { name: 'Sortear agora' }).click();
+  expect((await secondDraw).ok()).toBeTruthy();
   detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
   expect(
     detail.attendees.filter((person: any) => person.status === 'CONFIRMED' && person.teamId),
