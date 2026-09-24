@@ -10,7 +10,7 @@ import { Icon } from './icon';
   template: `
     <div class="pitch-toolbar">
       <div>
-        <span class="eyebrow">ESQUEMA TÁTICO</span
+        <span class="eyebrow">Esquema</span
         ><strong>{{ team.formation.replaceAll('-', ' – ') }}</strong>
       </div>
       <label class="sr-only" for="formation">Formação</label
@@ -35,7 +35,6 @@ import { Icon } from './icon';
         <div class="goal top"></div>
         <div class="goal bottom"></div>
       </div>
-      <span class="field-wordmark">PELADA / 05</span>
       @for (pos of positions; track $index; let slot = $index) {
         <button
           class="field-player"
@@ -43,6 +42,7 @@ import { Icon } from './icon';
           [style.top.%]="pos.y"
           [class.empty]="!at(slot)"
           [class.selected]="selecting === slot"
+          [class.me]="!!meId && at(slot)?.id === meId"
           [disabled]="!editable || busy"
           [draggable]="editable && !!at(slot)"
           (dragstart)="drag($event, at(slot))"
@@ -115,7 +115,7 @@ import { Icon } from './icon';
         >
           <span class="avatar" [style.background]="team.color">{{ initials(p.name) }}</span
           ><strong>{{ shortName(p.name) }}</strong
-          ><span>RESERVA</span>
+          ><span>Reserva</span>
         </button>
       }
       @if (!bench.length) {
@@ -132,6 +132,7 @@ export class Pitch {
   @Input() roster: Player[] = [];
   @Input() editable = false;
   @Input() busy = false;
+  @Input() meId: string | null = null;
   @Output() save = new EventEmitter<{
     formation: string;
     slots: (string | null)[];

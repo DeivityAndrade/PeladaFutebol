@@ -25,6 +25,7 @@ import {
   User,
 } from './models';
 import { Icon } from './icon';
+import { Brand } from './brand';
 import { Pitch } from './pitch';
 import { SocialPage } from './social-page';
 
@@ -40,7 +41,7 @@ function currentBillingPeriod() {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage],
+  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage, Brand],
   templateUrl: './app.html',
 })
 export class App implements OnInit, OnDestroy {
@@ -69,7 +70,6 @@ export class App implements OnInit, OnDestroy {
   tab = signal('lineup');
   groupTab = signal('games');
   sidebar = signal(false);
-  sidebarCollapsed = signal(document.documentElement.dataset['sidebar'] === 'collapsed');
   theme = signal<'light' | 'dark'>(
     document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light',
   );
@@ -122,6 +122,21 @@ export class App implements OnInit, OnDestroy {
   squadNumber(player: Player) {
     return this.roster().findIndex((member) => member.id === player.id) + 1;
   }
+  myNumber = computed(() => {
+    const me = this.mine();
+    if (!me?.teamId) return 0;
+    const squad = this.detail()!.attendees.filter((p) => p.teamId === me.teamId);
+    return squad.findIndex((p) => p.id === me.id) + 1;
+  });
+  waitingPosition = computed(() => this.waiting().findIndex((p) => p.id === this.user()?.id) + 1);
+  spotsLeft = computed(() => Math.max(0, this.capacity() - (this.detail()?.game.confirmed || 0)));
+  spotsDash = computed(() => {
+    const circumference = 2 * Math.PI * 26;
+    const ratio = this.capacity()
+      ? Math.min(1, (this.detail()?.game.confirmed || 0) / this.capacity())
+      : 0;
+    return `${(circumference * ratio).toFixed(1)} ${circumference.toFixed(1)}`;
+  });
   live = computed(() => this.detail()?.game.matchStatus === 'LIVE');
   finished = computed(() => this.detail()?.game.matchStatus === 'FINISHED');
   canStart = computed(() => {
@@ -252,21 +267,11 @@ export class App implements OnInit, OnDestroy {
     document.documentElement.dataset['theme'] = next;
     document
       .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', next === 'dark' ? '#14171a' : '#fbfcf8');
+      ?.setAttribute('content', next === 'dark' ? '#0b1510' : '#10241a');
     try {
       localStorage.setItem('pelada.theme', next);
     } catch {
       // The preference still applies to the current page when storage is unavailable.
-    }
-  }
-  toggleSidebarCollapsed() {
-    const next = !this.sidebarCollapsed();
-    this.sidebarCollapsed.set(next);
-    document.documentElement.dataset['sidebar'] = next ? 'collapsed' : 'expanded';
-    try {
-      localStorage.setItem('pelada.sidebar', next ? 'collapsed' : 'expanded');
-    } catch {
-      // The menu remains usable without persistent storage.
     }
   }
   openSidebar() {
@@ -652,7 +657,7 @@ export class App implements OnInit, OnDestroy {
       charge.type === 'MONTHLY'
         ? `a mensalidade de ${this.periodLabel(charge.period)}`
         : `a pelada ${charge.gameTitle || ''}`;
-    const message = `Oi, ${firstName}! Passando para lembrar de ${kind} do grupo ${this.club()?.name}. O vencimento é ${this.dueDateLabel(charge.dueDate)} e o valor é ${this.money(charge.amountCents)}. Se já pagou, pode enviar o comprovante pelo Pelada. Obrigado!`;
+    const message = `Oi, ${firstName}! Passando para lembrar de ${kind} do grupo ${this.club()?.name}. O vencimento é ${this.dueDateLabel(charge.dueDate)} e o valor é ${this.money(charge.amountCents)}. Se já pagou, pode enviar o comprovante pelo Tô Dentro. Obrigado!`;
     return 'https://wa.me/?text=' + encodeURIComponent(message);
   }
 

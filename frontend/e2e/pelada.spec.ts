@@ -346,7 +346,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
     .click();
   await expect(page.getByRole('heading', { name: 'Jogo de integração' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirmar presença', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Estou dentro' })).toBeVisible();
+  await expect(page.locator('.presence-state')).toContainText('Tô dentro');
   const gameId = page.url().split('/').at(-1)!;
   const teammate = await account('Lucas da Integração');
   const teammateContext = await browser.newContext({
@@ -359,7 +359,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await expect(other.getByRole('heading', { name: 'Pelada da integração.' })).toBeVisible();
   await other.getByRole('button', { name: /Jogo de integração/ }).click();
   await other.getByRole('button', { name: 'Confirmar presença', exact: true }).click();
-  await expect(other.getByRole('button', { name: 'Estou dentro' })).toBeVisible();
+  await expect(other.locator('.presence-state')).toContainText('Tô dentro');
   await page.reload();
   await page.getByRole('button', { name: 'Configurar time e capitão' }).click();
   await page.getByLabel('Nome do time').fill('Os Testadores');
@@ -421,7 +421,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
       })
     ).status(),
   ).toBe(403);
-  await page.getByRole('button', { name: 'Estou dentro' }).click();
+  await page.getByRole('button', { name: 'Desistir', exact: true }).click();
   await page.getByRole('button', { name: 'Confirmar desistência' }).click();
   await expect(page.locator('.roster-panel')).toContainText('Lucas da Integração');
   await expect(page.locator('.roster-panel')).not.toContainText('Capitão do Teste');
