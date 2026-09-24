@@ -20,11 +20,13 @@ import {
   Game,
   Player,
   PlayerProfile,
+  SocialSchedule,
   Team,
   User,
 } from './models';
 import { Icon } from './icon';
 import { Pitch } from './pitch';
+import { SocialPage } from './social-page';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -38,7 +40,7 @@ function currentBillingPeriod() {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Icon, Pitch],
+  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage],
   templateUrl: './app.html',
 })
 export class App implements OnInit, OnDestroy {
@@ -46,6 +48,7 @@ export class App implements OnInit, OnDestroy {
   user = signal<User | null>(null);
   clubs = signal<Club[]>([]);
   games = signal<Game[]>([]);
+  friendlies = signal<SocialSchedule[]>([]);
   detail = signal<Detail | null>(null);
   club = signal<Club | null>(null);
   barbecues = signal<Barbecue[]>([]);
@@ -87,6 +90,9 @@ export class App implements OnInit, OnDestroy {
     () => !!this.user() && this.detail()?.club.ownerId === this.user()!.id && !this.demo(),
   );
   groupOwner = computed(() => !!this.user() && this.club()?.ownerId === this.user()!.id);
+  socialAccess = computed(
+    () => !!this.user() && this.clubs().some((club) => club.ownerId === this.user()!.id),
+  );
   barbecueSeriesConfigured = computed(() => this.barbecues().some((event) => event.recurring));
   editable = computed(() => !!this.detail()?.game.editable && !this.demo());
   teamEditable = computed(() => !!this.detail()?.game.teamEditable && !this.demo());
@@ -196,11 +202,20 @@ export class App implements OnInit, OnDestroy {
         this.openAuth();
       } else if (page === 'groups') {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
+      } else if (page === 'social') {
+        this.clubs.set(await this.api.request<Club[]>('/groups'));
+        if (!this.clubs().some((club) => club.ownerId === this.user()?.id)) {
+          this.navigate('groups');
+          return;
+        }
       } else if (page === 'group') {
         const clubs = await this.api.request<Club[]>('/groups');
         this.clubs.set(clubs);
         this.club.set(clubs.find((c) => c.id === parts[1]) || null);
         this.games.set(await this.api.request<Game[]>('/groups/' + parts[1] + '/games'));
+        this.friendlies.set(
+          await this.api.request<SocialSchedule[]>('/groups/' + parts[1] + '/friendlies'),
+        );
         this.barbecues.set(
           await this.api.request<Barbecue[]>('/groups/' + parts[1] + '/barbecues'),
         );

@@ -293,6 +293,7 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
   );
   await page.route('**/api/groups', (route) => route.fulfill({ json: [club] }));
   await page.route(`**/api/groups/${club.id}/games`, (route) => route.fulfill({ json: [game] }));
+  await page.route(`**/api/groups/${club.id}/friendlies`, (route) => route.fulfill({ json: [] }));
   await page.route(`**/api/groups/${club.id}/barbecues`, (route) =>
     route.fulfill({
       json: [

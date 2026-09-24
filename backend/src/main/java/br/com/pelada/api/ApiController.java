@@ -7,6 +7,7 @@ import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Barbecues;
 import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
+import br.com.pelada.social.Social;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +27,7 @@ public class ApiController {
   private final Matches matches;
   private final Barbecues barbecues;
   private final Finance finance;
+  private final Social social;
 
   public ApiController(
     Accounts accounts,
@@ -33,7 +35,8 @@ public class ApiController {
     Games games,
     Matches matches,
     Barbecues barbecues,
-    Finance finance
+    Finance finance,
+    Social social
   ) {
     this.accounts = accounts;
     this.groups = groups;
@@ -41,6 +44,7 @@ public class ApiController {
     this.matches = matches;
     this.barbecues = barbecues;
     this.finance = finance;
+    this.social = social;
   }
 
   private UUID user(Authentication auth) {
@@ -68,6 +72,129 @@ public class ApiController {
   @PostMapping("/invites/{invite}/join")
   public ClubView join(Authentication auth, @PathVariable UUID invite) {
     return groups.join(user(auth), invite);
+  }
+
+  @GetMapping("/social/cities")
+  public List<MunicipalityView> socialCities(
+    Authentication auth,
+    @RequestParam(defaultValue = "") String query
+  ) {
+    return social.cities(user(auth), query);
+  }
+
+  @GetMapping("/social/mine")
+  public List<SocialOwnedGroupView> mySocialListings(Authentication auth) {
+    return social.mine(user(auth));
+  }
+
+  @PutMapping("/social/listings/{clubId}")
+  public SocialListingView saveSocialListing(
+    Authentication auth,
+    @PathVariable UUID clubId,
+    @Valid @RequestBody SocialListingInput input
+  ) {
+    return social.saveListing(user(auth), clubId, input);
+  }
+
+  @DeleteMapping("/social/listings/{clubId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void removeSocialListing(
+    Authentication auth,
+    @PathVariable UUID clubId
+  ) {
+    social.removeListing(user(auth), clubId);
+  }
+
+  @GetMapping("/social/search")
+  public List<SocialSearchResult> searchSocial(
+    Authentication auth,
+    @RequestParam String cityCode,
+    @RequestParam(defaultValue = "50") int radiusKm,
+    @RequestParam(required = false) String category,
+    @RequestParam(required = false) String skillLevel,
+    @RequestParam(required = false) List<String> days,
+    @RequestParam(required = false) List<String> periods
+  ) {
+    return social.search(
+      user(auth),
+      cityCode,
+      radiusKm,
+      category,
+      skillLevel,
+      days,
+      periods
+    );
+  }
+
+  @GetMapping("/social/invitations")
+  public List<SocialMatchView> socialInvitations(Authentication auth) {
+    return social.invitations(user(auth));
+  }
+
+  @PostMapping("/social/invitations")
+  public SocialMatchView createSocialInvitation(
+    Authentication auth,
+    @Valid @RequestBody SocialInviteInput input
+  ) {
+    return social.invite(user(auth), input);
+  }
+
+  @PostMapping("/social/invitations/{id}/accept")
+  public SocialMatchView acceptSocialInvitation(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return social.accept(user(auth), id);
+  }
+
+  @PostMapping("/social/invitations/{id}/decline")
+  public SocialMatchView declineSocialInvitation(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return social.decline(user(auth), id);
+  }
+
+  @PostMapping("/social/invitations/{id}/confirm")
+  public SocialMatchView confirmSocialInvitation(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return social.confirm(user(auth), id);
+  }
+
+  @PutMapping("/social/invitations/{id}/proposal")
+  public SocialMatchView updateSocialProposal(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody SocialProposalInput input
+  ) {
+    return social.propose(user(auth), id, input);
+  }
+
+  @PostMapping("/social/invitations/{id}/cancel")
+  public SocialMatchView cancelSocialInvitation(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return social.cancel(user(auth), id);
+  }
+
+  @GetMapping("/social/invitations/{id}/messages")
+  public List<SocialMessageView> socialMessages(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return social.messages(user(auth), id);
+  }
+
+  @PostMapping("/social/invitations/{id}/messages")
+  public SocialMessageView sendSocialMessage(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody SocialMessageInput input
+  ) {
+    return social.sendMessage(user(auth), id, input);
   }
 
   @GetMapping("/groups/{id}/finance")
@@ -275,6 +402,14 @@ public class ApiController {
   @GetMapping("/groups/{id}/games")
   public List<GameView> games(Authentication auth, @PathVariable UUID id) {
     return games.list(user(auth), id);
+  }
+
+  @GetMapping("/groups/{id}/friendlies")
+  public List<SocialScheduleView> friendlies(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return social.schedule(user(auth), id);
   }
 
   @PostMapping("/groups/{id}/games")
