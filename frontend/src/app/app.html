@@ -43,6 +43,15 @@
         [class.active]="page() === 'groups'"
         ><app-icon name="users" /><span class="nav-text">Meus grupos</span></a
       >
+      @if (socialAccess()) {
+        <a
+          href="#social"
+          data-label="Social"
+          aria-label="Social"
+          [class.active]="page() === 'social'"
+          ><app-icon name="user-plus" /><span class="nav-text">Social</span></a
+        >
+      }
       <button
         data-label="Agenda de jogos"
         aria-label="Agenda de jogos"
@@ -635,6 +644,8 @@
             <button class="button primary" (click)="open('club')">Criar meu primeiro grupo</button>
           </div>
         }
+      } @else if (page() === 'social' && user()) {
+        <app-social-page />
       } @else if (page() === 'group' && club()) {
         <div class="page-heading">
           <div>
@@ -684,6 +695,43 @@
           </button>
         </div>
         @if (groupTab() === 'games') {
+          @if (friendlies().length) {
+            <section class="social-schedule-section" aria-labelledby="friendlies-heading">
+              <div class="social-schedule-heading">
+                <div>
+                  <span class="eyebrow green">JOGO ENTRE GRUPOS</span>
+                  <h2 id="friendlies-heading">
+                    Amistosos combinados<span class="small-dot">.</span>
+                  </h2>
+                  <p>Confirmados pelos dois organizadores.</p>
+                </div>
+              </div>
+              <div class="games-list social-schedule-list">
+                @for (friendly of friendlies(); track friendly.id) {
+                  <article
+                    class="panel game-card social-friendly-card"
+                    [class.cancelled]="friendly.status === 'CANCELLED'"
+                  >
+                    <span class="match-date"
+                      ><strong>{{ date(friendly.startsAt, 'day') }}</strong
+                      ><span>{{ date(friendly.startsAt, 'month') }}</span></span
+                    >
+                    <div>
+                      <span class="eyebrow">{{
+                        friendly.status === 'CANCELLED'
+                          ? 'CANCELADO'
+                          : friendly.status === 'CHANGE_PENDING'
+                            ? 'ALTERAÇÃO PENDENTE'
+                            : 'AMISTOSO'
+                      }}</span>
+                      <h2>{{ friendly.opponentName }}</h2>
+                      <p>{{ friendly.location }} · {{ date(friendly.startsAt, 'hour') }}</p>
+                    </div>
+                  </article>
+                }
+              </div>
+            </section>
+          }
           <div class="games-list">
             @for (g of games(); track g.id) {
               <button class="panel game-card" (click)="navigate('game/' + g.id)">

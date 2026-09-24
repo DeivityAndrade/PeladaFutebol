@@ -148,6 +148,128 @@ public final class Contracts {
     String pixInstructions
   ) {}
 
+  public record SocialListingInput(
+    @NotEmpty
+    @Size(max = 2)
+    List<@Pattern(regexp = "PICKUP|FIXED_TEAM") String> categories,
+    @NotBlank @Pattern(regexp = "[0-9]{7}") String municipalityCode,
+    @NotBlank @Size(max = 100) String courtName,
+    @NotBlank @Size(max = 80) String neighborhood,
+    @NotNull @Size(max = 500) String description,
+    @NotBlank
+    @Pattern(regexp = "RECREATIONAL|INTERMEDIATE|COMPETITIVE")
+    String skillLevel,
+    @NotNull
+    @Size(max = 7)
+    List<@Pattern(regexp = "MON|TUE|WED|THU|FRI|SAT|SUN") String> preferredDays,
+    @NotNull
+    @Size(max = 3)
+    List<@Pattern(
+      regexp = "MORNING|AFTERNOON|EVENING"
+    ) String> preferredPeriods,
+    boolean published
+  ) {}
+
+  public record SocialInviteInput(
+    @NotNull UUID senderClubId,
+    @NotNull UUID targetClubId,
+    @NotNull Instant startsAt,
+    @NotBlank @Size(max = 240) String location,
+    @Size(max = 500) String message
+  ) {
+    public SocialInviteInput {
+      if (message == null) message = "";
+    }
+  }
+
+  public record SocialProposalInput(
+    @NotNull Instant startsAt,
+    @NotBlank @Size(max = 240) String location
+  ) {}
+
+  public record SocialMessageInput(@NotBlank @Size(max = 1000) String body) {}
+
+  public record MunicipalityView(
+    String code,
+    String name,
+    String uf,
+    String label
+  ) {}
+
+  public record SocialListingView(
+    UUID clubId,
+    String clubName,
+    boolean published,
+    List<String> categories,
+    String municipalityCode,
+    String municipalityName,
+    String uf,
+    String courtName,
+    String neighborhood,
+    String description,
+    String skillLevel,
+    List<String> preferredDays,
+    List<String> preferredPeriods,
+    boolean canManage
+  ) {}
+
+  public record SocialOwnedGroupView(
+    UUID clubId,
+    String clubName,
+    SocialListingView listing
+  ) {}
+
+  public record SocialSearchResult(
+    SocialListingView listing,
+    double distanceKm,
+    boolean scheduleCompatible,
+    boolean levelSimilar
+  ) {}
+
+  public record SocialMatchView(
+    UUID id,
+    UUID hostClubId,
+    String hostClubName,
+    UUID guestClubId,
+    String guestClubName,
+    String status,
+    boolean outgoing,
+    boolean chatOpen,
+    Instant proposedStartsAt,
+    String proposedLocation,
+    String message,
+    Instant expiresAt,
+    int revision,
+    boolean hostConfirmed,
+    boolean guestConfirmed,
+    int unreadMessages,
+    Instant startsAt,
+    String location,
+    boolean canAccept,
+    boolean canDecline,
+    boolean canConfirm,
+    boolean canPropose,
+    boolean canCancel
+  ) {}
+
+  public record SocialMessageView(
+    UUID id,
+    UUID senderId,
+    String senderName,
+    String body,
+    Instant createdAt,
+    boolean mine
+  ) {}
+
+  public record SocialScheduleView(
+    UUID id,
+    UUID clubId,
+    String opponentName,
+    Instant startsAt,
+    String location,
+    String status
+  ) {}
+
   public record FinanceSettingsView(
     Long monthlyAmountCents,
     int billingDueDay,
