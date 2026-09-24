@@ -18,6 +18,87 @@ export interface Club {
   occasionalAmountCents: number | null;
   pixInstructions: string;
 }
+export interface Municipality {
+  code: string;
+  name: string;
+  uf: string;
+  label: string;
+}
+export interface SocialListing {
+  clubId: string;
+  clubName: string;
+  published: boolean;
+  categories: ('PICKUP' | 'FIXED_TEAM')[];
+  municipalityCode: string;
+  municipalityName: string;
+  uf: string;
+  courtName: string;
+  neighborhood: string;
+  description: string;
+  skillLevel: 'RECREATIONAL' | 'INTERMEDIATE' | 'COMPETITIVE';
+  preferredDays: string[];
+  preferredPeriods: string[];
+  canManage: boolean;
+}
+export interface SocialOwnedGroup {
+  clubId: string;
+  clubName: string;
+  listing: SocialListing | null;
+}
+export interface SocialSearchResult {
+  listing: SocialListing;
+  distanceKm: number;
+  scheduleCompatible: boolean;
+  levelSimilar: boolean;
+}
+export interface SocialMatch {
+  id: string;
+  hostClubId: string;
+  hostClubName: string;
+  guestClubId: string;
+  guestClubName: string;
+  status:
+    | 'PENDING'
+    | 'NEGOTIATING'
+    | 'SCHEDULED'
+    | 'CHANGE_PENDING'
+    | 'DECLINED'
+    | 'EXPIRED'
+    | 'CANCELLED';
+  outgoing: boolean;
+  chatOpen: boolean;
+  proposedStartsAt: string;
+  proposedLocation: string;
+  message: string;
+  expiresAt: string;
+  revision: number;
+  hostConfirmed: boolean;
+  guestConfirmed: boolean;
+  unreadMessages: number;
+  startsAt: string | null;
+  location: string | null;
+  canAccept: boolean;
+  canDecline: boolean;
+  canConfirm: boolean;
+  canPropose: boolean;
+  canCancel: boolean;
+}
+export interface SocialMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  body: string;
+  createdAt: string;
+  mine: boolean;
+}
+export interface SocialSchedule {
+  id: string;
+  clubId: string;
+  opponentName: string;
+  startsAt: string;
+  location: string;
+  status: 'SCHEDULED' | 'CHANGE_PENDING' | 'CANCELLED';
+}
 export interface Game {
   id: string;
   clubId: string;

@@ -57,6 +57,112 @@ public final class Domain {
     }
   }
 
+  @Entity(name = "SocialListing")
+  @Table(name = "social_listings")
+  public static class SocialListing {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID clubId;
+    public boolean published;
+    public String categories;
+    public String municipalityCode;
+    public String courtName;
+    public String neighborhood;
+    public String description = "";
+    public String skillLevel;
+    public String preferredDays = "";
+    public String preferredPeriods = "";
+    public Instant createdAt;
+    public Instant updatedAt;
+
+    protected SocialListing() {}
+
+    public SocialListing(UUID clubId, Instant now) {
+      this.clubId = clubId;
+      this.createdAt = now;
+      this.updatedAt = now;
+    }
+  }
+
+  @Entity(name = "SocialMatch")
+  @Table(name = "social_matches")
+  public static class SocialMatch {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID hostClubId;
+    public UUID guestClubId;
+    public String status = "PENDING";
+    public Instant proposedStartsAt;
+    public String proposedLocation;
+    public Instant startsAt;
+    public String location;
+    public String note = "";
+    public Instant expiresAt;
+    public Instant acceptedAt;
+    public Instant createdAt;
+    public Instant updatedAt;
+    public int revision = 1;
+    public int hostConfirmedRevision;
+    public int guestConfirmedRevision;
+    public Instant hostLastReadAt;
+    public Instant guestLastReadAt;
+    public UUID proposedBy;
+    public UUID cancelledBy;
+    public Instant cancelledAt;
+
+    protected SocialMatch() {}
+
+    public SocialMatch(
+      UUID hostClubId,
+      UUID guestClubId,
+      Instant startsAt,
+      String location,
+      String note,
+      Instant now,
+      Instant expiresAt
+    ) {
+      this.hostClubId = hostClubId;
+      this.guestClubId = guestClubId;
+      this.proposedStartsAt = startsAt;
+      this.proposedLocation = location;
+      this.note = note;
+      this.createdAt = now;
+      this.updatedAt = now;
+      this.expiresAt = expiresAt;
+    }
+  }
+
+  @Entity(name = "SocialMessage")
+  @Table(name = "social_messages")
+  public static class SocialMessage {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID matchId;
+    public UUID senderId;
+    public String body;
+    public Instant createdAt;
+
+    protected SocialMessage() {}
+
+    public SocialMessage(
+      UUID matchId,
+      UUID senderId,
+      String body,
+      Instant createdAt
+    ) {
+      this.matchId = matchId;
+      this.senderId = senderId;
+      this.body = body;
+      this.createdAt = createdAt;
+    }
+  }
+
   @Entity(name = "Member")
   @Table(name = "members")
   public static class Member {

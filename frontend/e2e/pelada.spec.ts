@@ -135,6 +135,188 @@ test('segurança HTTP: CSRF, sessão, permissões, validação e OpenAPI', async
   await anon.dispose();
 });
 
+test('Social: busca próxima, convite, conversa privada e amistoso sincronizado', async ({
+  browser,
+}) => {
+  const host = await account('Organizador da Casa'),
+    guest = await account('Organizadora Visitante'),
+    member = await account('Participante Visitante');
+  const hostClub = await (
+    await mutate(host.ctx, '/groups', 'POST', { name: 'Pelada da Casa', description: '' })
+  ).json();
+  const guestClub = await (
+    await mutate(guest.ctx, '/groups', 'POST', { name: 'Time do Bairro', description: '' })
+  ).json();
+  expect((await mutate(member.ctx, `/invites/${hostClub.invite}/join`)).ok()).toBeTruthy();
+
+  const profile = (clubName: string) => ({
+    categories: ['FIXED_TEAM'],
+    municipalityCode: '3550308',
+    courtName: `${clubName} Arena`,
+    neighborhood: 'Centro',
+    description: 'Grupo aberto a novos amistosos.',
+    skillLevel: 'INTERMEDIATE',
+    preferredDays: ['SAT'],
+    preferredPeriods: ['EVENING'],
+    published: true,
+  });
+  expect(
+    (
+      await mutate(host.ctx, `/social/listings/${hostClub.id}`, 'PUT', profile('Pelada da Casa'))
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await mutate(guest.ctx, `/social/listings/${guestClub.id}`, 'PUT', profile('Time do Bairro'))
+    ).ok(),
+  ).toBeTruthy();
+
+  const nearby = await host.ctx.get(
+    '/api/social/search?cityCode=3550308&radiusKm=10&category=FIXED_TEAM&skillLevel=INTERMEDIATE&days=SAT&periods=EVENING',
+  );
+  expect(nearby.ok()).toBeTruthy();
+  const results = await nearby.json();
+  const result = results.find((entry: any) => entry.listing.clubId === guestClub.id);
+  expect(result).toBeTruthy();
+  expect(result.distanceKm).toBe(0);
+  expect(result.scheduleCompatible).toBeTruthy();
+  expect(result.levelSimilar).toBeTruthy();
+  expect(JSON.stringify(result)).not.toContain('address');
+  expect((await member.ctx.get('/api/social/search?cityCode=3550308&radiusKm=10')).status()).toBe(
+    403,
+  );
+
+  const startsAt = new Date(Date.now() + 7 * 86400000).toISOString();
+  const proposedAddress = 'Arena do Bairro, Rua de Teste 123, São Paulo';
+  const created = await mutate(host.ctx, '/social/invitations', 'POST', {
+    senderClubId: hostClub.id,
+    targetClubId: guestClub.id,
+    startsAt,
+    location: proposedAddress,
+    message: 'Vamos marcar um amistoso?',
+  });
+  expect(created.ok()).toBeTruthy();
+  const invitation = await created.json();
+  expect((await mutate(guest.ctx, '/social/invitations', 'GET')).ok()).toBeTruthy();
+  const duplicate = await mutate(guest.ctx, '/social/invitations', 'POST', {
+    senderClubId: guestClub.id,
+    targetClubId: hostClub.id,
+    startsAt,
+    location: proposedAddress,
+    message: '',
+  });
+  expect(duplicate.status()).toBe(409);
+  expect((await guest.ctx.get(`/api/social/invitations/${invitation.id}/messages`)).status()).toBe(
+    403,
+  );
+  const accepted = await mutate(guest.ctx, `/social/invitations/${invitation.id}/accept`);
+  expect(accepted.ok()).toBeTruthy();
+
+  const privateMessage = await mutate(
+    host.ctx,
+    `/social/invitations/${invitation.id}/messages`,
+    'POST',
+    {
+      body: 'Confirmando a quadra e o endereço privado.',
+    },
+  );
+  expect(privateMessage.ok()).toBeTruthy();
+  expect((await member.ctx.get(`/api/social/invitations/${invitation.id}/messages`)).status()).toBe(
+    403,
+  );
+  expect(
+    (await guest.ctx.get(`/api/social/invitations/${invitation.id}/messages`)).ok(),
+  ).toBeTruthy();
+
+  expect(await (await host.ctx.get(`/api/groups/${hostClub.id}/friendlies`)).json()).toHaveLength(
+    0,
+  );
+  const hostConfirm = await mutate(host.ctx, `/social/invitations/${invitation.id}/confirm`);
+  expect((await hostConfirm.json()).status).toBe('NEGOTIATING');
+  expect(await (await host.ctx.get(`/api/groups/${hostClub.id}/friendlies`)).json()).toHaveLength(
+    0,
+  );
+  const guestConfirm = await mutate(guest.ctx, `/social/invitations/${invitation.id}/confirm`);
+  expect((await guestConfirm.json()).status).toBe('SCHEDULED');
+  expect(await (await host.ctx.get(`/api/groups/${hostClub.id}/friendlies`)).json()).toHaveLength(
+    1,
+  );
+  expect(await (await guest.ctx.get(`/api/groups/${guestClub.id}/friendlies`)).json()).toHaveLength(
+    1,
+  );
+
+  const changedAt = new Date(Date.now() + 8 * 86400000).toISOString();
+  const proposal = await mutate(host.ctx, `/social/invitations/${invitation.id}/proposal`, 'PUT', {
+    startsAt: changedAt,
+    location: 'Quadra nova, Rua Reservada 456',
+  });
+  expect((await proposal.json()).status).toBe('CHANGE_PENDING');
+  const pendingAgenda = await (
+    await member.ctx.get(`/api/groups/${hostClub.id}/friendlies`)
+  ).json();
+  expect(pendingAgenda).toHaveLength(1);
+  expect(pendingAgenda[0].location).toBe(proposedAddress);
+  expect(JSON.stringify(pendingAgenda)).not.toContain('Quadra nova, Rua Reservada 456');
+  const pendingUi = await browser.newContext({
+    baseURL,
+    storageState: await guest.ctx.storageState(),
+    viewport: { width: 390, height: 844 },
+  });
+  const pendingPage = await pendingUi.newPage();
+  await pendingPage.goto('/#social');
+  await pendingPage.getByRole('tab', { name: /Convites e conversas/ }).focus();
+  await pendingPage.keyboard.press('Enter');
+  await pendingPage.locator('.social-match-row').filter({ hasText: 'Pelada da Casa' }).click();
+  await expect(pendingPage.locator('.social-proposal-card')).toContainText(
+    'Quadra nova, Rua Reservada 456',
+  );
+  await expect(pendingPage.locator('.social-proposal-card')).toContainText(proposedAddress);
+  await expect(pendingPage.getByRole('button', { name: 'Confirmar detalhes' })).toBeVisible();
+  await expect
+    .poll(() => pendingPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
+  await pendingUi.close();
+  expect(
+    (await mutate(guest.ctx, `/social/invitations/${invitation.id}/confirm`)).ok(),
+  ).toBeTruthy();
+  const rescheduled = await (await guest.ctx.get(`/api/groups/${guestClub.id}/friendlies`)).json();
+  expect(rescheduled[0].location).toBe('Quadra nova, Rua Reservada 456');
+  expect(
+    (await mutate(guest.ctx, `/social/invitations/${invitation.id}/cancel`)).ok(),
+  ).toBeTruthy();
+  expect(
+    (await (await host.ctx.get(`/api/groups/${hostClub.id}/friendlies`)).json())[0].status,
+  ).toBe('CANCELLED');
+
+  const uiContext = await browser.newContext({
+    baseURL,
+    storageState: await host.ctx.storageState(),
+  });
+  const socialPage = await uiContext.newPage();
+  await socialPage.setViewportSize({ width: 1365, height: 1000 });
+  await socialPage.goto('/#social');
+  await expect(socialPage.getByRole('heading', { name: 'Social.' })).toBeVisible();
+  await socialPage.getByLabel('Cidade para buscar times').fill('São Paulo');
+  await socialPage.getByRole('option', { name: 'São Paulo — SP' }).click();
+  await socialPage.getByRole('button', { name: 'Buscar equipes' }).click();
+  await expect(
+    socialPage.locator('.social-result-card').filter({ hasText: 'Time do Bairro' }).first(),
+  ).toBeVisible();
+  await socialPage.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => socialPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
+  await socialPage.getByRole('tab', { name: 'Meus perfis' }).click();
+  await expect(socialPage.getByRole('heading', { name: 'Perfil social' })).toBeVisible();
+  await expect
+    .poll(() => socialPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true);
+  await host.ctx.dispose();
+  await guest.ctx.dispose();
+  await member.ctx.dispose();
+  await uiContext.close();
+});
+
 test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persistida', async ({
   page,
   browser,
@@ -164,7 +346,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
     .click();
   await expect(page.getByRole('heading', { name: 'Jogo de integração' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirmar presença', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Estou dentro' })).toBeVisible();
+  await expect(page.locator('.presence-state')).toContainText('Tô dentro');
   const gameId = page.url().split('/').at(-1)!;
   const teammate = await account('Lucas da Integração');
   const teammateContext = await browser.newContext({
@@ -177,7 +359,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await expect(other.getByRole('heading', { name: 'Pelada da integração.' })).toBeVisible();
   await other.getByRole('button', { name: /Jogo de integração/ }).click();
   await other.getByRole('button', { name: 'Confirmar presença', exact: true }).click();
-  await expect(other.getByRole('button', { name: 'Estou dentro' })).toBeVisible();
+  await expect(other.locator('.presence-state')).toContainText('Tô dentro');
   await page.reload();
   await page.getByRole('button', { name: 'Configurar time e capitão' }).click();
   await page.getByLabel('Nome do time').fill('Os Testadores');
@@ -239,7 +421,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
       })
     ).status(),
   ).toBe(403);
-  await page.getByRole('button', { name: 'Estou dentro' }).click();
+  await page.getByRole('button', { name: 'Desistir', exact: true }).click();
   await page.getByRole('button', { name: 'Confirmar desistência' }).click();
   await expect(page.locator('.roster-panel')).toContainText('Lucas da Integração');
   await expect(page.locator('.roster-panel')).not.toContainText('Capitão do Teste');

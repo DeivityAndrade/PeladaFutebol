@@ -148,8 +148,9 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.goto('/#demo');
   await expect(page.getByRole('heading', { name: 'O jogo começa aqui.' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(page.locator('.sidebar')).toHaveCSS('width', '252px');
-  await expect(page.locator('.sidebar')).toHaveCSS('background-image', /linear-gradient/);
+  await expect(page.locator('.top-nav')).toBeVisible();
+  await expect(page.locator('.sidebar')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Criar minha pelada' })).toBeVisible();
   await expect(page.locator('.jersey svg').first()).toHaveCSS('display', 'block');
   const keeperTop = await page
     .locator('.field-player')
@@ -189,34 +190,26 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   });
   await page.keyboard.press('Escape');
 
-  await page.getByRole('button', { name: 'Recolher menu' }).click();
-  await expect(page.locator('.sidebar')).toHaveCSS('width', '72px');
-  await page.screenshot({
-    path: path.resolve('../docs/screenshots/desktop-menu-recolhido.png'),
-    animations: 'disabled',
-  });
-  await page.keyboard.press('Tab');
+  await page.getByRole('link', { name: 'Visão geral' }).focus();
   await expect(page.getByRole('link', { name: 'Visão geral' })).toBeFocused();
-  expect(
-    await page
-      .getByRole('link', { name: 'Visão geral' })
-      .evaluate((el) => getComputedStyle(el, '::after').display),
-  ).toBe('block');
+  await expect(page.getByRole('link', { name: 'Visão geral' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await page.getByRole('button', { name: 'Modo noturno' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(20, 23, 26)');
-  await expect(page.locator('.sidebar')).toHaveCSS('background-color', 'rgb(17, 20, 22)');
-  await expect(page.locator('.roster-panel')).toHaveCSS('background-color', 'rgb(32, 36, 40)');
-  await expect(page.locator('.match-banner')).toHaveCSS('background-color', 'rgb(41, 55, 47)');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#14171a');
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 21, 16)');
+  await expect(page.locator('.topbar')).toHaveCSS('background-color', 'rgb(11, 21, 16)');
+  await expect(page.locator('.roster-panel')).toHaveCSS('background-color', 'rgb(20, 35, 27)');
+  await expect(page.locator('.match-banner')).toHaveCSS('background-color', 'rgb(20, 35, 27)');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0b1510');
   await expect(page.getByRole('button', { name: 'Modo noturno' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
   await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('data-sidebar', 'collapsed');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#14171a');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#0b1510');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/desktop-noturno.png'),
     animations: 'disabled',
@@ -225,7 +218,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.getByLabel('E-mail', { exact: true }).fill('exemplo@pelada.com');
   await page.mouse.click(10, 100);
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCSS('background-color', 'rgb(32, 36, 40)');
+  await expect(page.getByRole('dialog')).toHaveCSS('background-color', 'rgb(20, 35, 27)');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/acesso-noturno.png'),
     animations: 'disabled',
@@ -279,7 +272,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
   await page.getByRole('button', { name: 'Fechar menu' }).first().click();
   await expect(page.locator('.sidebar')).not.toHaveClass(/mobile-open/);
   await page.getByRole('button', { name: 'Modo noturno' }).click();
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#fbfcf8');
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#10241a');
   await page.screenshot({
     path: path.resolve('../docs/screenshots/mobile.png'),
     fullPage: true,
@@ -293,6 +286,7 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
   );
   await page.route('**/api/groups', (route) => route.fulfill({ json: [club] }));
   await page.route(`**/api/groups/${club.id}/games`, (route) => route.fulfill({ json: [game] }));
+  await page.route(`**/api/groups/${club.id}/friendlies`, (route) => route.fulfill({ json: [] }));
   await page.route(`**/api/groups/${club.id}/barbecues`, (route) =>
     route.fulfill({
       json: [

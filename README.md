@@ -1,12 +1,16 @@
-# pelada. ⚽
+# Tô Dentro ⚽
 
-**Seu jogo começa aqui.** Aplicação full stack para organizar futebol entre amigos, confirmar presenças e montar times em um campo interativo.
+**O jogo começa aqui.** Tô Dentro (antes “pelada.”) é uma aplicação full stack para organizar futebol entre amigos, confirmar presenças e montar times em um campo interativo.
 
 ![Tela de escalação](docs/screenshots/desktop.png)
 
 ## O que você pode fazer
 
 - Criar uma conta e grupos privados, compartilhando convites por link.
+- Publicar voluntariamente o perfil do grupo na área **Social**, procurar equipes próximas por cidade,
+  distância, nível e horários, e convidar outro organizador para um amistoso.
+- Conversar sobre o jogo em um chat privado entre organizadores. O amistoso entra nas agendas dos
+  dois grupos somente depois que ambos confirmam os detalhes.
 - Marcar peladas com local, data, quantidade de times e limite de jogadores.
 - Confirmar presença ou entrar em uma fila de espera com promoção automática.
 - Definir capitães; cada capitão escolhe seu elenco entre os jogadores disponíveis.
@@ -24,7 +28,7 @@
   de até 2 MB e conferir pagamentos manualmente. Os pagamentos Pix continuam fora do aplicativo.
 - Consultar valores pagos, pendentes e vencidos, baixar comprovantes privados por 90 dias e preparar
   lembretes para compartilhar pelo WhatsApp.
-- Alternar entre visual claro e noturno e recolher o menu no computador. As preferências ficam salvas no navegador.
+- Alternar entre visual claro e noturno. Sem escolha salva, o app segue o tema do sistema; a preferência fica salva no navegador.
 
 Reservas já têm vaga na pelada e pertencem a um time. A lista de espera é para quem ainda não tem vaga no evento.
 
@@ -112,6 +116,10 @@ Encerre o processo Java antes de reconstruir o mesmo arquivo JAR no Windows.
    pode abrir o modo de correção após o fim para ajustar gols e duração sem reiniciar o relógio.
 14. Na aba **Notas**, cada confirmado pode avaliar colegas do próprio time por 24 horas.
     As médias aparecem depois do prazo. A demonstração inclui uma partida concluída.
+15. Para combinar um amistoso, crie dois grupos com organizadores diferentes. Em **Social**, cada
+    organizador pode publicar o perfil do grupo e procurar o outro por cidade e raio de distância.
+16. Envie um convite com data, horário e local. Depois do aceite, conversem e confirmem os detalhes
+    dos dois lados. O compromisso aparece nas agendas dos grupos; cada grupo organiza sua própria pelada.
 
 O organizador só edita a escalação se também for o capitão daquele time. Trocar o capitão não remove o capitão anterior do elenco; o novo capitão pode liberá-lo. Um capitão que desiste deixa o posto vago até o organizador indicar um substituto.
 
@@ -158,6 +166,8 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 - [OpenAPI JSON, quando executando](http://localhost:8080/api/openapi)
 - [Tela em celular](docs/screenshots/mobile.png)
 - [Redesenho: telas em claro, noturno e celular](docs/REDESENHO.md)
+- [Guia de identidade Tô Dentro](docs/IDENTIDADE.md)
+- [Origem do catálogo municipal usado na busca Social](docs/municipality-data.md)
 
 ## Estado da entrega
 
@@ -168,5 +178,5 @@ Peladas encerradas antes da migração não recebem avaliações retroativas.
 
 O aplicativo registra cobranças e pagamentos feitos externamente; não processa Pix, valida transações
 bancárias nem aprova comprovantes automaticamente. O envio de lembretes pelo WhatsApp é manual: o
-Pelada apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas, chat,
+Tô Dentro apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas,
 recuperação de senha ou notificações externas. Os convites são compartilhados copiando o link.

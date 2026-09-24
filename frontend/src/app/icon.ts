@@ -9,6 +9,7 @@ const paths: Record<string, string> = {
   person: 'M20 21a8 8 0 0 0-16 0 M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10',
   'user-plus':
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8 M20 4v6 M17 7h6',
+  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16 M21 21l-4.35-4.35',
   pitch: 'M3 3h18v18H3z M3 12h18 M9 3v4h6V3 M9 21v-4h6v4 M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6',
   arrow: 'M5 12h14 M13 6l6 6-6 6',
   chevron: 'M9 5l7 7-7 7',

@@ -1,0 +1,659 @@
+<section class="social-page" aria-labelledby="social-title">
+  <div class="page-heading social-heading">
+    <div>
+      <span class="eyebrow green">CONEXÕES ENTRE GRUPOS</span>
+      <h1 id="social-title">Social<span>.</span></h1>
+      <p>Encontre uma equipe por perto e combine um amistoso com quem organiza.</p>
+    </div>
+    <span class="social-private-note"><app-icon name="lock" /> Só organizadores</span>
+  </div>
+
+  @if (notice()) {
+    <div class="alert social-notice" role="status">{{ notice() }}</div>
+  }
+  @if (error()) {
+    <div class="alert error" role="alert">{{ error() }}</div>
+  }
+
+  <div class="group-tabs social-tabs" role="tablist" aria-label="Área Social">
+    <button
+      role="tab"
+      [attr.aria-selected]="view() === 'search'"
+      [class.active]="view() === 'search'"
+      (click)="selectView('search')"
+    >
+      Buscar times
+    </button>
+    <button
+      role="tab"
+      [attr.aria-selected]="view() === 'profiles'"
+      [class.active]="view() === 'profiles'"
+      (click)="selectView('profiles')"
+    >
+      Meus perfis
+    </button>
+    <button
+      role="tab"
+      [attr.aria-selected]="view() === 'inbox'"
+      [class.active]="view() === 'inbox'"
+      (click)="selectView('inbox')"
+    >
+      Convites e conversas
+      @if (unreadTotal()) {
+        <span class="social-unread">{{ unreadTotal() }}</span>
+      }
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="panel social-loading" role="status">Carregando área Social…</div>
+  } @else if (view() === 'search') {
+    <section class="panel social-search-panel" aria-labelledby="social-search-heading">
+      <div class="social-section-heading">
+        <div>
+          <span class="eyebrow">PERTO DE VOCÊ</span>
+          <h2 id="social-search-heading">Quem topa um amistoso?</h2>
+          <p>
+            A localização usa o centro municipal como referência. O endereço da quadra não aparece
+            na busca.
+          </p>
+        </div>
+      </div>
+      <div class="social-filters">
+        <label class="social-city-field"
+          >Cidade
+          <input
+            type="search"
+            [ngModel]="searchCityQuery()"
+            (ngModelChange)="onSearchCityInput($event)"
+            placeholder="Digite uma cidade"
+            autocomplete="off"
+            aria-label="Cidade para buscar times"
+          />
+          @if (searchCityOptions().length) {
+            <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
+              @for (city of searchCityOptions(); track city.code) {
+                <button type="button" role="option" (click)="chooseCity(city, 'search')">
+                  {{ city.label }}
+                </button>
+              }
+            </div>
+          }
+          @if (searchCity(); as city) {
+            <span class="field-hint">Origem: {{ city.label }}</span>
+          }
+        </label>
+        <label
+          >Raio
+          <select [ngModel]="searchRadius()" (ngModelChange)="searchRadius.set(+$event)">
+            @for (radius of radii; track radius) {
+              <option [ngValue]="radius">{{ radius }} km</option>
+            }
+          </select>
+        </label>
+        <label
+          >Tipo de equipe
+          <select [ngModel]="searchCategory()" (ngModelChange)="searchCategory.set($event)">
+            <option value="">Todos</option>
+            @for (category of categories; track category.value) {
+              <option [value]="category.value">{{ category.label }}</option>
+            }
+          </select>
+        </label>
+        <label
+          >Nível
+          <select [ngModel]="searchLevel()" (ngModelChange)="searchLevel.set($event)">
+            <option value="">Todos</option>
+            @for (level of levels; track level.value) {
+              <option [value]="level.value">{{ level.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <div class="social-filter-options">
+        <fieldset>
+          <legend>Dias preferidos</legend>
+          <div class="social-choice-row">
+            @for (day of days; track day.value) {
+              <button
+                type="button"
+                class="social-choice"
+                [class.selected]="searchDays().includes(day.value)"
+                [attr.aria-pressed]="searchDays().includes(day.value)"
+                (click)="toggleSearchDay(day.value)"
+              >
+                {{ day.label }}
+              </button>
+            }
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Períodos</legend>
+          <div class="social-choice-row">
+            @for (period of periods; track period.value) {
+              <button
+                type="button"
+                class="social-choice"
+                [class.selected]="searchPeriods().includes(period.value)"
+                [attr.aria-pressed]="searchPeriods().includes(period.value)"
+                (click)="toggleSearchPeriod(period.value)"
+              >
+                {{ period.label }}
+              </button>
+            }
+          </div>
+        </fieldset>
+      </div>
+      <div class="social-search-actions">
+        <span class="field-hint">Resultados ordenados pela distância aproximada em linha reta.</span
+        ><button
+          class="button primary"
+          type="button"
+          [disabled]="busy() || !searchCity()"
+          (click)="runSearch()"
+        >
+          <app-icon name="search" />Buscar equipes
+        </button>
+      </div>
+    </section>
+
+    @if (searched()) {
+      <div class="social-results-heading">
+        <h2>Equipes encontradas</h2>
+        <span>{{ results().length }} resultados</span>
+      </div>
+      <div class="social-result-list">
+        @for (result of results(); track result.listing.clubId) {
+          <article class="panel social-result-card">
+            <div class="social-result-main">
+              <div class="social-result-title">
+                <span class="social-group-mark"><app-icon name="users" /></span>
+                <div>
+                  <h3>{{ result.listing.clubName }}</h3>
+                  <span
+                    >{{ result.listing.municipalityName }} — {{ result.listing.uf }} ·
+                    {{ result.distanceKm | number: '1.0-1' }} km</span
+                  >
+                </div>
+              </div>
+              <p>{{ result.listing.description || 'Um grupo pronto para jogar.' }}</p>
+              <div class="social-chips">
+                @for (category of result.listing.categories; track category) {
+                  <span>{{ categoryLabel(category) }}</span>
+                }
+                <span>{{ skillLabel(result.listing.skillLevel) }}</span
+                ><span>{{ result.listing.courtName }} · {{ result.listing.neighborhood }}</span>
+              </div>
+              <div class="social-preferences">
+                <span><strong>Dias:</strong> {{ formatDays(result.listing.preferredDays) }}</span
+                ><span
+                  ><strong>Períodos:</strong>
+                  {{ formatPeriods(result.listing.preferredPeriods) }}</span
+                >
+              </div>
+              <div class="social-match-hints">
+                @if (result.scheduleCompatible) {
+                  <span>Horários compatíveis</span>
+                }
+                @if (result.levelSimilar) {
+                  <span>Nível semelhante</span>
+                }
+              </div>
+            </div>
+            <button
+              class="button primary social-invite-button"
+              type="button"
+              [disabled]="busy()"
+              (click)="openInvite(result)"
+            >
+              <app-icon name="user-plus" />Convidar para amistoso
+            </button>
+          </article>
+        } @empty {
+          <div class="panel empty-state social-empty">
+            <app-icon name="users" />
+            <h3>Nenhum grupo apareceu por aqui.</h3>
+            <p>Tente aumentar o raio ou ajustar os filtros, ou publique o perfil do seu grupo.</p>
+            <button class="button secondary" (click)="selectView('profiles')">
+              Ver meus perfis
+            </button>
+          </div>
+        }
+      </div>
+    }
+  } @else if (view() === 'profiles') {
+    <section class="panel social-profile-panel" aria-labelledby="social-profile-heading">
+      <div class="social-section-heading">
+        <div>
+          <span class="eyebrow">SUA EQUIPE NA BUSCA</span>
+          <h2 id="social-profile-heading">Perfil social</h2>
+          <p>
+            Compartilhe o necessário para outros organizadores encontrarem seu grupo. Você pode
+            pausar a publicação quando quiser.
+          </p>
+        </div>
+        @if (ownedGroups().length > 1) {
+          <label class="social-group-select"
+            >Grupo<select [ngModel]="selectedGroupId()" (ngModelChange)="selectGroup($event)">
+              @for (group of ownedGroups(); track group.clubId) {
+                <option [value]="group.clubId">{{ group.clubName }}</option>
+              }
+            </select></label
+          >
+        }
+      </div>
+      @if (selectedGroup(); as group) {
+        <form class="social-profile-form" (ngSubmit)="saveListing()">
+          <div class="social-form-grid">
+            <label class="social-city-field"
+              >Cidade da quadra
+              <input
+                type="search"
+                name="profileCity"
+                [ngModel]="profileCityQuery()"
+                (ngModelChange)="onProfileCityInput($event)"
+                placeholder="Digite uma cidade"
+                autocomplete="off"
+              />
+              @if (profileCityOptions().length) {
+                <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
+                  @for (city of profileCityOptions(); track city.code) {
+                    <button type="button" role="option" (click)="chooseCity(city, 'profile')">
+                      {{ city.label }}
+                    </button>
+                  }
+                </div>
+              }
+              @if (profileCity(); as city) {
+                <span class="field-hint">{{ city.label }}</span>
+              }
+            </label>
+            <label
+              >Nome da quadra<input
+                name="courtName"
+                [(ngModel)]="draft.courtName"
+                maxlength="100"
+                required
+                placeholder="Ex.: Arena Central"
+            /></label>
+            <label
+              >Bairro<input
+                name="neighborhood"
+                [(ngModel)]="draft.neighborhood"
+                maxlength="80"
+                required
+                placeholder="Ex.: Centro"
+            /></label>
+            <label
+              >Nível de jogo<select name="skillLevel" [(ngModel)]="draft.skillLevel">
+                @for (level of levels; track level.value) {
+                  <option [value]="level.value">{{ level.label }}</option>
+                }
+              </select></label
+            >
+          </div>
+          <label
+            >Sobre o grupo<textarea
+              name="description"
+              [(ngModel)]="draft.description"
+              maxlength="500"
+              rows="3"
+              placeholder="Conte brevemente como vocês jogam e o que procuram."
+            ></textarea>
+          </label>
+          <fieldset>
+            <legend>Que tipo de equipe é {{ group.clubName }}?</legend>
+            <div class="social-choice-row">
+              @for (category of categories; track category.value) {
+                <button
+                  type="button"
+                  class="social-choice"
+                  [class.selected]="draft.categories.includes(category.value)"
+                  [attr.aria-pressed]="draft.categories.includes(category.value)"
+                  (click)="toggleDraft('categories', category.value)"
+                >
+                  {{ category.label }}
+                </button>
+              }
+            </div>
+          </fieldset>
+          <div class="social-form-preferences">
+            <fieldset>
+              <legend>Dias preferidos</legend>
+              <div class="social-choice-row">
+                @for (day of days; track day.value) {
+                  <button
+                    type="button"
+                    class="social-choice"
+                    [class.selected]="draft.preferredDays.includes(day.value)"
+                    [attr.aria-pressed]="draft.preferredDays.includes(day.value)"
+                    (click)="toggleDraft('preferredDays', day.value)"
+                  >
+                    {{ day.label }}
+                  </button>
+                }
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Períodos preferidos</legend>
+              <div class="social-choice-row">
+                @for (period of periods; track period.value) {
+                  <button
+                    type="button"
+                    class="social-choice"
+                    [class.selected]="draft.preferredPeriods.includes(period.value)"
+                    [attr.aria-pressed]="draft.preferredPeriods.includes(period.value)"
+                    (click)="toggleDraft('preferredPeriods', period.value)"
+                  >
+                    {{ period.label }}
+                  </button>
+                }
+              </div>
+            </fieldset>
+          </div>
+          <div class="social-profile-footer">
+            <label class="social-publish-toggle"
+              ><input type="checkbox" name="published" [(ngModel)]="draft.published" /> Publicar
+              este perfil para organizadores próximos</label
+            >
+            <div class="social-profile-actions">
+              @if (group.listing) {
+                <button
+                  class="button secondary"
+                  type="button"
+                  (click)="removeListing()"
+                  [disabled]="busy()"
+                >
+                  Retirar perfil
+                </button>
+              }
+              <button class="button primary" type="submit" [disabled]="busy() || !profileCity()">
+                <app-icon name="check" />Salvar perfil
+              </button>
+            </div>
+          </div>
+        </form>
+      } @else {
+        <div class="empty-state social-empty">
+          <h3>Não há grupos para organizar.</h3>
+          <p>
+            Somente proprietários de grupos podem publicar perfis, procurar equipes e combinar
+            amistosos.
+          </p>
+        </div>
+      }
+    </section>
+  } @else {
+    <div class="social-inbox-layout">
+      <section class="panel social-inbox-panel" aria-labelledby="social-inbox-heading">
+        <div class="social-section-heading">
+          <div>
+            <span class="eyebrow">CONTATO ENTRE ORGANIZADORES</span>
+            <h2 id="social-inbox-heading">Convites e conversas</h2>
+            <p>
+              Os detalhes combinados só entram nas agendas depois da confirmação dos dois lados.
+            </p>
+          </div>
+        </div>
+        <div class="social-match-list">
+          @for (match of invitations(); track match.id) {
+            <button
+              class="social-match-row"
+              type="button"
+              [class.active]="activeMatchId() === match.id"
+              (click)="openMatch(match)"
+            >
+              <span class="social-group-mark"><app-icon name="users" /></span
+              ><span class="social-match-copy"
+                ><strong>{{ matchOpponent(match) }}</strong
+                ><span>{{ matchStatus(match.status) }}</span>
+                @if (match.chatOpen) {
+                  <small
+                    >{{ match.status === 'CHANGE_PENDING' ? 'Nova proposta: ' : ''
+                    }}{{ formatDate(match.proposedStartsAt) }} · {{ match.proposedLocation }}</small
+                  >
+                }
+              </span>
+              @if (match.unreadMessages) {
+                <span
+                  class="social-unread"
+                  [attr.aria-label]="match.unreadMessages + ' mensagens não lidas'"
+                  >{{ match.unreadMessages }}</span
+                >
+              }
+            </button>
+          } @empty {
+            <div class="social-inbox-empty">
+              <app-icon name="user-plus" /><strong>Nenhum convite por enquanto.</strong
+              ><span>Encontre um grupo e envie uma proposta de amistoso.</span>
+            </div>
+          }
+        </div>
+      </section>
+      <section class="panel social-chat-panel" aria-label="Detalhes do convite ou conversa">
+        @if (activeMatch(); as match) {
+          <div class="social-chat-heading">
+            <div>
+              <span class="eyebrow">{{ matchStatus(match.status) }}</span>
+              <h2>{{ matchOpponent(match) }}</h2>
+            </div>
+            @if (match.canCancel) {
+              <button class="button secondary" type="button" (click)="cancel(match)">
+                Cancelar
+              </button>
+            }
+          </div>
+          @if (match.canAccept || match.canDecline) {
+            <div class="social-invite-summary">
+              <h3>Proposta recebida</h3>
+              <p>
+                <strong>{{ formatDate(match.proposedStartsAt) }}</strong>
+              </p>
+              <p>{{ match.proposedLocation }}</p>
+              @if (match.message) {
+                <p class="social-invite-message">{{ match.message }}</p>
+              }
+              <div class="social-chat-actions">
+                @if (match.canAccept) {
+                  <button class="button primary" (click)="respond(match, 'accept')">
+                    Aceitar e abrir conversa
+                  </button>
+                }
+                @if (match.canDecline) {
+                  <button class="button secondary" (click)="respond(match, 'decline')">
+                    Recusar convite
+                  </button>
+                }
+              </div>
+            </div>
+          }
+          @if (match.chatOpen) {
+            <div class="social-proposal-card">
+              <div>
+                <span class="eyebrow">PROPOSTA ATUAL</span
+                ><strong>{{ formatDate(match.proposedStartsAt) }}</strong
+                ><span>{{ match.proposedLocation }}</span>
+                @if (match.status === 'CHANGE_PENDING' && match.startsAt) {
+                  <small
+                    >Combinado anterior: {{ formatDate(match.startsAt) }} ·
+                    {{ match.location }}</small
+                  >
+                }
+                <small
+                  >{{
+                    match.hostConfirmed
+                      ? 'Organizador do grupo proponente confirmou'
+                      : 'Aguardando confirmação do grupo proponente'
+                  }}
+                  ·
+                  {{
+                    match.guestConfirmed
+                      ? 'outro organizador confirmou'
+                      : 'aguardando confirmação do outro organizador'
+                  }}</small
+                >
+              </div>
+              <div class="social-chat-actions">
+                @if (match.canConfirm) {
+                  <button class="button primary" (click)="respond(match, 'confirm')">
+                    Confirmar detalhes
+                  </button>
+                }
+                @if (match.canPropose) {
+                  <button
+                    class="button secondary"
+                    (click)="editingProposal.set(!editingProposal())"
+                  >
+                    {{ editingProposal() ? 'Fechar edição' : 'Propor outro horário ou local' }}
+                  </button>
+                }
+              </div>
+            </div>
+            @if (editingProposal() && match.canPropose) {
+              <form class="social-proposal-form" (ngSubmit)="submitProposal(match)">
+                <label
+                  >Data e horário<input
+                    type="datetime-local"
+                    name="proposalStartsAt"
+                    [(ngModel)]="proposalDraft.startsAt"
+                    [min]="dateTimeMin()"
+                    required /></label
+                ><label
+                  >Local combinado<input
+                    name="proposalLocation"
+                    [(ngModel)]="proposalDraft.location"
+                    maxlength="240"
+                    required /></label
+                ><button class="button primary" type="submit" [disabled]="busy()">
+                  Enviar nova proposta
+                </button>
+              </form>
+            }
+            @if (match.status === 'SCHEDULED') {
+              <p class="social-confirmed-note">
+                <app-icon name="check" />Amistoso confirmado e adicionado às agendas dos dois
+                grupos.
+              </p>
+            }
+            @if (match.status === 'CHANGE_PENDING') {
+              <p class="social-pending-note">
+                A alteração ainda não foi confirmada pelos dois organizadores.
+              </p>
+            }
+            <div class="social-message-list" aria-live="polite" aria-label="Mensagens da conversa">
+              @for (message of messages(); track message.id) {
+                <article class="social-message" [class.mine]="message.mine">
+                  <span>{{ message.senderName }} · {{ formatDate(message.createdAt) }}</span>
+                  <p>{{ message.body }}</p>
+                </article>
+              } @empty {
+                <div class="social-message-empty">
+                  A conversa começa aqui. Combine os detalhes do jogo.
+                </div>
+              }
+            </div>
+            <form class="social-compose" (ngSubmit)="sendMessage()">
+              <label class="sr-only" for="social-message-input">Escreva uma mensagem</label
+              ><textarea
+                id="social-message-input"
+                name="messageText"
+                [(ngModel)]="messageText"
+                maxlength="1000"
+                rows="2"
+                placeholder="Escreva para o outro organizador…"
+                required
+              ></textarea
+              ><button
+                class="button primary"
+                type="submit"
+                [disabled]="busy() || !messageText.trim()"
+              >
+                <app-icon name="arrow" />Enviar
+              </button>
+            </form>
+          } @else if (!match.canAccept && !match.canDecline) {
+            <div class="social-chat-closed">
+              <span class="eyebrow">{{ matchStatus(match.status) }}</span>
+              <h3>Este convite foi encerrado.</h3>
+              <p>Convites recusados, expirados ou cancelados não abrem conversa.</p>
+            </div>
+          }
+        } @else {
+          <div class="social-chat-placeholder">
+            <app-icon name="users" />
+            <h3>Escolha um convite</h3>
+            <p>As conversas aparecem aqui e são privadas aos organizadores dos dois grupos.</p>
+          </div>
+        }
+      </section>
+    </div>
+  }
+
+  @if (inviting(); as target) {
+    <div class="social-dialog-scrim" (click)="closeInvite()">
+      <section
+        class="panel social-invite-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="social-invite-title"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="social-dialog-heading">
+          <div>
+            <span class="eyebrow">PROPOR AMISTOSO</span>
+            <h2 id="social-invite-title">{{ target.listing.clubName }}</h2>
+          </div>
+          <button type="button" class="icon-button" aria-label="Fechar" (click)="closeInvite()">
+            <app-icon name="close" />
+          </button>
+        </div>
+        <p>
+          O convite vai para o organizador. Se aceitar, vocês poderão conversar e confirmar os
+          detalhes em conjunto.
+        </p>
+        <form class="social-invite-form" (ngSubmit)="sendInvite()">
+          <label
+            >Enviar pelo grupo<select
+              name="senderClubId"
+              [(ngModel)]="inviteDraft.senderClubId"
+              required
+            >
+              @for (group of ownedGroups(); track group.clubId) {
+                <option [value]="group.clubId">{{ group.clubName }}</option>
+              }
+            </select></label
+          ><label
+            >Data e horário<input
+              type="datetime-local"
+              name="inviteStartsAt"
+              [(ngModel)]="inviteDraft.startsAt"
+              [min]="dateTimeMin()"
+              required /></label
+          ><label
+            >Local proposto<input
+              name="inviteLocation"
+              [(ngModel)]="inviteDraft.location"
+              maxlength="240"
+              required
+              placeholder="Quadra e endereço para o convite privado" /></label
+          ><label
+            >Mensagem <span class="field-hint">opcional</span
+            ><textarea
+              name="inviteMessage"
+              [(ngModel)]="inviteDraft.message"
+              maxlength="500"
+              rows="3"
+              placeholder="Apresente a equipe e combine o amistoso."
+            ></textarea>
+          </label>
+          <div class="social-dialog-actions">
+            <button class="button secondary" type="button" (click)="closeInvite()">Voltar</button
+            ><button class="button primary" type="submit" [disabled]="busy()">
+              Enviar convite
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  }
+</section>
