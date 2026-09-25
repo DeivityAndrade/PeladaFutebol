@@ -602,11 +602,18 @@ test('partida ao vivo, gol, encerramento e avaliação em desktop e celular', as
   await ownerPage.getByRole('tab', { name: 'Partida' }).click();
   await otherPage.getByRole('tab', { name: 'Partida' }).click();
   await ownerPage.waitForTimeout(Math.max(0, kickoff - Date.now() + 300));
-  await ownerPage.reload();
-  await ownerPage.getByRole('tab', { name: 'Partida' }).click();
+  await ownerPage.goto('/#group/' + club.id);
+  await ownerPage.getByRole('tab', { name: /Finalizadas 1/ }).click();
+  await ownerPage.getByRole('button', { name: /Jogo ao vivo.*Resultado não registrado/ }).click();
+  await expect(ownerPage.getByRole('heading', { name: 'Resultado não registrado' })).toBeVisible();
+  await expect(ownerPage.locator('.scoreboard')).toHaveCount(0);
+  await expect(ownerPage.getByRole('button', { name: 'Começar partida' })).toBeVisible();
   await ownerPage.getByRole('button', { name: 'Começar partida' }).click();
   await expect(ownerPage.locator('.match-clock')).not.toHaveText('0:00', { timeout: 5_000 });
-  await ownerPage.reload();
+  await ownerPage.goto('/#group/' + club.id);
+  await ownerPage.getByRole('tab', { name: /Próximas 1/ }).click();
+  await expect(ownerPage.getByRole('tab', { name: /Finalizadas 0/ })).toBeVisible();
+  await ownerPage.getByRole('button', { name: /Jogo ao vivo.*Ao vivo/ }).click();
   await ownerPage.getByRole('tab', { name: 'Partida' }).click();
   await expect(ownerPage.locator('.match-clock')).not.toHaveText('0:00');
   await ownerPage.getByRole('button', { name: 'Registrar gol' }).click();
@@ -622,8 +629,15 @@ test('partida ao vivo, gol, encerramento e avaliação em desktop e celular', as
   await otherPage.getByRole('button', { name: 'Encerrar partida' }).click();
   await otherPage.getByRole('button', { name: 'Confirmar fim de jogo' }).click();
   await expect(otherPage.getByRole('heading', { name: 'Fim de jogo' })).toBeVisible();
-  await ownerPage.reload();
+  await ownerPage.goto('/#group/' + club.id);
+  await ownerPage.getByRole('tab', { name: /Finalizadas 1/ }).click();
+  await expect(ownerPage.getByRole('tab', { name: /Próximas 0/ })).toBeVisible();
+  await ownerPage.getByRole('button', { name: /Jogo ao vivo.*Finalizada/ }).click();
+  await expect(ownerPage.getByRole('heading', { name: 'Fim de jogo' })).toBeVisible();
+  await expect(ownerPage.locator('.score-team strong')).toHaveText(['1', '0']);
+  await expect(ownerPage.locator('.timeline-row')).toContainText('Colega Ao Vivo');
   await ownerPage.getByRole('tab', { name: 'Notas' }).click();
+  await expect(ownerPage.locator('.rating-row strong')).toHaveCount(0);
   await ownerPage.getByRole('button', { name: '5 estrelas para Colega Ao Vivo' }).click();
   await expect(
     ownerPage.getByRole('button', { name: '5 estrelas para Colega Ao Vivo' }),

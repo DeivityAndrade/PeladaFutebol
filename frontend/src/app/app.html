@@ -548,18 +548,6 @@
                   </div>
                 }
               </div>
-              @if (detail()!.game.matchStatus === 'READY') {
-                @if (canStart()) {
-                  <button class="button primary" [disabled]="busy()" (click)="startMatch()">
-                    Começar partida
-                  </button>
-                } @else if (!demo()) {
-                  <p class="form-hint">
-                    Para começar, distribua todos os confirmados e deixe ao menos um jogador em cada
-                    time.
-                  </p>
-                }
-              }
               @if (canChangeGoals()) {
                 <button class="button primary" [disabled]="busy()" (click)="open('goal')">
                   Registrar gol
@@ -610,6 +598,18 @@
                   <p class="muted">Nenhum gol registrado.</p>
                 }
               </div>
+            }
+            @if (detail()!.game.matchStatus === 'READY') {
+              @if (canStart()) {
+                <button class="button primary" [disabled]="busy()" (click)="startMatch()">
+                  Começar partida
+                </button>
+              } @else if (!demo()) {
+                <p class="form-hint">
+                  Para começar, distribua todos os confirmados e deixe ao menos um jogador em cada
+                  time.
+                </p>
+              }
             }
           </section>
         } @else if (tab() === 'ratings' && detail()!.game.liveEnabled) {
