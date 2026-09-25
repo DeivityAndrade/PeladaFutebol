@@ -55,7 +55,7 @@ class GameRulesTest {
   @BeforeEach
   void setup() {
     jdbc.execute(
-      "TRUNCATE spring_session,finance_receipt_files,finance_charges,barbecue_attendance,barbecues,barbecue_series,participations,teams,games,members,clubs,players CASCADE"
+      "TRUNCATE spring_session,password_reset_tokens,password_reset_limits,finance_receipt_files,finance_charges,barbecue_attendance,barbecues,barbecue_series,participations,teams,game_series,games,members,clubs,players CASCADE"
     );
     players = tx.execute(status -> {
       List<UUID> result = new ArrayList<>();
@@ -158,6 +158,231 @@ class GameRulesTest {
     games.leave(owner, game);
     games.leave(owner, game);
     assertThat(games.get(owner, game).attendees()).isEmpty();
+  }
+
+  @Test
+  void weeklySeriesUsesGroupTimeZoneAndGeneratesOnlyUniqueUpcomingOccurrences() {
+    ZoneId zone = ZoneId.of("America/Manaus");
+    ClubView localGroup = groups.create(
+      owner,
+      new CreateClub(
+        "Grupo no Amazonas",
+        "",
+        "NONE",
+        null,
+        1,
+        null,
+        "",
+        zone.getId()
+      )
+    );
+    ZonedDateTime first = LocalDate.now(zone)
+      .plusDays(8)
+      .atTime(19, 30)
+      .atZone(zone);
+    var created = games.create(
+      owner,
+      localGroup.id(),
+      new CreateGame(
+        "Pelada toda semana",
+        "Quadra do grupo",
+        first.toInstant(),
+        2,
+        5,
+        false,
+        null,
+        true,
+        first.toLocalDate().plusWeeks(2)
+      )
+    );
+
+    assertThat(created.game().recurring()).isTrue();
+    assertThat(created.game().occurrenceIndex()).isEqualTo(1);
+    assertThat(created.club().timeZone()).isEqualTo(zone.getId());
+    List<GameView> occurrences = games.list(owner, localGroup.id());
+    assertThat(occurrences).hasSize(3);
+    for (int index = 1; index <= 3; index++) {
+      int occurrenceIndex = index;
+      GameView occurrence = occurrences
+        .stream()
+        .filter(item -> item.occurrenceIndex() == occurrenceIndex)
+        .findFirst()
+        .orElseThrow();
+      ZonedDateTime local = occurrence.startsAt().atZone(zone);
+      assertThat(local.toLocalDate()).isEqualTo(
+        first.toLocalDate().plusWeeks(index - 1)
+      );
+      assertThat(local.toLocalTime()).isEqualTo(first.toLocalTime());
+      assertThat(
+        store.list(
+          Team.class,
+          "from Team where gameId=:game",
+          "game",
+          occurrence.id()
+        )
+      ).hasSize(2);
+    }
+
+    UUID firstId = occurrences
+      .stream()
+      .filter(item -> item.occurrenceIndex() == 1)
+      .findFirst()
+      .orElseThrow()
+      .id();
+    UUID secondId = occurrences
+      .stream()
+      .filter(item -> item.occurrenceIndex() == 2)
+      .findFirst()
+      .orElseThrow()
+      .id();
+    games.attend(owner, firstId);
+    assertThat(games.get(owner, firstId).game().confirmed()).isEqualTo(1);
+    assertThat(games.get(owner, secondId).game().confirmed()).isZero();
+    games.list(owner, localGroup.id());
+    assertThat(games.list(owner, localGroup.id())).hasSize(3);
+    assertThat(
+      jdbc.queryForObject(
+        "select count(*) from games where series_id is not null",
+        Integer.class
+      )
+    ).isEqualTo(3);
+  }
+
+  @Test
+  void editingAndCancellingRecurringGamesPreservesExceptionsAndPastData() {
+    ZoneId zone = ZoneId.of("America/Sao_Paulo");
+    ZonedDateTime first = LocalDate.now(zone)
+      .plusDays(8)
+      .atTime(20, 0)
+      .atZone(zone);
+    games
+      .create(
+        owner,
+        club,
+        new CreateGame(
+          "Série original",
+          "Quadra A",
+          first.toInstant(),
+          2,
+          5,
+          false,
+          null,
+          true,
+          null
+        )
+      )
+      .game()
+      .id();
+    List<GameView> initial = games.list(owner, club);
+    Map<Integer, GameView> before = new HashMap<>();
+    initial
+      .stream()
+      .filter(GameView::recurring)
+      .forEach(item -> before.put(item.occurrenceIndex(), item));
+    GameView firstOccurrence = before.get(1);
+    games.attend(owner, firstOccurrence.id());
+    Instant historicalStart = Instant.now().minusSeconds(86_400);
+    tx.executeWithoutResult(status -> {
+      Game historical = store.lock(Game.class, firstOccurrence.id());
+      historical.startsAt = historicalStart;
+      historical.matchStartedAt = historicalStart.minusSeconds(3600);
+      historical.matchEndedAt = historicalStart.minusSeconds(1800);
+      historical.matchDurationSeconds = 1800;
+      historical.seriesException = true;
+    });
+    initial = games.list(owner, club);
+    before.clear();
+    initial
+      .stream()
+      .filter(GameView::recurring)
+      .forEach(item -> before.put(item.occurrenceIndex(), item));
+    assertThat(
+      initial
+        .stream()
+        .filter(GameView::recurring)
+        .filter(item -> item.startsAt().isAfter(Instant.now()))
+    ).hasSize(8);
+
+    GameView oneOff = before.get(4);
+    Instant exceptionTime = oneOff.startsAt().plusSeconds(3600);
+    games.update(
+      owner,
+      oneOff.id(),
+      new UpdateGame("Exceção da série", "Quadra B", exceptionTime, "ONE")
+    );
+
+    GameView target = before.get(2);
+    Instant movedStart = target.startsAt().plusSeconds(86_400);
+    games.update(
+      owner,
+      target.id(),
+      new UpdateGame("Novo horário", "Quadra C", movedStart, "THIS_AND_FUTURE")
+    );
+    GameDetail changedTarget = games.get(owner, target.id());
+    assertThat(changedTarget.game().title()).isEqualTo("Novo horário");
+    assertThat(changedTarget.game().startsAt()).isEqualTo(movedStart);
+    assertThat(changedTarget.game().seriesException()).isFalse();
+    assertThat(
+      games.get(owner, before.get(1).id()).game().startsAt()
+    ).isEqualTo(before.get(1).startsAt());
+    assertThat(
+      games.get(owner, before.get(1).id()).game().matchStatus()
+    ).isEqualTo("FINISHED");
+    assertThat(games.get(owner, before.get(1).id()).attendees()).hasSize(1);
+    assertThat(
+      games.get(owner, before.get(3).id()).game().startsAt()
+    ).isEqualTo(movedStart.plusSeconds(7 * 86_400));
+    GameDetail preservedException = games.get(owner, oneOff.id());
+    assertThat(preservedException.game().startsAt()).isEqualTo(exceptionTime);
+    assertThat(preservedException.game().title()).isEqualTo("Exceção da série");
+    assertThat(preservedException.game().seriesException()).isTrue();
+
+    assertThatThrownBy(() ->
+      games.update(
+        players.get(1),
+        target.id(),
+        new UpdateGame("Sem permissão", "Quadra", movedStart, "ONE")
+      )
+    ).isInstanceOf(ApiException.class);
+
+    games.cancel(owner, before.get(3).id(), "ONE");
+    assertThat(
+      games.get(owner, before.get(3).id()).game().cancelled()
+    ).isTrue();
+    assertThat(
+      games.get(owner, before.get(1).id()).game().cancelled()
+    ).isFalse();
+    int occurrencesBeforeStop = jdbc.queryForObject(
+      "select count(*) from games where series_id is not null",
+      Integer.class
+    );
+    games.cancel(owner, target.id(), "THIS_AND_FUTURE");
+    assertThat(games.get(owner, target.id()).game().cancelled()).isTrue();
+    assertThat(
+      games.get(owner, before.get(1).id()).game().cancelled()
+    ).isFalse();
+    assertThatThrownBy(() ->
+      games.cancel(players.get(1), oneOff.id(), "ONE")
+    ).isInstanceOf(ApiException.class);
+    games.list(owner, club);
+    assertThat(
+      jdbc.queryForObject(
+        "select count(*) from games where series_id = (select id from game_series where club_id = ?)",
+        Integer.class,
+        club
+      )
+    ).isEqualTo(occurrencesBeforeStop);
+    assertThat(
+      store
+        .first(
+          GameSeries.class,
+          "from GameSeries where clubId=:club",
+          "club",
+          club
+        )
+        .orElseThrow()
+        .active
+    ).isFalse();
   }
 
   @Test

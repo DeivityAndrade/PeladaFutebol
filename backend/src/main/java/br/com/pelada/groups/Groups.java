@@ -3,6 +3,8 @@ package br.com.pelada.groups;
 import br.com.pelada.api.Contracts.*;
 import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.*;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +20,19 @@ public class Groups {
   }
 
   public ClubView create(UUID user, CreateClub input) {
+    String timeZone = input.timeZone().strip();
+    try {
+      ZoneId.of(timeZone);
+    } catch (DateTimeException ex) {
+      throw new ApiException(
+        400,
+        "Escolha um fuso horário válido para o grupo."
+      );
+    }
     Club club = store.save(
       new Club(input.name().strip(), input.description().strip(), user)
     );
+    club.timeZone = timeZone;
     club.barbecueFrequency = input.barbecueFrequency();
     club.monthlyAmountCents = positive(input.monthlyAmountCents());
     club.billingDueDay = input.billingDueDay();
@@ -116,7 +128,8 @@ public class Groups {
       club.monthlyAmountCents,
       club.billingDueDay,
       club.occasionalAmountCents,
-      club.pixInstructions
+      club.pixInstructions,
+      club.timeZone
     );
   }
 

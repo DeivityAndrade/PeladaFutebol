@@ -6,6 +6,12 @@ import br.com.pelada.domain.Domain.*;
 import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
 import java.time.Clock;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -15,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class Games {
+
+  private static final int UPCOMING_WINDOW = 8;
 
   private final Store store;
   private final Groups groups;
@@ -38,9 +46,19 @@ public class Games {
 
   public GameDetail create(UUID user, UUID clubId, CreateGame input) {
     Club club = groups.requireOwner(user, clubId);
+    club = store.lock(Club.class, club.id);
     if (!input.startsAt().isAfter(clock.instant())) throw new ApiException(
       400,
       "Escolha uma data e um horário no futuro."
+    );
+    ZoneId zone = groupZone(club);
+    LocalDate firstDate = input.startsAt().atZone(zone).toLocalDate();
+    if (
+      input.recurrenceEndsOn() != null &&
+      (!input.recurring() || input.recurrenceEndsOn().isBefore(firstDate))
+    ) throw new ApiException(
+      400,
+      "O término da recorrência precisa ser no dia da primeira pelada ou depois dele."
     );
     Long gameCharge =
       input.occasionalAmountCents() == null
@@ -52,35 +70,43 @@ public class Games {
         "Defina o valor avulso do grupo ou desta pelada."
       );
     }
-    Game game = store.save(
-      new Game(
-        clubId,
-        input.title().strip(),
-        input.location().strip(),
-        input.startsAt(),
-        input.teamCount(),
-        input.teamSize()
-      )
+    Game game = createGame(
+      clubId,
+      input.title().strip(),
+      input.location().strip(),
+      input.startsAt(),
+      input.teamCount(),
+      input.teamSize(),
+      input.chargeOccasional(),
+      input.chargeOccasional() ? gameCharge : null
     );
-    game.chargeOccasional = input.chargeOccasional();
-    game.occasionalAmountCents = input.chargeOccasional() ? gameCharge : null;
-    String[] colors = {
-      "#d8f36a",
-      "#8d9dff",
-      "#ffa96b",
-      "#70d9cb",
-      "#f198c8",
-      "#79b7f3",
-    };
-    for (int i = 0; i < input.teamCount(); i++) store.save(
-      new Team(game.id, i, "Time " + (i + 1), colors[i])
-    );
+    if (input.recurring()) {
+      GameSeries series = store.save(
+        new GameSeries(
+          clubId,
+          zone.getId(),
+          input.startsAt(),
+          input.recurrenceEndsOn(),
+          game.title,
+          game.location,
+          game.teamCount,
+          game.teamSize,
+          game.chargeOccasional,
+          game.occasionalAmountCents,
+          clock.instant()
+        )
+      );
+      game.seriesId = series.id;
+      game.seriesOccurrenceIndex = 1;
+      ensureSeriesWindow(club);
+    }
     return detail(game);
   }
 
-  @Transactional(readOnly = true)
   public List<GameView> list(UUID user, UUID clubId) {
     groups.requireMember(user, clubId);
+    Club club = store.lock(Club.class, clubId);
+    ensureSeriesWindow(club);
     return store
       .list(
         Game.class,
@@ -91,6 +117,142 @@ public class Games {
       .stream()
       .map(this::view)
       .toList();
+  }
+
+  private Game createGame(
+    UUID clubId,
+    String title,
+    String location,
+    Instant startsAt,
+    int teamCount,
+    int teamSize,
+    boolean chargeOccasional,
+    Long occasionalAmountCents
+  ) {
+    Game game = store.save(
+      new Game(clubId, title, location, startsAt, teamCount, teamSize)
+    );
+    game.chargeOccasional = chargeOccasional;
+    game.occasionalAmountCents = chargeOccasional
+      ? occasionalAmountCents
+      : null;
+    String[] colors = {
+      "#d8f36a",
+      "#8d9dff",
+      "#ffa96b",
+      "#70d9cb",
+      "#f198c8",
+      "#79b7f3",
+    };
+    for (int i = 0; i < teamCount; i++) store.save(
+      new Team(game.id, i, "Time " + (i + 1), colors[i])
+    );
+    return game;
+  }
+
+  private void ensureSeriesWindow(Club club) {
+    Instant now = clock.instant();
+    List<GameSeries> seriesList = store.list(
+      GameSeries.class,
+      "from GameSeries where clubId=:club and active=true order by createdAt",
+      "club",
+      club.id
+    );
+    for (GameSeries loaded : seriesList) {
+      GameSeries series = store.lock(GameSeries.class, loaded.id);
+      if (!series.active) continue;
+      int upcoming = store
+        .list(
+          Long.class,
+          "select count(g) from Game g where g.seriesId=:series and g.startsAt>:now and g.cancelled=false",
+          "series",
+          series.id,
+          "now",
+          now
+        )
+        .getFirst()
+        .intValue();
+      int maximumIndex = store
+        .list(
+          Integer.class,
+          "select coalesce(max(g.seriesOccurrenceIndex),0) from Game g where g.seriesId=:series",
+          "series",
+          series.id
+        )
+        .getFirst();
+      series.nextOccurrenceIndex = Math.max(
+        series.nextOccurrenceIndex,
+        maximumIndex + 1
+      );
+      ZoneId zone = seriesZone(series);
+      ZonedDateTime anchor = ZonedDateTime.ofInstant(
+        series.anchorStartsAt,
+        zone
+      );
+      int skipped = 0;
+      while (upcoming < UPCOMING_WINDOW && series.active && skipped < 20_000) {
+        int index = series.nextOccurrenceIndex++;
+        long weeks = (long) index - series.anchorOccurrenceIndex;
+        if (weeks < 0) continue;
+        ZonedDateTime scheduled = anchor
+          .toLocalDate()
+          .plusWeeks(weeks)
+          .atTime(anchor.toLocalTime())
+          .atZone(zone);
+        if (
+          series.endsOn != null &&
+          scheduled.toLocalDate().isAfter(series.endsOn)
+        ) {
+          series.active = false;
+          break;
+        }
+        if (!scheduled.toInstant().isAfter(now)) {
+          skipped++;
+          continue;
+        }
+        Game occurrence = createGame(
+          series.clubId,
+          series.title,
+          series.location,
+          scheduled.toInstant(),
+          series.teamCount,
+          series.teamSize,
+          series.chargeOccasional,
+          series.occasionalAmountCents
+        );
+        occurrence.seriesId = series.id;
+        occurrence.seriesOccurrenceIndex = index;
+        upcoming++;
+      }
+    }
+    store.flush();
+  }
+
+  private void cancelOccurrence(Game game) {
+    game.cancelled = true;
+    finance.cancelGameCharges(game.id);
+  }
+
+  private ZoneId groupZone(Club club) {
+    try {
+      return ZoneId.of(club.timeZone);
+    } catch (DateTimeException ex) {
+      throw new ApiException(
+        500,
+        "O fuso horário configurado para o grupo é inválido."
+      );
+    }
+  }
+
+  private ZoneId seriesZone(GameSeries series) {
+    try {
+      return ZoneId.of(series.timeZone);
+    } catch (DateTimeException ex) {
+      throw new ApiException(
+        500,
+        "O fuso horário salvo para esta série é inválido."
+      );
+    }
   }
 
   @Transactional(readOnly = true)
@@ -140,6 +302,10 @@ public class Games {
   }
 
   public GameDetail cancel(UUID user, UUID id) {
+    return cancel(user, id, "ONE");
+  }
+
+  public GameDetail cancel(UUID user, UUID id, String scope) {
     Game game = store.lock(Game.class, id);
     groups.requireOwner(user, game.clubId);
     if (game.matchStartedAt != null) throw ApiException.conflict(
@@ -148,8 +314,112 @@ public class Games {
     if (game.cancelled) throw ApiException.conflict(
       "Esta pelada já foi cancelada."
     );
-    game.cancelled = true;
-    finance.cancelGameCharges(game.id);
+    if (
+      !scope.equals("ONE") && !scope.equals("THIS_AND_FUTURE")
+    ) throw new ApiException(
+      400,
+      "Escolha se deseja cancelar esta ocorrência ou esta e as futuras."
+    );
+    if (
+      game.seriesId != null && !game.startsAt.isAfter(clock.instant())
+    ) throw ApiException.conflict(
+      "Ocorrências passadas da série são preservadas e não podem ser canceladas."
+    );
+    if (scope.equals("THIS_AND_FUTURE") && game.seriesId != null) {
+      GameSeries series = store.lock(GameSeries.class, game.seriesId);
+      List<Game> future = store.list(
+        Game.class,
+        "from Game where seriesId=:series and seriesOccurrenceIndex>=:index order by seriesOccurrenceIndex",
+        "series",
+        series.id,
+        "index",
+        game.seriesOccurrenceIndex
+      );
+      Instant now = clock.instant();
+      for (Game occurrence : future)
+        if (
+          occurrence.startsAt.isAfter(now) && !occurrence.cancelled
+        ) cancelOccurrence(occurrence);
+      series.active = false;
+    } else {
+      cancelOccurrence(game);
+      if (game.seriesId != null) game.seriesException = true;
+    }
+    return detail(game);
+  }
+
+  public GameDetail update(UUID user, UUID id, UpdateGame input) {
+    Game game = store.lock(Game.class, id);
+    groups.requireOwner(user, game.clubId);
+    if (game.cancelled) throw ApiException.conflict(
+      "Uma pelada cancelada não pode ser alterada."
+    );
+    if (
+      game.matchStartedAt != null || !game.startsAt.isAfter(clock.instant())
+    ) throw ApiException.conflict(
+      "Só é possível editar uma pelada antes do horário marcado."
+    );
+    if (!input.startsAt().isAfter(clock.instant())) throw new ApiException(
+      400,
+      "Escolha uma data e um horário no futuro."
+    );
+    if (
+      !input.scope().equals("ONE") && !input.scope().equals("THIS_AND_FUTURE")
+    ) throw new ApiException(
+      400,
+      "Escolha se deseja editar esta ocorrência ou esta e as futuras."
+    );
+
+    if (game.seriesId == null || input.scope().equals("ONE")) {
+      game.title = input.title().strip();
+      game.location = input.location().strip();
+      game.startsAt = input.startsAt();
+      if (game.seriesId != null) game.seriesException = true;
+      return detail(game);
+    }
+
+    GameSeries series = store.lock(GameSeries.class, game.seriesId);
+    ZoneId zone = seriesZone(series);
+    ZonedDateTime newAnchor = input.startsAt().atZone(zone);
+    ZonedDateTime oldAnchor = game.startsAt.atZone(zone);
+    if (
+      series.endsOn != null && newAnchor.toLocalDate().isAfter(series.endsOn)
+    ) throw new ApiException(
+      400,
+      "A nova data fica depois do término configurado para esta série."
+    );
+    long shiftDays = ChronoUnit.DAYS.between(
+      oldAnchor.toLocalDate(),
+      newAnchor.toLocalDate()
+    );
+    series.anchorStartsAt = input.startsAt();
+    series.anchorOccurrenceIndex = game.seriesOccurrenceIndex;
+    series.title = input.title().strip();
+    series.location = input.location().strip();
+    if (series.endsOn != null && shiftDays != 0) series.endsOn =
+      series.endsOn.plusDays(shiftDays);
+
+    List<Game> future = store.list(
+      Game.class,
+      "from Game where seriesId=:series and seriesOccurrenceIndex>=:index order by seriesOccurrenceIndex",
+      "series",
+      series.id,
+      "index",
+      game.seriesOccurrenceIndex
+    );
+    Instant now = clock.instant();
+    for (Game occurrence : future) {
+      if (
+        !occurrence.id.equals(game.id) &&
+        (occurrence.seriesException || !occurrence.startsAt.isAfter(now))
+      ) continue;
+      long weeks =
+        occurrence.seriesOccurrenceIndex - game.seriesOccurrenceIndex;
+      occurrence.startsAt = newAnchor.plusWeeks(weeks).toInstant();
+      occurrence.title = series.title;
+      occurrence.location = series.location;
+      occurrence.seriesException = false;
+    }
     return detail(game);
   }
 
@@ -420,7 +690,10 @@ public class Games {
       game.matchEndedAt,
       game.matchDurationSeconds,
       game.correctionOpen,
-      clock.instant()
+      clock.instant(),
+      game.seriesId != null,
+      game.seriesOccurrenceIndex,
+      game.seriesException
     );
   }
 

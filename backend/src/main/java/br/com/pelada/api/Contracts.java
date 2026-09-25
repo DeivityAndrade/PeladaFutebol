@@ -2,6 +2,7 @@ package br.com.pelada.api;
 
 import jakarta.validation.constraints.*;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 
 public final class Contracts {
@@ -19,6 +20,16 @@ public final class Contracts {
     @NotBlank @Size(max = 72) String password
   ) {}
 
+  public record PasswordResetRequest(
+    @NotBlank @Email @Size(max = 254) String email
+  ) {}
+
+  public record PasswordResetCompletion(
+    @NotBlank @Size(max = 128) String token,
+    @NotBlank @Size(min = 8, max = 72) String newPassword,
+    @NotBlank @Size(min = 8, max = 72) String confirmPassword
+  ) {}
+
   public record CreateClub(
     @NotBlank @Size(max = 80) String name,
     @NotNull @Size(max = 300) String description,
@@ -27,10 +38,11 @@ public final class Contracts {
     @PositiveOrZero Long monthlyAmountCents,
     @Min(1) @Max(31) Integer billingDueDay,
     @PositiveOrZero Long occasionalAmountCents,
-    @Size(max = 500) String pixInstructions
+    @Size(max = 500) String pixInstructions,
+    @Size(max = 80) String timeZone
   ) {
     public CreateClub(String name, String description) {
-      this(name, description, "NONE", null, 1, null, "");
+      this(name, description, "NONE", null, 1, null, "", null);
     }
 
     public CreateClub(
@@ -38,13 +50,36 @@ public final class Contracts {
       String description,
       String barbecueFrequency
     ) {
-      this(name, description, barbecueFrequency, null, 1, null, "");
+      this(name, description, barbecueFrequency, null, 1, null, "", null);
+    }
+
+    public CreateClub(
+      String name,
+      String description,
+      String barbecueFrequency,
+      Long monthlyAmountCents,
+      Integer billingDueDay,
+      Long occasionalAmountCents,
+      String pixInstructions
+    ) {
+      this(
+        name,
+        description,
+        barbecueFrequency,
+        monthlyAmountCents,
+        billingDueDay,
+        occasionalAmountCents,
+        pixInstructions,
+        null
+      );
     }
 
     public CreateClub {
       if (barbecueFrequency == null) barbecueFrequency = "NONE";
       if (billingDueDay == null) billingDueDay = 1;
       if (pixInstructions == null) pixInstructions = "";
+      if (timeZone == null || timeZone.isBlank()) timeZone =
+        "America/Sao_Paulo";
     }
   }
 
@@ -86,10 +121,13 @@ public final class Contracts {
     @Min(2) @Max(6) int teamCount,
     @Min(5) @Max(12) int teamSize,
     Boolean chargeOccasional,
-    @PositiveOrZero Long occasionalAmountCents
+    @PositiveOrZero Long occasionalAmountCents,
+    Boolean recurring,
+    LocalDate recurrenceEndsOn
   ) {
     public CreateGame {
       if (chargeOccasional == null) chargeOccasional = false;
+      if (recurring == null) recurring = false;
     }
 
     public CreateGame(
@@ -99,9 +137,48 @@ public final class Contracts {
       int teamCount,
       int teamSize
     ) {
-      this(title, location, startsAt, teamCount, teamSize, false, null);
+      this(
+        title,
+        location,
+        startsAt,
+        teamCount,
+        teamSize,
+        false,
+        null,
+        false,
+        null
+      );
+    }
+
+    public CreateGame(
+      String title,
+      String location,
+      Instant startsAt,
+      int teamCount,
+      int teamSize,
+      Boolean chargeOccasional,
+      Long occasionalAmountCents
+    ) {
+      this(
+        title,
+        location,
+        startsAt,
+        teamCount,
+        teamSize,
+        chargeOccasional,
+        occasionalAmountCents,
+        false,
+        null
+      );
     }
   }
+
+  public record UpdateGame(
+    @NotBlank @Size(max = 100) String title,
+    @NotBlank @Size(max = 160) String location,
+    @NotNull Instant startsAt,
+    @NotBlank @Pattern(regexp = "ONE|THIS_AND_FUTURE") String scope
+  ) {}
 
   public record UpdateTeam(
     @NotBlank @Size(max = 60) String name,
@@ -145,7 +222,8 @@ public final class Contracts {
     Long monthlyAmountCents,
     int billingDueDay,
     Long occasionalAmountCents,
-    String pixInstructions
+    String pixInstructions,
+    String timeZone
   ) {}
 
   public record SocialListingInput(
@@ -363,7 +441,10 @@ public final class Contracts {
     Instant matchEndedAt,
     Integer matchDurationSeconds,
     boolean correctionOpen,
-    Instant serverNow
+    Instant serverNow,
+    boolean recurring,
+    int occurrenceIndex,
+    boolean seriesException
   ) {}
 
   public record GoalView(

@@ -33,6 +33,13 @@ Não cole uma URL `postgresql://usuario:senha@host/...` diretamente em `JDBC_DAT
 
 O arquivo já configura `COOKIE_SECURE=true` e `DEMO_ENABLED=true`. Não defina uma porta fixa no painel: o aplicativo lê `PORT`, fornecida pelo Render.
 
+Para ativar a recuperação de senha, cadastre também `MAIL_HOST`, `MAIL_PORT`,
+`MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` e `PUBLIC_APP_URL` em **Environment**
+no serviço. Use uma credencial SMTP e um remetente autorizados pelo provedor; defina
+`PUBLIC_APP_URL` como o endereço HTTPS do serviço no Render. Sem esses valores, o
+restante do aplicativo funciona normalmente e a solicitação de recuperação informa
+que o envio está indisponível. Consulte [as regras e detalhes da recuperação](RECUPERACAO-E-PELADAS-RECORRENTES.md).
+
 5. Inicie o deploy e acompanhe os logs. O build compila primeiro o Angular, depois empacota o Spring Boot. O runtime usa Java 21 e usuário sem privilégios.
 6. Na primeira inicialização, o Flyway cria o esquema; em seguida, a aplicação insere os dados fictícios de demonstração.
 7. Use o endereço HTTPS `*.onrender.com` que aparecer no painel.

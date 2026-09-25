@@ -17,6 +17,7 @@ export interface Club {
   billingDueDay: number;
   occasionalAmountCents: number | null;
   pixInstructions: string;
+  timeZone: string;
 }
 export interface Municipality {
   code: string;
@@ -121,6 +122,9 @@ export interface Game {
   matchDurationSeconds: number | null;
   correctionOpen: boolean;
   serverNow: string;
+  recurring: boolean;
+  occurrenceIndex: number;
+  seriesException: boolean;
 }
 export interface Player {
   id: string;

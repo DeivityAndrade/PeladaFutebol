@@ -24,6 +24,101 @@ function futureLocalDateTime(daysAhead: number, hour = 19) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
+test('recuperação de senha mantém resposta genérica e conclui pelo link', async ({ page }) => {
+  let requestedEmail = '';
+  let completedToken = '';
+  await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, body: '{}' }));
+  await page.route('**/api/auth/csrf', (route) =>
+    route.fulfill({ json: { token: 'csrf-de-teste', headerName: 'X-CSRF-TOKEN' } }),
+  );
+  await page.route('**/api/demo', (route) =>
+    route.fulfill({
+      json: {
+        club: {
+          id: 'grupo-demo',
+          name: 'Grupo de demonstração',
+          description: '',
+          ownerId: 'organizadora',
+          invite: null,
+          memberCount: 0,
+          demo: true,
+          barbecueFrequency: 'NONE',
+          barbecueSeriesActive: false,
+          monthlyAmountCents: null,
+          billingDueDay: 1,
+          occasionalAmountCents: null,
+          pixInstructions: '',
+          timeZone: 'America/Sao_Paulo',
+        },
+        game: {
+          id: 'jogo-demo',
+          clubId: 'grupo-demo',
+          title: 'Pelada de demonstração',
+          location: 'Quadra de teste',
+          startsAt: '2099-10-10T22:00:00Z',
+          teamCount: 2,
+          teamSize: 7,
+          confirmed: 0,
+          waiting: 0,
+          chargeOccasional: false,
+          occasionalAmountCents: null,
+          cancelled: false,
+          editable: false,
+          teamEditable: false,
+          liveEnabled: true,
+          matchStatus: 'SCHEDULED',
+          matchStartedAt: null,
+          matchEndedAt: null,
+          matchDurationSeconds: null,
+          correctionOpen: false,
+          serverNow: '2099-10-01T12:00:00Z',
+          recurring: false,
+          occurrenceIndex: 0,
+          seriesException: false,
+        },
+        attendees: [],
+        teams: [],
+        score: [],
+        goals: [],
+        ratings: [],
+        myRatings: [],
+        ratingsVisibleAt: null,
+      },
+    }),
+  );
+  await page.route('**/api/auth/password-reset/request', async (route) => {
+    requestedEmail = route.request().postDataJSON().email;
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        message: 'Se este e-mail estiver cadastrado, enviaremos um link de recuperação.',
+      }),
+    });
+  });
+  await page.route('**/api/auth/password-reset/complete', async (route) => {
+    const body = route.request().postDataJSON();
+    completedToken = body.token;
+    expect(body.newPassword).toBe(body.confirmPassword);
+    await route.fulfill({ status: 204 });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await page.getByRole('button', { name: 'Esqueceu a senha?' }).click();
+  await page.getByLabel('E-mail', { exact: true }).fill('jogador@example.com');
+  await page.getByRole('button', { name: 'Enviar link de recuperação' }).click();
+  await expect(page.getByRole('status')).toContainText('Se esse e-mail estiver cadastrado');
+  expect(requestedEmail).toBe('jogador@example.com');
+
+  await page.goto('/#reset-password/token-ficticio-de-teste');
+  await page.getByLabel('Nova senha', { exact: true }).fill('SenhaNova123!');
+  await page.getByLabel('Confirme a nova senha', { exact: true }).fill('SenhaNova123!');
+  await page.getByRole('button', { name: 'Salvar nova senha' }).click();
+  await expect(page.getByText('Sua senha foi alterada.')).toBeVisible();
+  expect(completedToken).toBe('token-ficticio-de-teste');
+});
+
 test('demonstração, navegação, teclado e layout desktop/mobile', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -340,11 +435,16 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await page.getByLabel('Nome da pelada').fill('Jogo de integração');
   await page.getByLabel('Local e quadra').fill('Arena de Teste');
   await page.getByLabel('Data e horário').fill('2099-10-10T20:00');
+  await page.getByLabel('Repetir esta pelada toda semana').check();
+  await page.getByLabel('Última data (opcional)').fill('2099-10-24');
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Marcar pelada', exact: true })
     .click();
   await expect(page.getByRole('heading', { name: 'Jogo de integração' })).toBeVisible();
+  await expect(page.locator('.series-indicator')).toContainText('Pelada semanal');
+  const seriesGames = await (await page.request.get(`/api/groups/${club.id}/games`)).json();
+  expect(seriesGames.filter((item: any) => item.recurring)).toHaveLength(3);
   await page.getByRole('button', { name: 'Confirmar presença', exact: true }).click();
   await expect(page.locator('.presence-state')).toContainText('Tô dentro');
   const gameId = page.url().split('/').at(-1)!;
@@ -357,7 +457,9 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await expect(other.getByRole('dialog')).toBeVisible();
   await other.getByRole('button', { name: 'Entrar no grupo', exact: true }).click();
   await expect(other.getByRole('heading', { name: 'Pelada da integração.' })).toBeVisible();
-  await other.getByRole('button', { name: /Jogo de integração/ }).click();
+  const firstOccurrence = seriesGames.find((item: any) => item.occurrenceIndex === 1);
+  await other.goto('/#game/' + firstOccurrence.id);
+  await expect(other.getByRole('heading', { name: 'Jogo de integração' })).toBeVisible();
   await other.getByRole('button', { name: 'Confirmar presença', exact: true }).click();
   await expect(other.locator('.presence-state')).toContainText('Tô dentro');
   await page.reload();

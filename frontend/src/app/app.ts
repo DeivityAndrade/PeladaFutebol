@@ -38,6 +38,56 @@ function currentBillingPeriod() {
   return `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}`;
 }
 
+function localDateTimeInZone(value: string, timeZone: string) {
+  const [date, time] = value.split('T');
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const target = Date.UTC(year, month - 1, day, hour, minute);
+  let candidate = target;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const parts = formatter.formatToParts(new Date(candidate));
+    const part = (name: string) => Number(parts.find((item) => item.type === name)?.value);
+    const actual = Date.UTC(
+      part('year'),
+      part('month') - 1,
+      part('day'),
+      part('hour'),
+      part('minute'),
+      part('second'),
+    );
+    candidate += target - actual;
+  }
+  const check = formatter.formatToParts(new Date(candidate));
+  const rendered = `${check.find((item) => item.type === 'year')?.value}-${check.find((item) => item.type === 'month')?.value}-${check.find((item) => item.type === 'day')?.value}T${check.find((item) => item.type === 'hour')?.value}:${check.find((item) => item.type === 'minute')?.value}`;
+  if (rendered !== value)
+    throw new Error('Esse horário não existe no fuso do grupo. Escolha outro.');
+  return new Date(candidate).toISOString();
+}
+
+function dateTimeForZone(iso: string, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const part = (name: string) => parts.find((item) => item.type === name)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}`;
+}
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -60,6 +110,8 @@ export class App implements OnInit, OnDestroy {
   financeLoading = signal(false);
   barbecueInvite = signal<Barbecue | null>(null);
   page = signal('demo');
+  resetToken = signal('');
+  authNotice = signal('');
   loading = signal(true);
   busy = signal(false);
   error = signal('');
@@ -205,14 +257,19 @@ export class App implements OnInit, OnDestroy {
     const parts = location.hash.slice(1).split('/');
     const page = parts[0] || 'demo';
     this.page.set(page);
+    this.modal.set('');
     this.sidebar.set(false);
     this.loading.set(true);
     this.error.set('');
+    this.authNotice.set('');
+    if (page !== 'reset-password') this.resetToken.set('');
     if (page !== 'barbecue-invite') this.barbecueInvite.set(null);
     try {
       if (page === 'demo') {
         const d = await this.api.request<Detail>(this.demoFinished() ? '/demo/finished' : '/demo');
         if (version === this.routeVersion) this.setDetail(d);
+      } else if (page === 'reset-password') {
+        this.resetToken.set(parts[1] || '');
       } else if (!this.user()) {
         this.openAuth();
       } else if (page === 'groups') {
@@ -332,7 +389,13 @@ export class App implements OnInit, OnDestroy {
   openAuth(mode = 'login') {
     this.authMode = mode;
     this.form = {};
+    this.authNotice.set('');
     this.modal.set('auth');
+  }
+  forgotPassword() {
+    this.authMode = 'forgot';
+    this.authNotice.set('');
+    this.error.set('');
   }
   open(name: string) {
     this.error.set('');
@@ -342,6 +405,8 @@ export class App implements OnInit, OnDestroy {
         title: 'Pelada da semana',
         teamCount: 2,
         teamSize: 7,
+        recurring: false,
+        recurrenceEndsOn: '',
         chargeOccasional: !!this.club()?.occasionalAmountCents,
         occasionalAmount: this.toAmountInput(this.club()?.occasionalAmountCents ?? null),
       };
@@ -354,6 +419,15 @@ export class App implements OnInit, OnDestroy {
         billingDueDay: 10,
         occasionalAmount: '',
         pixInstructions: '',
+        timeZone: this.browserGroupTimeZone(),
+      };
+    if (name === 'cancel') this.form = { scope: 'ONE' };
+    if (name === 'edit-game' && this.detail())
+      this.form = {
+        title: this.detail()!.game.title,
+        location: this.detail()!.game.location,
+        startsAt: this.localDateTime(this.detail()!.game.startsAt, this.detail()!.club.timeZone),
+        scope: 'ONE',
       };
     if (name === 'finance-settings') {
       const settings = this.financeData()?.settings || this.club();
@@ -413,6 +487,15 @@ export class App implements OnInit, OnDestroy {
   }
   submitAuth() {
     void this.action(async () => {
+      if (this.authMode === 'forgot') {
+        await this.api.request('/auth/password-reset/request', 'POST', {
+          email: this.form['email'],
+        });
+        this.authNotice.set(
+          'Se esse e-mail estiver cadastrado, enviaremos um link. Confira também a caixa de spam.',
+        );
+        return;
+      }
       if (this.authMode === 'register') await this.api.request('/auth/register', 'POST', this.form);
       this.user.set(
         await this.api.request<User>('/auth/login', 'POST', {
@@ -434,6 +517,24 @@ export class App implements OnInit, OnDestroy {
       this.navigate('demo');
     });
   }
+  completePasswordReset() {
+    void this.action(async () => {
+      await this.api.request<void>('/auth/password-reset/complete', 'POST', {
+        token: this.resetToken(),
+        newPassword: this.form['newPassword'],
+        confirmPassword: this.form['confirmPassword'],
+      });
+      this.user.set(null);
+      this.setDetail(null);
+      this.form = { email: this.form['email'] || '' };
+      this.resetToken.set('');
+      this.authMode = 'login';
+      this.authNotice.set('Senha atualizada. Entre com a nova senha.');
+      this.modal.set('auth');
+      this.navigate('demo');
+      this.notify('Sua senha foi alterada.');
+    });
+  }
   createClub() {
     void this.action(async () => {
       const c = await this.api.request<Club>('/groups', 'POST', {
@@ -444,6 +545,7 @@ export class App implements OnInit, OnDestroy {
         billingDueDay: Number(this.form['billingDueDay'] || 10),
         occasionalAmountCents: this.toCents(this.form['occasionalAmount']),
         pixInstructions: this.form['pixInstructions'] || '',
+        timeZone: this.form['timeZone'] || 'America/Sao_Paulo',
       });
       this.modal.set('');
       this.groupTab.set(c.barbecueFrequency === 'NONE' ? 'games' : 'barbecue');
@@ -466,21 +568,42 @@ export class App implements OnInit, OnDestroy {
   }
   createGame() {
     void this.action(async () => {
+      const timeZone = this.club()?.timeZone || 'America/Sao_Paulo';
       const d = await this.api.request<Detail>('/groups/' + this.club()!.id + '/games', 'POST', {
         title: this.form['title'],
         location: this.form['location'],
-        startsAt: new Date(this.form['startsAt']).toISOString(),
+        startsAt: localDateTimeInZone(this.form['startsAt'], timeZone),
         teamCount: Number(this.form['teamCount']),
         teamSize: Number(this.form['teamSize']),
         chargeOccasional: !!this.form['chargeOccasional'],
         occasionalAmountCents: this.form['chargeOccasional']
           ? this.toCents(this.form['occasionalAmount'])
           : null,
+        recurring: !!this.form['recurring'],
+        recurrenceEndsOn: this.form['recurring'] ? this.form['recurrenceEndsOn'] || null : null,
       });
       this.setDetail(d);
       this.modal.set('');
       this.navigate('game/' + d.game.id);
       this.notify('Pelada marcada!');
+    });
+  }
+  saveGame() {
+    void this.action(async () => {
+      const detail = this.detail()!;
+      const updated = await this.api.request<Detail>('/games/' + detail.game.id, 'PUT', {
+        title: this.form['title'],
+        location: this.form['location'],
+        startsAt: localDateTimeInZone(
+          this.form['startsAt'],
+          detail.club.timeZone || 'America/Sao_Paulo',
+        ),
+        scope: this.form['scope'] || 'ONE',
+      });
+      this.setDetail(updated);
+      this.games.set(await this.api.request<Game[]>('/groups/' + detail.club.id + '/games'));
+      this.modal.set('');
+      this.notify('Pelada atualizada.');
     });
   }
 
@@ -783,9 +906,40 @@ export class App implements OnInit, OnDestroy {
     this.open('cancel-barbecue');
     this.form = { eventId: event.id, location: event.location };
   }
-  localDateTime(iso: string) {
-    const date = new Date(iso);
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  localDateTime(iso: string, timeZone = this.currentGroupTimeZone()) {
+    return dateTimeForZone(iso, timeZone);
+  }
+  currentGroupTimeZone() {
+    if (this.page() === 'group') return this.club()?.timeZone || 'America/Sao_Paulo';
+    if (this.page() === 'game' || this.page() === 'demo')
+      return this.detail()?.club.timeZone || 'America/Sao_Paulo';
+    return this.club()?.timeZone || 'America/Sao_Paulo';
+  }
+  browserGroupTimeZone() {
+    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return this.groupTimeZones.some((zone) => zone.value === browserZone)
+      ? browserZone
+      : 'America/Sao_Paulo';
+  }
+  readonly groupTimeZones = [
+    { value: 'America/Sao_Paulo', label: 'Horário de Brasília (UTC−03)' },
+    { value: 'America/Manaus', label: 'Amazonas (UTC−04)' },
+    { value: 'America/Rio_Branco', label: 'Acre (UTC−05)' },
+    { value: 'America/Noronha', label: 'Fernando de Noronha (UTC−02)' },
+  ];
+  weekdayFor(value: string) {
+    if (!value) return 'dia escolhido';
+    const [year, month, day] = value.split('T')[0].split('-').map(Number);
+    return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(
+      new Date(year, month - 1, day, 12),
+    );
+  }
+  groupTimeZoneLabel(timeZone = this.currentGroupTimeZone()) {
+    return this.groupTimeZones.find((zone) => zone.value === timeZone)?.label || timeZone;
+  }
+  editGame() {
+    if (!this.owner() || !this.detail()?.game.editable) return;
+    this.open('edit-game');
   }
   isFuture(iso: string) {
     return Date.parse(iso) > Date.now();
@@ -832,11 +986,21 @@ export class App implements OnInit, OnDestroy {
   }
   cancel() {
     void this.action(async () => {
+      const detail = this.detail()!;
+      const scope = this.form['scope'] || 'ONE';
       this.setDetail(
-        await this.api.request<Detail>('/games/' + this.detail()!.game.id + '/cancel', 'POST'),
+        await this.api.request<Detail>(
+          '/games/' + detail.game.id + '/cancel?scope=' + encodeURIComponent(scope),
+          'POST',
+        ),
       );
+      this.games.set(await this.api.request<Game[]>('/groups/' + detail.club.id + '/games'));
       this.modal.set('');
-      this.notify('Pelada cancelada.');
+      this.notify(
+        scope === 'THIS_AND_FUTURE'
+          ? 'Esta pelada e as próximas da série foram canceladas.'
+          : 'Pelada cancelada.',
+      );
     });
   }
   pick(player: Player) {
@@ -893,7 +1057,7 @@ export class App implements OnInit, OnDestroy {
   teamColor(id: string | null) {
     return this.detail()?.teams.find((t) => t.id === id)?.color || '#e8ebe3';
   }
-  date(iso: string, format: 'full' | 'day' | 'month' | 'hour' = 'full') {
+  date(iso: string, format: 'full' | 'day' | 'month' | 'hour' | 'weekday' = 'full') {
     const opts: Intl.DateTimeFormatOptions =
       format === 'full'
         ? { weekday: 'long', day: 'numeric', month: 'long' }
@@ -901,10 +1065,13 @@ export class App implements OnInit, OnDestroy {
           ? { day: '2-digit' }
           : format === 'month'
             ? { month: 'short' }
-            : { hour: '2-digit', minute: '2-digit' };
-    return new Intl.DateTimeFormat('pt-BR', { ...opts, timeZone: 'America/Sao_Paulo' }).format(
-      new Date(iso),
-    );
+            : format === 'weekday'
+              ? { weekday: 'long' }
+              : { hour: '2-digit', minute: '2-digit' };
+    return new Intl.DateTimeFormat('pt-BR', {
+      ...opts,
+      timeZone: this.currentGroupTimeZone(),
+    }).format(new Date(iso));
   }
   eligibleCaptains() {
     return this.confirmed().filter((p) => !p.teamId || p.teamId === this.team()?.id);
