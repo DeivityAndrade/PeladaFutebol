@@ -17,11 +17,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,48 +35,30 @@ public class PasswordRecovery {
   private final Store store;
   private final JdbcTemplate jdbc;
   private final org.springframework.security.crypto.password.PasswordEncoder encoder;
-  private final ObjectProvider<JavaMailSender> mailSender;
+  private final BrevoEmailSender emailSender;
   private final Clock clock;
-  private final String mailHost;
-  private final String mailFrom;
-  private final String mailUsername;
-  private final String mailPassword;
   private final String publicAppUrl;
 
   public PasswordRecovery(
     Store store,
     JdbcTemplate jdbc,
     org.springframework.security.crypto.password.PasswordEncoder encoder,
-    ObjectProvider<JavaMailSender> mailSender,
+    BrevoEmailSender emailSender,
     Clock clock,
-    @Value("${spring.mail.host:}") String mailHost,
-    @Value("${spring.mail.username:}") String mailUsername,
-    @Value("${spring.mail.password:}") String mailPassword,
-    @Value("${app.mail-from:}") String mailFrom,
     @Value("${app.public-app-url:}") String publicAppUrl
   ) {
     this.store = store;
     this.jdbc = jdbc;
     this.encoder = encoder;
-    this.mailSender = mailSender;
+    this.emailSender = emailSender;
     this.clock = clock;
-    this.mailHost = mailHost;
-    this.mailUsername = mailUsername;
-    this.mailPassword = mailPassword;
-    this.mailFrom = mailFrom;
     this.publicAppUrl = publicAppUrl;
   }
 
   @Transactional
   public void request(String rawEmail, String clientAddress) {
-    JavaMailSender sender = mailSender.getIfAvailable();
     if (
-      sender == null ||
-      blank(mailHost) ||
-      blank(mailUsername) ||
-      blank(mailPassword) ||
-      blank(mailFrom) ||
-      blank(publicAppUrl)
+      !emailSender.isConfigured() || blank(publicAppUrl)
     ) throw new ApiException(
       503,
       "A recuperação de senha está indisponível porque o envio de e-mail não foi configurado no servidor."
@@ -129,11 +108,10 @@ public class PasswordRecovery {
     );
 
     String baseUrl = publicAppUrl.replaceAll("/+$", "");
-    SimpleMailMessage message = new SimpleMailMessage();
-    message.setFrom(mailFrom);
-    message.setTo(account.email);
-    message.setSubject("Redefina sua senha do Tô Dentro");
-    message.setText(
+    BrevoEmailSender.RecoveryEmail message = new BrevoEmailSender.RecoveryEmail(
+      account.email,
+      account.name,
+      "Redefina sua senha do Tô Dentro",
       "Olá, " +
         account.name +
         ".\n\n" +
@@ -144,7 +122,7 @@ public class PasswordRecovery {
         "\n\nSe você não pediu a troca, ignore esta mensagem."
     );
     try {
-      sender.send(message);
+      emailSender.send(message);
     } catch (RuntimeException ex) {
       // Never include the address, message body or token in application logs.
       log.warn(

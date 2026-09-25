@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import br.com.pelada.api.Contracts.PasswordResetCompletion;
+import br.com.pelada.auth.BrevoEmailSender;
 import br.com.pelada.auth.PasswordRecovery;
 import br.com.pelada.domain.ApiException;
 import br.com.pelada.domain.Domain.Player;
@@ -18,8 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -30,9 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @ActiveProfiles("test")
 @TestPropertySource(
   properties = {
-    "spring.mail.host=smtp.example.test",
-    "spring.mail.username=mailer",
-    "spring.mail.password=test-password",
+    "app.brevo-api-key=test-api-key",
     "app.mail-from=noreply@example.test",
     "app.public-app-url=https://pelada.example.test",
   }
@@ -55,7 +52,7 @@ class PasswordRecoveryTest {
   TransactionTemplate tx;
 
   @MockitoBean
-  JavaMailSender mailSender;
+  BrevoEmailSender mailSender;
 
   @BeforeEach
   void clean() {
@@ -63,6 +60,7 @@ class PasswordRecoveryTest {
       "TRUNCATE password_reset_tokens,password_reset_limits,spring_session,players CASCADE"
     );
     reset(mailSender);
+    when(mailSender.isConfigured()).thenReturn(true);
   }
 
   @Test
@@ -96,10 +94,10 @@ class PasswordRecoveryTest {
 
     recovery.request(email, "192.0.2.19");
 
-    org.mockito.ArgumentCaptor<SimpleMailMessage> mail =
-      org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+    org.mockito.ArgumentCaptor<BrevoEmailSender.RecoveryEmail> mail =
+      org.mockito.ArgumentCaptor.forClass(BrevoEmailSender.RecoveryEmail.class);
     verify(mailSender).send(mail.capture());
-    String body = mail.getValue().getText();
+    String body = mail.getValue().textContent();
     String token = java.util.regex.Pattern.compile(
       "#reset-password/([A-Za-z0-9_-]{40,50})"
     )
@@ -167,7 +165,7 @@ class PasswordRecoveryTest {
       email,
       "192.0.2.20"
     );
-    verifyNoInteractions(mailSender);
+    verify(mailSender, never()).send(any());
     assertThat(
       jdbc.queryForObject(
         "select count(*) from password_reset_tokens",
@@ -189,13 +187,13 @@ class PasswordRecoveryTest {
     );
     recovery.request(email, "192.0.2.23");
     recovery.request(email, "192.0.2.23");
-    org.mockito.ArgumentCaptor<SimpleMailMessage> mail =
-      org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+    org.mockito.ArgumentCaptor<BrevoEmailSender.RecoveryEmail> mail =
+      org.mockito.ArgumentCaptor.forClass(BrevoEmailSender.RecoveryEmail.class);
     verify(mailSender, times(2)).send(mail.capture());
     List<String> tokens = mail
       .getAllValues()
       .stream()
-      .map(SimpleMailMessage::getText)
+      .map(BrevoEmailSender.RecoveryEmail::textContent)
       .map(body ->
         java.util.regex.Pattern.compile(
           "#reset-password/([A-Za-z0-9_-]{40,50})"
@@ -237,13 +235,13 @@ class PasswordRecoveryTest {
           .id
     );
     recovery.request(email, "192.0.2.21");
-    org.mockito.ArgumentCaptor<SimpleMailMessage> mail =
-      org.mockito.ArgumentCaptor.forClass(SimpleMailMessage.class);
+    org.mockito.ArgumentCaptor<BrevoEmailSender.RecoveryEmail> mail =
+      org.mockito.ArgumentCaptor.forClass(BrevoEmailSender.RecoveryEmail.class);
     verify(mailSender).send(mail.capture());
     String token = java.util.regex.Pattern.compile(
       "#reset-password/([A-Za-z0-9_-]{40,50})"
     )
-      .matcher(mail.getValue().getText())
+      .matcher(mail.getValue().textContent())
       .results()
       .map(result -> result.group(1))
       .findFirst()

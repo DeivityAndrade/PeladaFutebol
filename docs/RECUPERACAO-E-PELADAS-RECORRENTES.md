@@ -6,18 +6,15 @@ O fluxo pede o e-mail da conta, envia um link com token aleatório de uso único
 
 Os pedidos são limitados a três por e-mail e dez por endereço IP em uma janela de uma hora. O endereço é resolvido pelo Spring a partir dos cabeçalhos encaminhados pelo proxy configurado; o e-mail e o IP não são gravados na tabela de limites, que guarda apenas hashes dos identificadores.
 
-Configure estas variáveis no ambiente do backend:
+O envio usa a API transacional do Brevo por HTTPS. Isso é necessário para o serviço Free do Render, que bloqueia conexões SMTP de saída nas portas 25, 465 e 587. Configure estas variáveis no ambiente do backend:
 
 | Variável | Uso |
 | --- | --- |
-| `MAIL_HOST` | Servidor SMTP |
-| `MAIL_PORT` | Porta SMTP, normalmente `587` |
-| `MAIL_USERNAME` | Usuário SMTP |
-| `MAIL_PASSWORD` | Senha ou chave SMTP |
-| `MAIL_FROM` | Remetente autorizado pelo provedor |
+| `BREVO_API_KEY` | Chave secreta de API gerada na conta Brevo |
+| `MAIL_FROM` | Endereço remetente cadastrado e verificado no Brevo |
 | `PUBLIC_APP_URL` | Endereço público da aplicação, sem barra final |
 
-O SMTP usa autenticação e STARTTLS obrigatório. Se qualquer configuração necessária estiver ausente, a solicitação retorna HTTP 503 e não é apresentada como envio bem-sucedido. O arquivo `.env.example` contém os nomes e valores de exemplo; nunca coloque credenciais reais no Git. Em desenvolvimento local, use uma caixa SMTP de teste. Na publicação, cadastre os valores como variáveis privadas no serviço do backend.
+Crie sua própria conta Brevo, cadastre e verifique o remetente e gere uma chave em **Settings → SMTP & API → API keys**. A chave aparece durante a criação; guarde-a imediatamente e não a coloque no Git nem a envie por chat. A API usa HTTPS, não as portas SMTP bloqueadas pelo Render Free. O plano gratuito do Brevo informa limite de 300 envios por dia; confirme os limites vigentes no painel do provedor. Se uma configuração estiver ausente, a solicitação retorna HTTP 503 e não é apresentada como envio bem-sucedido. Em desenvolvimento local, use as mesmas variáveis de ambiente e uma chave de teste separada.
 
 ## Peladas semanais
 

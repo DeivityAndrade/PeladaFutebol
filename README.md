@@ -7,7 +7,7 @@
 ## O que você pode fazer
 
 - Criar uma conta e grupos privados, compartilhando convites por link.
-- Recuperar a senha por um link de uso único enviado por e-mail, quando o SMTP estiver configurado.
+- Recuperar a senha por um link de uso único enviado por e-mail, quando o Brevo estiver configurado.
 - Publicar voluntariamente o perfil do grupo na área **Social**, procurar equipes próximas por cidade,
   distância, nível e horários, e convidar outro organizador para um amistoso.
 - Conversar sobre o jogo em um chat privado entre organizadores. O amistoso entra nas agendas dos
