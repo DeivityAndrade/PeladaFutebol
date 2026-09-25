@@ -426,6 +426,15 @@ public class ApiController {
     return games.get(user(auth), id);
   }
 
+  @PutMapping("/games/{id}")
+  public GameDetail updateGame(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody UpdateGame input
+  ) {
+    return games.update(user(auth), id, input);
+  }
+
   @PostMapping("/games/{id}/attendance")
   public GameDetail attend(Authentication auth, @PathVariable UUID id) {
     return games.attend(user(auth), id);
@@ -437,8 +446,12 @@ public class ApiController {
   }
 
   @PostMapping("/games/{id}/cancel")
-  public GameDetail cancel(Authentication auth, @PathVariable UUID id) {
-    return games.cancel(user(auth), id);
+  public GameDetail cancel(
+    Authentication auth,
+    @PathVariable UUID id,
+    @RequestParam(defaultValue = "ONE") String scope
+  ) {
+    return games.cancel(user(auth), id, scope);
   }
 
   @PutMapping("/games/{game}/teams/{team}")

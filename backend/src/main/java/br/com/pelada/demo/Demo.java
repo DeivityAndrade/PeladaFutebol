@@ -282,7 +282,10 @@ public class Demo {
         g.matchEndedAt(),
         g.matchDurationSeconds(),
         g.correctionOpen(),
-        g.serverNow()
+        g.serverNow(),
+        g.recurring(),
+        g.occurrenceIndex(),
+        g.seriesException()
       ),
       detail.club(),
       detail.attendees(),

@@ -120,6 +120,44 @@
           <h2>Preparando o campo…</h2>
           <p>Buscando sua próxima pelada.</p>
         </div>
+      } @else if (page() === 'reset-password') {
+        <section class="panel auth-reset-page" aria-labelledby="reset-title">
+          <app-brand />
+          <h1 id="reset-title">Nova senha.</h1>
+          @if (!resetToken()) {
+            <p>Este link está incompleto. Peça um novo link pela tela de acesso.</p>
+            <button class="button primary" type="button" (click)="openAuth()">
+              Voltar ao acesso
+            </button>
+          } @else {
+            <p>Escolha uma senha nova para sua conta.</p>
+            <form (ngSubmit)="completePasswordReset()">
+              <label
+                >Nova senha<input
+                  type="password"
+                  name="newPassword"
+                  [(ngModel)]="form['newPassword']"
+                  required
+                  minlength="8"
+                  maxlength="72"
+                  autocomplete="new-password"
+              /></label>
+              <label
+                >Confirme a nova senha<input
+                  type="password"
+                  name="confirmPassword"
+                  [(ngModel)]="form['confirmPassword']"
+                  required
+                  minlength="8"
+                  maxlength="72"
+                  autocomplete="new-password"
+              /></label>
+              <button class="button primary full-width" [disabled]="busy()">
+                Salvar nova senha
+              </button>
+            </form>
+          }
+        </section>
       } @else if ((page() === 'demo' || page() === 'game') && detail()) {
         @if (demo()) {
           <section class="demo-intro" aria-labelledby="demo-title">
@@ -169,6 +207,12 @@
                         ? 'Partida encerrada'
                         : 'Aguardando início'
                 }}</span
+              >
+            }
+            @if (detail()!.game.recurring) {
+              <span class="series-indicator"
+                >Pelada semanal · {{ date(detail()!.game.startsAt, 'weekday') }} · ocorrência
+                {{ detail()!.game.occurrenceIndex }}</span
               >
             }
             @if (demo()) {
@@ -657,9 +701,10 @@
         }
         @if (owner() && !detail()!.game.cancelled && !detail()!.game.matchStartedAt) {
           <div class="danger-zone">
-            <button class="text-button danger" (click)="open('cancel')">
-              Cancelar esta pelada
+            <button class="button secondary" (click)="editGame()">
+              <app-icon name="edit" />Editar pelada
             </button>
+            <button class="text-button danger" (click)="open('cancel')">Cancelar pelada</button>
           </div>
         }
       } @else if (page() === 'groups' && user()) {
@@ -809,6 +854,11 @@
                   }}</span>
                   <h2>{{ g.title }}</h2>
                   <p>{{ g.location }} · {{ date(g.startsAt, 'hour') }}</p>
+                  @if (g.recurring) {
+                    <span class="series-indicator"
+                      >Série semanal · {{ date(g.startsAt, 'weekday') }}</span
+                    >
+                  }
                 </div>
                 <span class="game-capacity"
                   >{{ g.confirmed }}/{{ g.teamCount * g.teamSize }} confirmados</span
@@ -1316,13 +1366,21 @@
       @switch (modal()) {
         @case ('auth') {
           <h2 id="modal-title">
-            {{ authMode === 'login' ? 'De volta ao jogo.' : 'Seu lugar está no time.' }}
+            {{
+              authMode === 'login'
+                ? 'De volta ao jogo.'
+                : authMode === 'register'
+                  ? 'Seu lugar está no time.'
+                  : 'Recupere seu acesso.'
+            }}
           </h2>
           <p>
             {{
-              authMode === 'login'
-                ? 'Entre para organizar a próxima resenha.'
-                : 'Crie sua conta e tire a pelada do papel.'
+              authMode === 'forgot'
+                ? 'Informe o e-mail da conta. Se houver cadastro, enviaremos um link seguro.'
+                : authMode === 'login'
+                  ? 'Entre para organizar a próxima resenha.'
+                  : 'Crie sua conta e tire a pelada do papel.'
             }}
           </p>
           <form (ngSubmit)="submitAuth()">
@@ -1345,33 +1403,64 @@
                 required
                 maxlength="254"
                 autocomplete="email"
-                placeholder="voce@exemplo.com" /></label
-            ><label
-              >Senha<input
-                type="password"
-                name="password"
-                [(ngModel)]="form['password']"
-                required
-                [minlength]="authMode === 'register' ? 8 : 1"
-                maxlength="72"
-                [autocomplete]="authMode === 'register' ? 'new-password' : 'current-password'"
-                placeholder="Pelo menos 8 caracteres" /></label
-            ><button class="button primary full-width" [disabled]="busy()">
+                placeholder="voce@exemplo.com"
+            /></label>
+            @if (authMode !== 'forgot') {
+              <label
+                >Senha<input
+                  type="password"
+                  name="password"
+                  [(ngModel)]="form['password']"
+                  required
+                  [minlength]="authMode === 'register' ? 8 : 1"
+                  maxlength="72"
+                  [autocomplete]="authMode === 'register' ? 'new-password' : 'current-password'"
+                  placeholder="Pelo menos 8 caracteres"
+              /></label>
+            }
+            <button class="button primary full-width" [disabled]="busy()">
               {{
                 busy()
                   ? 'Um instante…'
                   : authMode === 'login'
                     ? 'Entrar em campo'
-                    : 'Criar minha conta'
+                    : authMode === 'register'
+                      ? 'Criar minha conta'
+                      : 'Enviar link de recuperação'
               }}<app-icon name="arrow" />
             </button>
           </form>
-          <button
-            class="text-button auth-toggle"
-            (click)="authMode = authMode === 'login' ? 'register' : 'login'; error.set('')"
-          >
-            {{ authMode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar' }}
-          </button>
+          @if (authNotice()) {
+            <p class="form-notice" role="status">{{ authNotice() }}</p>
+          }
+          @if (authMode === 'login') {
+            <button class="text-button auth-toggle" type="button" (click)="forgotPassword()">
+              Esqueceu a senha?
+            </button>
+          }
+          @if (authMode === 'forgot') {
+            <button
+              class="text-button auth-toggle"
+              type="button"
+              (click)="authMode = 'login'; error.set(''); authNotice.set('')"
+            >
+              Voltar ao login
+            </button>
+          } @else {
+            <button
+              class="text-button auth-toggle"
+              type="button"
+              (click)="
+                authMode = authMode === 'login' ? 'register' : 'login';
+                error.set('');
+                authNotice.set('')
+              "
+            >
+              {{
+                authMode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem conta? Entrar'
+              }}
+            </button>
+          }
         }
         @case ('club') {
           <h2 id="modal-title">Reúna sua galera.</h2>
@@ -1391,6 +1480,13 @@
                 maxlength="300"
                 placeholder="O futebol de toda semana, com a galera de sempre."
               ></textarea></label
+            ><label
+              >Fuso horário do grupo<select name="timeZone" [(ngModel)]="form['timeZone']">
+                @for (zone of groupTimeZones; track zone.value) {
+                  <option [value]="zone.value">{{ zone.label }}</option>
+                }
+              </select>
+              <small>Os horários da agenda e das recorrências seguirão este fuso.</small></label
             ><label
               >Churrasco recorrente<select
                 name="barbecueFrequency"
@@ -1484,8 +1580,27 @@
                 name="startsAt"
                 [(ngModel)]="form['startsAt']"
                 required
-              /><small>Horário local do seu dispositivo.</small></label
+              /><small>Horário do grupo: {{ groupTimeZoneLabel() }}.</small></label
             >
+            <label class="check-label finance-game-toggle">
+              <input type="checkbox" name="recurring" [(ngModel)]="form['recurring']" />
+              Repetir esta pelada toda semana
+            </label>
+            @if (form['recurring']) {
+              <div class="form-hint">
+                A primeira data define {{ weekdayFor(form['startsAt']) }} e o horário da série.
+              </div>
+              <label
+                >Última data (opcional)<input
+                  type="date"
+                  name="recurrenceEndsOn"
+                  [(ngModel)]="form['recurrenceEndsOn']"
+                  [min]="form['startsAt']?.slice(0, 10) || null"
+                /><small
+                  >Sem término, o sistema prepara somente as próximas oito ocorrências.</small
+                >
+              </label>
+            }
             <div class="form-row">
               <label
                 >Quantidade de times<input
@@ -1532,6 +1647,41 @@
               >
             }
             <button class="button primary full-width" [disabled]="busy()">Marcar pelada</button>
+          </form>
+        }
+        @case ('edit-game') {
+          <h2 id="modal-title">Ajuste os detalhes.</h2>
+          <p>Atualize o nome, o local ou o horário desta pelada.</p>
+          <form (ngSubmit)="saveGame()">
+            <label
+              >Nome da pelada<input
+                name="title"
+                [(ngModel)]="form['title']"
+                required
+                maxlength="100" /></label
+            ><label
+              >Local e quadra<input
+                name="location"
+                [(ngModel)]="form['location']"
+                required
+                maxlength="160" /></label
+            ><label
+              >Data e horário<input
+                type="datetime-local"
+                name="startsAt"
+                [(ngModel)]="form['startsAt']"
+                required
+              /><small>Horário do grupo: {{ groupTimeZoneLabel() }}.</small></label
+            >
+            @if (detail()!.game.recurring) {
+              <label
+                >Aplicar a alteração<select name="scope" [(ngModel)]="form['scope']">
+                  <option value="ONE">Somente esta ocorrência</option>
+                  <option value="THIS_AND_FUTURE">Esta e as próximas ocorrências</option>
+                </select></label
+              >
+            }
+            <button class="button primary full-width" [disabled]="busy()">Salvar alterações</button>
           </form>
         }
         @case ('finance-settings') {
@@ -1756,8 +1906,18 @@
             Os participantes poderão consultar os dados, mas as inscrições e escalações serão
             bloqueadas.
           </p>
+          @if (detail()!.game.recurring) {
+            <label
+              >O que deseja cancelar?<select name="scope" [(ngModel)]="form['scope']">
+                <option value="ONE">Somente esta ocorrência</option>
+                <option value="THIS_AND_FUTURE">Esta e todas as futuras</option>
+              </select></label
+            >
+          }
           <button class="button danger-button full-width" [disabled]="busy()" (click)="cancel()">
-            Cancelar pelada
+            {{
+              form['scope'] === 'THIS_AND_FUTURE' ? 'Cancelar esta e as futuras' : 'Cancelar pelada'
+            }}
           </button>
         }
         @case ('finish') {

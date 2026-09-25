@@ -48,6 +48,9 @@ public final class Domain {
     public Long occasionalAmountCents;
     public String pixInstructions = "";
 
+    @Column(name = "time_zone")
+    public String timeZone = "America/Sao_Paulo";
+
     protected Club() {}
 
     public Club(String name, String description, UUID ownerId) {
@@ -350,6 +353,57 @@ public final class Domain {
     }
   }
 
+  @Entity(name = "GameSeries")
+  @Table(name = "game_series")
+  public static class GameSeries {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID clubId;
+    public boolean active = true;
+    public String timeZone;
+    public Instant anchorStartsAt;
+    public int anchorOccurrenceIndex = 1;
+    public int nextOccurrenceIndex = 2;
+    public LocalDate endsOn;
+    public String title;
+    public String location;
+    public int teamCount;
+    public int teamSize;
+    public boolean chargeOccasional;
+    public Long occasionalAmountCents;
+    public Instant createdAt;
+
+    protected GameSeries() {}
+
+    public GameSeries(
+      UUID clubId,
+      String timeZone,
+      Instant anchorStartsAt,
+      LocalDate endsOn,
+      String title,
+      String location,
+      int teamCount,
+      int teamSize,
+      boolean chargeOccasional,
+      Long occasionalAmountCents,
+      Instant createdAt
+    ) {
+      this.clubId = clubId;
+      this.timeZone = timeZone;
+      this.anchorStartsAt = anchorStartsAt;
+      this.endsOn = endsOn;
+      this.title = title;
+      this.location = location;
+      this.teamCount = teamCount;
+      this.teamSize = teamSize;
+      this.chargeOccasional = chargeOccasional;
+      this.occasionalAmountCents = occasionalAmountCents;
+      this.createdAt = createdAt;
+    }
+  }
+
   @Entity(name = "Game")
   @Table(name = "games")
   public static class Game {
@@ -371,6 +425,9 @@ public final class Domain {
     public boolean correctionOpen;
     public boolean chargeOccasional;
     public Long occasionalAmountCents;
+    public UUID seriesId;
+    public int seriesOccurrenceIndex;
+    public boolean seriesException;
 
     protected Game() {}
 

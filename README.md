@@ -7,11 +7,13 @@
 ## O que você pode fazer
 
 - Criar uma conta e grupos privados, compartilhando convites por link.
+- Recuperar a senha por um link de uso único enviado por e-mail, quando o Brevo estiver configurado.
 - Publicar voluntariamente o perfil do grupo na área **Social**, procurar equipes próximas por cidade,
   distância, nível e horários, e convidar outro organizador para um amistoso.
 - Conversar sobre o jogo em um chat privado entre organizadores. O amistoso entra nas agendas dos
   dois grupos somente depois que ambos confirmam os detalhes.
 - Marcar peladas com local, data, quantidade de times e limite de jogadores.
+- Repetir uma pelada semanalmente, com encerramento opcional; cada data tem presenças, equipes e escalação próprias.
 - Confirmar presença ou entrar em uma fila de espera com promoção automática.
 - Definir capitães; cada capitão escolhe seu elenco entre os jogadores disponíveis.
 - Sortear ou refazer os times entre todos os confirmados, mantendo os capitães e deixando a espera de fora.
@@ -161,6 +163,7 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 ```
 
 - [Arquitetura e regras de concorrência](docs/ARQUITETURA.md)
+- [Recuperação de senha e peladas semanais](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md)
 - [Publicar no Render com Neon](docs/PUBLICACAO.md)
 - [Documentação interativa da API, quando executando](http://localhost:8080/api/docs)
 - [OpenAPI JSON, quando executando](http://localhost:8080/api/openapi)
@@ -178,5 +181,6 @@ Peladas encerradas antes da migração não recebem avaliações retroativas.
 
 O aplicativo registra cobranças e pagamentos feitos externamente; não processa Pix, valida transações
 bancárias nem aprova comprovantes automaticamente. O envio de lembretes pelo WhatsApp é manual: o
-Tô Dentro apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas,
-recuperação de senha ou notificações externas. Os convites são compartilhados copiando o link.
+Tô Dentro apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas nem
+notificações externas. Os convites são compartilhados copiando o link. A configuração de recuperação
+de senha e recorrência semanal está em [seu guia](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md).
