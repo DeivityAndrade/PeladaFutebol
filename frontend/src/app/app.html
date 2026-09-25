@@ -284,7 +284,7 @@
                 <span class="count">{{ waiting().length }}</span>
               }
             </button>
-            @if (detail()!.game.liveEnabled) {
+            @if (matchTabVisible()) {
               <button
                 role="tab"
                 [attr.aria-selected]="tab() === 'match'"
@@ -293,6 +293,8 @@
               >
                 Partida
               </button>
+            }
+            @if (detail()!.game.liveEnabled) {
               <button
                 role="tab"
                 [attr.aria-selected]="tab() === 'ratings'"
@@ -456,95 +458,115 @@
               }
             </aside>
           </div>
-        } @else if (tab() === 'match' && detail()!.game.liveEnabled) {
-          <section class="panel live-panel" aria-label="Partida ao vivo">
-            <div class="panel-heading">
-              <div>
-                <span class="eyebrow green">PARTIDA</span>
-                <h2>
-                  {{ live() ? 'Bola rolando' : finished() ? 'Fim de jogo' : 'Aguardando início' }}
-                </h2>
-                <p>
-                  {{
-                    live()
-                      ? 'O cronômetro é sincronizado com o servidor.'
-                      : finished()
-                        ? 'Resultado e lances da partida.'
-                        : 'A partida começa quando um membro tocar em Começar.'
-                  }}
-                </p>
+        } @else if (tab() === 'match' && matchTabVisible()) {
+          <section class="panel live-panel" aria-label="Resumo da partida">
+            @if (matchSummaryUnavailable()) {
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow green">PARTIDA</span>
+                  <h2>
+                    {{ matchWasCancelled() ? 'Partida cancelada' : 'Resultado não registrado' }}
+                  </h2>
+                  <p>
+                    {{
+                      matchWasCancelled()
+                        ? 'Esta pelada foi cancelada e não tem resultado registrado.'
+                        : 'A data desta pelada já passou, mas ela não foi encerrada no sistema. Não há placar ou gols registrados.'
+                    }}
+                  </p>
+                </div>
               </div>
-              <strong class="match-clock" aria-live="off">{{ clockText() }}</strong>
-            </div>
-            <div class="scoreboard">
-              @for (t of detail()!.teams; track t.id; let index = $index) {
-                <div class="score-team">
-                  <span class="team-swatch" [style.background]="t.color"></span>
-                  <span>{{ t.name }}</span>
-                  <strong>{{ score(t.id) }}</strong>
+            } @else {
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow green">PARTIDA</span>
+                  <h2>
+                    {{ live() ? 'Bola rolando' : finished() ? 'Fim de jogo' : 'Aguardando início' }}
+                  </h2>
+                  <p>
+                    {{
+                      live()
+                        ? 'O cronômetro é sincronizado com o servidor.'
+                        : finished()
+                          ? 'Resultado e lances da partida.'
+                          : 'A partida começa quando um membro tocar em Começar.'
+                    }}
+                  </p>
                 </div>
+                <strong class="match-clock" aria-live="off">{{ clockText() }}</strong>
+              </div>
+              <div class="scoreboard">
+                @for (t of detail()!.teams; track t.id; let index = $index) {
+                  <div class="score-team">
+                    <span class="team-swatch" [style.background]="t.color"></span>
+                    <span>{{ t.name }}</span>
+                    <strong>{{ score(t.id) }}</strong>
+                  </div>
+                }
+              </div>
+              @if (detail()!.game.matchStatus === 'READY') {
+                @if (canStart()) {
+                  <button class="button primary" [disabled]="busy()" (click)="startMatch()">
+                    Começar partida
+                  </button>
+                } @else if (!demo()) {
+                  <p class="form-hint">
+                    Para começar, distribua todos os confirmados e deixe ao menos um jogador em cada
+                    time.
+                  </p>
+                }
               }
-            </div>
-            @if (detail()!.game.matchStatus === 'READY') {
-              @if (canStart()) {
-                <button class="button primary" [disabled]="busy()" (click)="startMatch()">
-                  Começar partida
-                </button>
-              } @else if (!demo()) {
-                <p class="form-hint">
-                  Para começar, distribua todos os confirmados e deixe ao menos um jogador em cada
-                  time.
-                </p>
-              }
-            }
-            @if (canChangeGoals()) {
-              <button class="button primary" [disabled]="busy()" (click)="open('goal')">
-                Registrar gol
-              </button>
-            }
-            @if (canFinish()) {
-              <button class="button secondary" [disabled]="busy()" (click)="open('finish')">
-                Encerrar partida
-              </button>
-            }
-            @if (canCorrect()) {
-              <button
-                class="button secondary"
-                [disabled]="busy()"
-                (click)="correction(!detail()!.game.correctionOpen)"
-              >
-                {{ detail()!.game.correctionOpen ? 'Fechar correções' : 'Abrir modo de correção' }}
-              </button>
-              @if (detail()!.game.correctionOpen) {
-                <button class="button secondary" (click)="open('duration')">
-                  Corrigir duração
+              @if (canChangeGoals()) {
+                <button class="button primary" [disabled]="busy()" (click)="open('goal')">
+                  Registrar gol
                 </button>
               }
-            }
-            <div class="timeline">
-              <h3>Linha do tempo</h3>
-              @for (goal of detail()!.goals; track goal.id) {
-                <div class="timeline-row" [class.voided]="goal.voided">
-                  <strong>{{ goal.minute }}'</strong>
-                  <span
-                    >{{ goal.ownGoal ? 'Gol contra de ' : 'Gol de ' }}{{ goal.scorerName }} ·
-                    {{ teamName(goal.teamId) }}{{ goal.voided ? ' · anulado' : '' }}</span
-                  >
-                  @if (!goal.voided && canChangeGoals()) {
-                    <button
-                      class="text-button danger"
-                      [disabled]="busy()"
-                      (click)="voidGoal(goal.id)"
+              @if (canFinish()) {
+                <button class="button secondary" [disabled]="busy()" (click)="open('finish')">
+                  Encerrar partida
+                </button>
+              }
+              @if (canCorrect()) {
+                <button
+                  class="button secondary"
+                  [disabled]="busy()"
+                  (click)="correction(!detail()!.game.correctionOpen)"
+                >
+                  {{
+                    detail()!.game.correctionOpen ? 'Fechar correções' : 'Abrir modo de correção'
+                  }}
+                </button>
+                @if (detail()!.game.correctionOpen) {
+                  <button class="button secondary" (click)="open('duration')">
+                    Corrigir duração
+                  </button>
+                }
+              }
+              <div class="timeline">
+                <h3>Linha do tempo</h3>
+                @for (goal of detail()!.goals; track goal.id) {
+                  <div class="timeline-row" [class.voided]="goal.voided">
+                    <strong>{{ goal.minute }}'</strong>
+                    <span
+                      >{{ goal.ownGoal ? 'Gol contra de ' : 'Gol de ' }}{{ goal.scorerName }} ·
+                      {{ teamName(goal.teamId) }}{{ goal.voided ? ' · anulado' : '' }}</span
                     >
-                      Anular
-                    </button>
-                  }
-                </div>
-              }
-              @if (!detail()!.goals.length) {
-                <p class="muted">Nenhum gol registrado.</p>
-              }
-            </div>
+                    @if (!goal.voided && canChangeGoals()) {
+                      <button
+                        class="text-button danger"
+                        [disabled]="busy()"
+                        (click)="voidGoal(goal.id)"
+                      >
+                        Anular
+                      </button>
+                    }
+                  </div>
+                }
+                @if (!detail()!.goals.length) {
+                  <p class="muted">Nenhum gol registrado.</p>
+                }
+              </div>
+            }
           </section>
         } @else if (tab() === 'ratings' && detail()!.game.liveEnabled) {
           <section class="panel ratings-panel">
@@ -788,47 +810,83 @@
               </div>
             </section>
           }
-          <div class="games-list">
-            @for (g of games(); track g.id) {
-              <button class="panel game-card" (click)="navigate('game/' + g.id)">
-                <span class="match-date"
-                  ><strong>{{ date(g.startsAt, 'day') }}</strong
-                  ><span>{{ date(g.startsAt, 'month') }}</span></span
-                >
-                <div>
-                  <span class="eyebrow">{{
-                    g.cancelled
-                      ? 'CANCELADA'
-                      : g.matchStatus === 'LIVE'
-                        ? 'AO VIVO'
-                        : g.matchStatus === 'FINISHED'
-                          ? 'ENCERRADA'
-                          : g.editable
-                            ? 'INSCRIÇÕES ABERTAS'
-                            : 'AGUARDANDO INÍCIO'
-                  }}</span>
-                  <h2>{{ g.title }}</h2>
-                  <p>{{ g.location }} · {{ date(g.startsAt, 'hour') }}</p>
-                </div>
-                <span class="game-capacity"
-                  >{{ g.confirmed }}/{{ g.teamCount * g.teamSize }} confirmados</span
-                ><app-icon name="arrow" />
-              </button>
+          <div class="group-tabs game-status-tabs" role="tablist" aria-label="Filtrar peladas">
+            <button
+              id="game-filter-upcoming"
+              role="tab"
+              aria-controls="game-list-panel"
+              [attr.aria-selected]="gameListTab() === 'upcoming'"
+              [attr.tabindex]="gameListTab() === 'upcoming' ? 0 : -1"
+              [class.active]="gameListTab() === 'upcoming'"
+              (click)="gameListTab.set('upcoming')"
+              (keydown)="moveGameListTab($event, 'upcoming')"
+            >
+              Próximas <span class="count">{{ upcomingGames().length }}</span>
+            </button>
+            <button
+              id="game-filter-finished"
+              role="tab"
+              aria-controls="game-list-panel"
+              [attr.aria-selected]="gameListTab() === 'finished'"
+              [attr.tabindex]="gameListTab() === 'finished' ? 0 : -1"
+              [class.active]="gameListTab() === 'finished'"
+              (click)="gameListTab.set('finished')"
+              (keydown)="moveGameListTab($event, 'finished')"
+            >
+              Finalizadas <span class="count">{{ finishedGames().length }}</span>
+            </button>
+            <button
+              id="game-filter-cancelled"
+              role="tab"
+              aria-controls="game-list-panel"
+              [attr.aria-selected]="gameListTab() === 'cancelled'"
+              [attr.tabindex]="gameListTab() === 'cancelled' ? 0 : -1"
+              [class.active]="gameListTab() === 'cancelled'"
+              (click)="gameListTab.set('cancelled')"
+              (keydown)="moveGameListTab($event, 'cancelled')"
+            >
+              Canceladas <span class="count">{{ cancelledGames().length }}</span>
+            </button>
+          </div>
+          <div
+            id="game-list-panel"
+            role="tabpanel"
+            tabindex="0"
+            [attr.aria-labelledby]="'game-filter-' + gameListTab()"
+          >
+            @if (visibleGames().length) {
+              <div class="games-list">
+                @for (g of visibleGames(); track g.id) {
+                  <button
+                    class="panel game-card"
+                    [class.cancelled]="g.cancelled || g.matchStatus === 'CANCELLED'"
+                    [attr.aria-label]="
+                      g.title + ' · ' + gameStatusLabel(g) + ' · ' + date(g.startsAt) + '. Abrir'
+                    "
+                    (click)="navigate('game/' + g.id)"
+                  >
+                    <span class="match-date"
+                      ><strong>{{ date(g.startsAt, 'day') }}</strong
+                      ><span>{{ date(g.startsAt, 'month') }}</span></span
+                    >
+                    <div>
+                      <span class="eyebrow">{{ gameStatusLabel(g) }}</span>
+                      <h2>{{ g.title }}</h2>
+                      <p>{{ g.location }} · {{ date(g.startsAt, 'hour') }}</p>
+                    </div>
+                    <span class="game-capacity">{{ gameCardSummary(g) }}</span
+                    ><app-icon name="arrow" />
+                  </button>
+                }
+              </div>
+            } @else {
+              <section class="panel empty-state game-list-empty" role="status">
+                <app-icon name="calendar" />
+                <h2>{{ gameListEmptyTitle() }}</h2>
+                <p>{{ gameListEmptyMessage() }}</p>
+              </section>
             }
           </div>
-          @if (!games().length) {
-            <section class="panel empty-state">
-              <app-icon name="calendar" />
-              <h2>A quadra está esperando.</h2>
-              <p>
-                {{
-                  club()!.ownerId === user()?.id
-                    ? 'Marque a primeira pelada do grupo.'
-                    : 'O organizador ainda não marcou uma pelada.'
-                }}
-              </p>
-            </section>
-          }
         } @else if (groupTab() === 'barbecue') {
           <section class="panel barbecue-board">
             <div class="panel-heading barbecue-board-heading">
