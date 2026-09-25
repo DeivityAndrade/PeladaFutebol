@@ -2584,12 +2584,6 @@ textarea {
   resize: vertical;
 }
 
-input[type='color'] {
-  max-width: 120px;
-  height: 48px;
-  padding: 4px;
-}
-
 input[type='checkbox'] {
   width: 20px;
   height: 20px;
@@ -2613,6 +2607,56 @@ input[type='checkbox'] {
 .form-row > label {
   flex: 1;
   min-width: 0;
+}
+
+.date-time-field,
+.team-color-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.date-time-field legend,
+.team-color-field legend {
+  padding: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.date-time-field small,
+.team-color-field > small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.team-color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.team-color-option {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 16%);
+}
+
+.team-color-option:hover,
+.team-color-option.selected {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.team-color-code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-transform: uppercase;
 }
 
 .form-hint {
@@ -3193,6 +3237,40 @@ input[type='checkbox'] {
   position: relative;
   display: grid;
   gap: 8px;
+}
+
+.social-city-control {
+  position: relative;
+}
+
+.social-city-control input {
+  padding-right: 48px;
+}
+
+.social-city-clear {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  transform: translateY(-50%);
+}
+
+.social-city-clear:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.social-city-clear app-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .social-suggestions {

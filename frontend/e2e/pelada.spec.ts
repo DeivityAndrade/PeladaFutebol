@@ -434,7 +434,8 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await page.getByRole('button', { name: 'Marcar pelada', exact: true }).click();
   await page.getByLabel('Nome da pelada').fill('Jogo de integração');
   await page.getByLabel('Local e quadra').fill('Arena de Teste');
-  await page.getByLabel('Data e horário').fill('2099-10-10T20:00');
+  await page.getByLabel('Data').fill('2099-10-10');
+  await page.getByLabel('Horário').fill('20:00');
   await page.getByLabel('Repetir esta pelada toda semana').check();
   await page.getByLabel('Última data (opcional)').fill('2099-10-24');
   await page
