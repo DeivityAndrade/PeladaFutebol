@@ -1,0 +1,287 @@
+<section class="home-hero" aria-labelledby="home-title">
+  <div class="home-wrap home-hero-grid">
+    <div class="home-hero-copy">
+      <p class="home-kicker">Para quem organiza o futebol da galera</p>
+      <h1 id="home-title">A pelada organizada do convite ao apito final.</h1>
+      <p class="home-lead">
+        Marque data e local, mande o convite e deixe cada um confirmar a própria presença. O Tô
+        Dentro controla vagas e lista de espera, ajuda a montar os times e acompanha o placar, sem
+        ninguém precisar contar nomes no grupo de mensagens.
+      </p>
+      <div class="home-actions">
+        <button class="button home-cta" type="button" (click)="create.emit()">
+          Criar minha pelada<app-icon name="arrow" />
+        </button>
+        <button class="button ghost-on-dark" type="button" (click)="demo.emit(false)">
+          Ver demonstração
+        </button>
+      </div>
+      <p class="home-note">A demonstração abre sem cadastro.</p>
+    </div>
+
+    @if (detail() && team()) {
+      <figure class="home-preview" aria-labelledby="home-preview-caption">
+        <div class="home-preview-screen" inert aria-hidden="true">
+          <div class="home-preview-bar">
+            <div>
+              <strong>{{ detail()!.game.title }}</strong>
+              <span class="home-preview-meta"
+                ><span><app-icon name="clock" />{{ when(detail()!.game.startsAt) }}</span
+                ><span><app-icon name="pin" />{{ detail()!.game.location }}</span></span
+              >
+            </div>
+            <span class="home-preview-count"
+              >{{ detail()!.game.confirmed }}<small>/{{ capacity() }}</small></span
+            >
+          </div>
+          <div class="home-preview-team" [style.--team-color]="team()!.color">
+            <span class="team-swatch"></span>{{ team()!.name }}
+          </div>
+          <app-pitch [team]="team()!" [roster]="roster()" />
+        </div>
+        <figcaption id="home-preview-caption">
+          <span class="status-dot"></span>Tela da demonstração pública · nomes e dados fictícios
+        </figcaption>
+      </figure>
+    }
+  </div>
+</section>
+
+<section id="funcionalidades" class="home-section" tabindex="-1" aria-labelledby="features-title">
+  <div class="home-wrap">
+    <div class="home-heading">
+      <h2 id="features-title">Tudo o que acontece em volta do jogo.</h2>
+      <p>Cada ferramenta aparece no momento em que o grupo precisa dela.</p>
+    </div>
+    <div class="home-moments">
+      <article class="home-moment">
+        <h3>Antes do jogo</h3>
+        <ul>
+          <li>
+            <app-icon name="calendar" />
+            <div>
+              <strong>Grupo e pelada marcados</strong>
+              <p>
+                Defina local, data, número de times e limite de jogadores. Se quiser, repita toda
+                semana.
+              </p>
+            </div>
+          </li>
+          <li>
+            <app-icon name="share" />
+            <div>
+              <strong>Convite por link</strong>
+              <p>Compartilhe o link e a galera entra no grupo sem você cadastrar ninguém.</p>
+            </div>
+          </li>
+          <li>
+            <app-icon name="check" />
+            <div>
+              <strong>Presença e lista de espera</strong>
+              <p>
+                Cada um confirma a própria vaga. Lotou, entra na fila; se alguém desiste, o próximo
+                sobe sozinho.
+              </p>
+            </div>
+          </li>
+        </ul>
+      </article>
+      <article class="home-moment on-field">
+        <h3>No campo</h3>
+        <ul>
+          <li>
+            <app-icon name="shuffle" />
+            <div>
+              <strong>Sorteio de times</strong>
+              <p>Distribua os confirmados e refaça o sorteio até a partida começar.</p>
+            </div>
+          </li>
+          <li>
+            <app-icon name="users" />
+            <div>
+              <strong>Capitães e escalação</strong>
+              <p>
+                O capitão escolhe o elenco e posiciona goleiro e quatro na linha em 2–2, 1–2–1 ou
+                3–1.
+              </p>
+            </div>
+          </li>
+          <li>
+            <app-icon name="ball" />
+            <div>
+              <strong>Gols e placar</strong>
+              <p>
+                Em peladas de dois times, cronômetro, placar e gols (inclusive contra) numa linha do
+                tempo.
+              </p>
+            </div>
+          </li>
+        </ul>
+      </article>
+      <article class="home-moment">
+        <h3>Depois do jogo</h3>
+        <ul>
+          <li>
+            <app-icon name="star" />
+            <div>
+              <strong>Notas entre colegas</strong>
+              <p>
+                Por 24 horas, cada um avalia de 1 a 5 estrelas quem jogou no seu time. As médias
+                aparecem sem mostrar quem votou.
+              </p>
+            </div>
+          </li>
+          <li>
+            <app-icon name="trophy" />
+            <div>
+              <strong>Churrasco da galera</strong>
+              <p>
+                Avulso ou recorrente, com presença separada do futebol e convite próprio para quem
+                não é do grupo.
+              </p>
+            </div>
+          </li>
+        </ul>
+      </article>
+    </div>
+    <p class="home-extra">
+      <app-icon name="info" />No mesmo grupo, o organizador também controla mensalidades e cobranças
+      e pode combinar amistosos com outros grupos.
+    </p>
+  </div>
+</section>
+
+<section
+  id="como-funciona"
+  class="home-section home-steps-section"
+  tabindex="-1"
+  aria-labelledby="steps-title"
+>
+  <div class="home-wrap">
+    <div class="home-heading">
+      <h2 id="steps-title">Três passos até a bola rolar.</h2>
+    </div>
+    <ol class="home-steps">
+      <li>
+        <span class="home-step-number" aria-hidden="true">1</span>
+        <h3>Crie o grupo e marque o jogo</h3>
+        <p>Escolha local, data e horário, quantos times vão jogar e quantos jogadores cabem.</p>
+      </li>
+      <li>
+        <span class="home-step-number" aria-hidden="true">2</span>
+        <h3>Convide a galera e organize os times</h3>
+        <p>
+          Envie o link, acompanhe quem confirmou e quem está na espera, indique capitães ou sorteie
+          os times.
+        </p>
+      </li>
+      <li>
+        <span class="home-step-number" aria-hidden="true">3</span>
+        <h3>Jogue e acompanhe a partida</h3>
+        <p>
+          Comece a partida no horário marcado, registre os gols e, no fim, a galera avalia os
+          colegas de time.
+        </p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="demonstracao" class="home-section" tabindex="-1" aria-labelledby="demo-section-title">
+  <div class="home-wrap">
+    <div class="home-demo">
+      <div>
+        <h2 id="demo-section-title">Veja uma pelada pronta antes de criar a sua.</h2>
+        <p>
+          A demonstração pública mostra uma pelada de exemplo com escalação, confirmados e lista de
+          espera, e também uma partida concluída com placar, gols e notas. Os nomes e números são
+          fictícios e nada pode ser alterado.
+        </p>
+      </div>
+      <div class="home-demo-actions">
+        <button class="button primary" type="button" (click)="demo.emit(false)">
+          Abrir demonstração<app-icon name="arrow" />
+        </button>
+        <button class="button secondary" type="button" (click)="demo.emit(true)">
+          Ver partida concluída
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="home-section home-faq-section" aria-labelledby="faq-title">
+  <div class="home-wrap home-faq-grid">
+    <div class="home-heading">
+      <h2 id="faq-title">Dúvidas comuns.</h2>
+    </div>
+    <div class="home-faq">
+      <details>
+        <summary>Preciso criar conta para ver a demonstração?</summary>
+        <p>Não. A demonstração abre direto, com dados fictícios e somente para consulta.</p>
+      </details>
+      <details>
+        <summary>Os jogadores também precisam de conta?</summary>
+        <p>
+          Sim. Cada jogador entra no grupo pelo convite com a própria conta e confirma a presença
+          por ela.
+        </p>
+      </details>
+      <details>
+        <summary>O que acontece quando a pelada lota?</summary>
+        <p>
+          Quem confirmar depois entra na lista de espera. Se alguém desistir, o primeiro da fila
+          fica com a vaga automaticamente.
+        </p>
+      </details>
+      <details>
+        <summary>Dá para repetir a pelada toda semana?</summary>
+        <p>
+          Sim. Cada data tem presenças, times e escalação próprios, e a repetição pode ter data para
+          terminar.
+        </p>
+      </details>
+      <details>
+        <summary>Quem monta os times?</summary>
+        <p>
+          O organizador indica os capitães ou sorteia os times entre os confirmados. Cada capitão
+          monta a escalação do próprio time.
+        </p>
+      </details>
+      <details>
+        <summary>O Tô Dentro recebe os pagamentos?</summary>
+        <p>
+          Não. O financeiro do grupo registra mensalidades, cobranças e comprovantes, mas o Pix é
+          feito fora do aplicativo.
+        </p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="home-closing" aria-labelledby="closing-title">
+  <div class="home-wrap home-closing-inner">
+    <div>
+      <h2 id="closing-title">Marcou, confirmou: <span class="nowrap">tô dentro.</span></h2>
+      <p>
+        {{
+          signedIn
+            ? 'Abra seus grupos e marque a próxima pelada.'
+            : 'Crie sua conta, monte o grupo e marque a primeira pelada.'
+        }}
+      </p>
+    </div>
+    <div class="home-closing-actions">
+      <button class="brand-cta" type="button" (click)="create.emit()">
+        <app-brand variant="button" /><span class="brand-cta-label"
+          >Criar minha pelada<app-icon name="arrow"
+        /></span>
+      </button>
+      @if (!signedIn) {
+        <button class="text-button" type="button" (click)="login.emit()">
+          Já tem conta? Entrar
+        </button>
+      }
+    </div>
+  </div>
+</section>
