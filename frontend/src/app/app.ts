@@ -137,6 +137,7 @@ export class App implements OnInit, OnDestroy {
   private timer?: ReturnType<typeof setInterval>;
   private noticeTimer?: ReturnType<typeof setTimeout>;
   private routeVersion = 0;
+  private modalPointerStartedOnBackdrop = false;
   team = computed(
     () => this.detail()?.teams.find((t) => t.id === this.teamId()) || this.detail()?.teams[0],
   );
@@ -566,6 +567,8 @@ export class App implements OnInit, OnDestroy {
     if (name === 'game')
       this.form = {
         title: 'Pelada da semana',
+        startsDate: '',
+        startsTime: '',
         teamCount: 2,
         teamSize: 7,
         recurring: false,
@@ -585,13 +588,19 @@ export class App implements OnInit, OnDestroy {
         timeZone: this.browserGroupTimeZone(),
       };
     if (name === 'cancel') this.form = { scope: 'ONE' };
-    if (name === 'edit-game' && this.detail())
+    if (name === 'edit-game' && this.detail()) {
+      const [startsDate, startsTime] = this.localDateTime(
+        this.detail()!.game.startsAt,
+        this.detail()!.club.timeZone,
+      ).split('T');
       this.form = {
         title: this.detail()!.game.title,
         location: this.detail()!.game.location,
-        startsAt: this.localDateTime(this.detail()!.game.startsAt, this.detail()!.club.timeZone),
+        startsDate,
+        startsTime,
         scope: 'ONE',
       };
+    }
     if (name === 'finance-settings') {
       const settings = this.financeData()?.settings || this.club();
       this.form = {
@@ -620,6 +629,16 @@ export class App implements OnInit, OnDestroy {
     const wasAuth = this.modal() === 'auth';
     this.modal.set('');
     if (wasAuth && !this.user() && !this.demo() && !this.home()) this.navigate('inicio');
+  }
+  rememberModalPointer(event: PointerEvent) {
+    this.modalPointerStartedOnBackdrop = event.target === event.currentTarget;
+  }
+  closeModalFromBackdrop(event: MouseEvent) {
+    const clickStartedOnBackdrop = this.modalPointerStartedOnBackdrop;
+    this.modalPointerStartedOnBackdrop = false;
+    if (event.target === event.currentTarget && clickStartedOnBackdrop && this.modal() !== 'auth') {
+      this.closeModal();
+    }
   }
   @HostListener('document:keydown.escape') escape() {
     this.closeModal();
@@ -735,7 +754,7 @@ export class App implements OnInit, OnDestroy {
       const d = await this.api.request<Detail>('/groups/' + this.club()!.id + '/games', 'POST', {
         title: this.form['title'],
         location: this.form['location'],
-        startsAt: localDateTimeInZone(this.form['startsAt'], timeZone),
+        startsAt: localDateTimeInZone(this.gameStartsAt(), timeZone),
         teamCount: Number(this.form['teamCount']),
         teamSize: Number(this.form['teamSize']),
         chargeOccasional: !!this.form['chargeOccasional'],
@@ -758,7 +777,7 @@ export class App implements OnInit, OnDestroy {
         title: this.form['title'],
         location: this.form['location'],
         startsAt: localDateTimeInZone(
-          this.form['startsAt'],
+          this.gameStartsAt(),
           detail.club.timeZone || 'America/Sao_Paulo',
         ),
         scope: this.form['scope'] || 'ONE',
@@ -1072,6 +1091,9 @@ export class App implements OnInit, OnDestroy {
   localDateTime(iso: string, timeZone = this.currentGroupTimeZone()) {
     return dateTimeForZone(iso, timeZone);
   }
+  gameStartsAt() {
+    return `${this.form['startsDate'] || ''}T${this.form['startsTime'] || ''}`;
+  }
   currentGroupTimeZone() {
     if (this.page() === 'group') return this.club()?.timeZone || 'America/Sao_Paulo';
     if (this.page() === 'game' || this.page() === 'demo')
@@ -1108,11 +1130,16 @@ export class App implements OnInit, OnDestroy {
     return Date.parse(iso) > Date.now();
   }
   configureTeam() {
+    const color = String(this.form['color'] || '').trim();
+    if (!/^#[0-9a-f]{6}$/i.test(color)) {
+      this.error.set('Informe uma cor no formato #RRGGBB.');
+      return;
+    }
     void this.action(async () => {
       this.setDetail(
         await this.api.request<Detail>(this.teamPath(), 'PUT', {
           name: this.form['name'],
-          color: this.form['color'],
+          color,
           captainId: this.form['captainId'] || null,
         }),
       );
@@ -1122,6 +1149,10 @@ export class App implements OnInit, OnDestroy {
   }
   teamPath() {
     return '/games/' + this.detail()!.game.id + '/teams/' + this.team()!.id;
+  }
+  readonly teamColors = ['#d8f36a', '#8d9dff', '#ffa96b', '#70d9cb', '#f198c8', '#79b7f3'];
+  setTeamColor(color: string) {
+    this.form['color'] = color;
   }
   attend() {
     void this.action(async () => {

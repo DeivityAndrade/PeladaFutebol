@@ -62,14 +62,26 @@
       <div class="social-filters">
         <label class="social-city-field"
           >Cidade
-          <input
-            type="search"
-            [ngModel]="searchCityQuery()"
-            (ngModelChange)="onSearchCityInput($event)"
-            placeholder="Digite uma cidade"
-            autocomplete="off"
-            aria-label="Cidade para buscar times"
-          />
+          <div class="social-city-control">
+            <input
+              type="text"
+              [ngModel]="searchCityQuery()"
+              (ngModelChange)="onSearchCityInput($event)"
+              placeholder="Digite uma cidade"
+              autocomplete="off"
+              aria-label="Cidade para buscar times"
+            />
+            @if (searchCity()) {
+              <button
+                class="social-city-clear"
+                type="button"
+                aria-label="Limpar cidade"
+                (click)="clearCity('search')"
+              >
+                <app-icon name="close" />
+              </button>
+            }
+          </div>
           @if (searchCityOptions().length) {
             <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
               @for (city of searchCityOptions(); track city.code) {
@@ -78,9 +90,6 @@
                 </button>
               }
             </div>
-          }
-          @if (searchCity(); as city) {
-            <span class="field-hint">Origem: {{ city.label }}</span>
           }
         </label>
         <label
@@ -247,14 +256,26 @@
           <div class="social-form-grid">
             <label class="social-city-field"
               >Cidade da quadra
-              <input
-                type="search"
-                name="profileCity"
-                [ngModel]="profileCityQuery()"
-                (ngModelChange)="onProfileCityInput($event)"
-                placeholder="Digite uma cidade"
-                autocomplete="off"
-              />
+              <div class="social-city-control">
+                <input
+                  type="text"
+                  name="profileCity"
+                  [ngModel]="profileCityQuery()"
+                  (ngModelChange)="onProfileCityInput($event)"
+                  placeholder="Digite uma cidade"
+                  autocomplete="off"
+                />
+                @if (profileCity()) {
+                  <button
+                    class="social-city-clear"
+                    type="button"
+                    aria-label="Limpar cidade da quadra"
+                    (click)="clearCity('profile')"
+                  >
+                    <app-icon name="close" />
+                  </button>
+                }
+              </div>
               @if (profileCityOptions().length) {
                 <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
                   @for (city of profileCityOptions(); track city.code) {
@@ -263,9 +284,6 @@
                     </button>
                   }
                 </div>
-              }
-              @if (profileCity(); as city) {
-                <span class="field-hint">{{ city.label }}</span>
               }
             </label>
             <label
@@ -590,7 +608,11 @@
   }
 
   @if (inviting(); as target) {
-    <div class="social-dialog-scrim" (click)="closeInvite()">
+    <div
+      class="social-dialog-scrim"
+      (pointerdown)="rememberInvitePointer($event)"
+      (click)="closeInviteFromBackdrop($event)"
+    >
       <section
         class="panel social-invite-dialog"
         role="dialog"

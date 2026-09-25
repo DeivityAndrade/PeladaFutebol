@@ -56,6 +56,7 @@ export class SocialPage implements OnInit, OnDestroy {
   private searchCityTimer?: ReturnType<typeof setTimeout>;
   private profileCityTimer?: ReturnType<typeof setTimeout>;
   private noticeTimer?: ReturnType<typeof setTimeout>;
+  private invitePointerStartedOnBackdrop = false;
 
   busy = signal(false);
   loading = signal(true);
@@ -261,6 +262,20 @@ export class SocialPage implements OnInit, OnDestroy {
       this.profileCityOptions.set([]);
     }
   }
+  clearCity(target: 'search' | 'profile') {
+    if (target === 'search') {
+      clearTimeout(this.searchCityTimer);
+      this.searchCity.set(null);
+      this.searchCityQuery.set('');
+      this.searchCityOptions.set([]);
+      this.searched.set(false);
+      return;
+    }
+    clearTimeout(this.profileCityTimer);
+    this.profileCity.set(null);
+    this.profileCityQuery.set('');
+    this.profileCityOptions.set([]);
+  }
 
   private async findCities(query: string, target: 'search' | 'profile') {
     try {
@@ -380,6 +395,14 @@ export class SocialPage implements OnInit, OnDestroy {
   closeInvite() {
     this.inviting.set(null);
     this.error.set('');
+  }
+  rememberInvitePointer(event: PointerEvent) {
+    this.invitePointerStartedOnBackdrop = event.target === event.currentTarget;
+  }
+  closeInviteFromBackdrop(event: MouseEvent) {
+    const clickStartedOnBackdrop = this.invitePointerStartedOnBackdrop;
+    this.invitePointerStartedOnBackdrop = false;
+    if (event.target === event.currentTarget && clickStartedOnBackdrop) this.closeInvite();
   }
 
   sendInvite() {
