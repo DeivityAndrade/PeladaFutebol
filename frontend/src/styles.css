@@ -3907,6 +3907,17 @@ input[type='checkbox'] {
     font-size: 16px;
   }
 
+  .game-status-tabs {
+    gap: 1px;
+    justify-content: space-between;
+  }
+
+  .game-status-tabs button {
+    gap: 5px;
+    padding: 0 8px;
+    font-size: 14px;
+  }
+
   .live-status {
     display: none;
   }

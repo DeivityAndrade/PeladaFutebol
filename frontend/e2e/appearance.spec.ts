@@ -407,3 +407,157 @@ test('conta conectada abre Meus grupos e a aba Churrasco', async ({ page }) => {
     animations: 'disabled',
   });
 });
+
+test('agenda separa próximas, finalizadas e canceladas e abre a súmula', async ({ page }) => {
+  const now = Date.now();
+  const serverNow = new Date(now).toISOString();
+  const listedGame = (
+    id: string,
+    title: string,
+    startsAt: number,
+    matchStatus: string,
+    cancelled = false,
+  ) => ({
+    ...game,
+    id,
+    title,
+    startsAt: new Date(startsAt).toISOString(),
+    serverNow,
+    matchStatus,
+    cancelled,
+    editable: matchStatus === 'SCHEDULED' && startsAt > now,
+    teamEditable: matchStatus === 'SCHEDULED' && startsAt > now,
+  });
+  const upcoming = {
+    ...listedGame('upcoming-game', 'Pelada futura', now + 86400000, 'SCHEDULED'),
+    recurring: true,
+  };
+  const transitionsToFinished = listedGame(
+    'transitioning-game',
+    'Pelada que vai passar',
+    now + 1500,
+    'SCHEDULED',
+  );
+  const live = listedGame('live-game', 'Pelada ao vivo', now - 3600000, 'LIVE');
+  const finished = listedGame('finished-game', 'Partida encerrada', now + 172800000, 'FINISHED');
+  const pastWithoutResult = listedGame(
+    'past-without-result',
+    'Partida sem resultado',
+    now - 172800000,
+    'READY',
+  );
+  const cancelled = listedGame(
+    'cancelled-game',
+    'Pelada cancelada',
+    now - 345600000,
+    'CANCELLED',
+    true,
+  );
+  let groupGames = [upcoming, transitionsToFinished, live, finished, pastWithoutResult, cancelled];
+  const detailsFor = (selectedGame: typeof game, hasResult: boolean) => ({
+    ...finishedDetail,
+    game: {
+      ...finishedDetail.game,
+      ...selectedGame,
+      matchStartedAt: hasResult ? new Date(now - 7200000).toISOString() : null,
+      matchEndedAt: hasResult ? new Date(now - 3600000).toISOString() : null,
+      matchDurationSeconds: hasResult ? 3600 : null,
+    },
+    score: hasResult
+      ? finishedDetail.score
+      : [
+          { teamId: 'verde', goals: 0 },
+          { teamId: 'azul', goals: 0 },
+        ],
+    goals: hasResult ? finishedDetail.goals : [],
+    ratings: hasResult ? finishedDetail.ratings : [],
+    ratingsVisibleAt: hasResult ? new Date(now + 5000).toISOString() : null,
+  });
+
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({ json: { id: 'owner', name: 'Maria Costa', email: 'maria@example.com' } }),
+  );
+  await page.route('**/api/groups', (route) => route.fulfill({ json: [club] }));
+  await page.route(`**/api/groups/${club.id}/games`, (route) =>
+    route.fulfill({ json: groupGames }),
+  );
+  await page.route(`**/api/groups/${club.id}/friendlies`, (route) => route.fulfill({ json: [] }));
+  await page.route(`**/api/groups/${club.id}/barbecues`, (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/games/past-without-result', (route) =>
+    route.fulfill({ json: detailsFor(pastWithoutResult, false) }),
+  );
+  await page.route('**/api/games/finished-game', (route) =>
+    route.fulfill({ json: detailsFor(finished, true) }),
+  );
+
+  await page.clock.install({ time: now });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/#group/${club.id}`);
+  await expect(page.getByRole('heading', { name: 'Pelada de quinta.' })).toBeVisible();
+  const list = page.getByRole('tabpanel', { name: 'Próximas' });
+  const upcomingTab = page.getByRole('tab', { name: /Próximas 3/ });
+  await expect(upcomingTab).toBeVisible();
+  await expect(list.getByRole('button')).toHaveCount(3);
+  await expect(list.getByRole('button', { name: /Pelada ao vivo/ })).toBeVisible();
+  await expect(list.getByRole('button', { name: /Pelada futura/ })).toBeVisible();
+  await expect(list.getByRole('button', { name: /Pelada futura/ })).toContainText('Série semanal');
+  await page.clock.runFor(2500);
+  await expect(page.getByRole('tab', { name: /Próximas 2/ })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /Finalizadas 3/ })).toBeVisible();
+
+  const finishedTab = page.getByRole('tab', { name: /Finalizadas 3/ });
+  await finishedTab.focus();
+  await page.keyboard.press('Enter');
+  await expect(finishedTab).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowRight');
+  const cancelledTab = page.getByRole('tab', { name: /Canceladas 1/ });
+  await expect(cancelledTab).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(finishedTab).toBeFocused();
+  await expect(page.getByRole('tabpanel', { name: 'Finalizadas' }).getByRole('button')).toHaveCount(
+    3,
+  );
+  await expect(
+    page.getByRole('button', { name: /Partida sem resultado.*Resultado não registrado/ }),
+  ).toBeVisible();
+
+  await cancelledTab.click();
+  await expect(
+    page.getByRole('tabpanel', { name: 'Canceladas' }).getByRole('button', {
+      name: /Pelada cancelada.*Cancelada/,
+    }),
+  ).toBeVisible();
+  await page.getByRole('tab', { name: /Finalizadas 3/ }).click();
+  await page.getByRole('button', { name: /Partida sem resultado/ }).click();
+  await expect(page).toHaveURL(/#game\/past-without-result$/);
+  await expect(page.getByRole('tab', { name: 'Partida' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'Resultado não registrado' })).toBeVisible();
+  await expect(page.locator('.scoreboard')).toHaveCount(0);
+  await expect(page.getByText('Nenhum gol registrado.')).toHaveCount(0);
+
+  await page.goto(`/#group/${club.id}`);
+  await page.getByRole('tab', { name: /Finalizadas 3/ }).click();
+  await page.getByRole('button', { name: /Partida encerrada/ }).click();
+  await expect(page.locator('.score-team strong')).toHaveText(['2', '1']);
+  await expect(page.locator('.timeline-row')).toHaveCount(3);
+  await page.getByRole('tab', { name: 'Notas' }).click();
+  await expect(page.locator('.rating-row')).toHaveCount(12);
+  await expect(page.getByText('Aguardando publicação', { exact: true })).toHaveCount(12);
+  await expect(page.locator('.rating-row strong')).toHaveCount(0);
+  await page.clock.runFor(6000);
+  await expect(page.locator('.rating-row strong')).toHaveCount(12);
+  await expect(page.getByText('Aguardando publicação', { exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBeTruthy();
+
+  groupGames = [];
+  await page.goto(`/#group/${club.id}`);
+  await page.getByRole('tab', { name: /Próximas 0/ }).click();
+  await expect(page.getByRole('status')).toContainText('A quadra está esperando.');
+  await page.getByRole('tab', { name: /Finalizadas 0/ }).click();
+  await expect(page.getByRole('status')).toContainText('Nenhuma partida finalizada.');
+  await page.getByRole('tab', { name: /Canceladas 0/ }).click();
+  await expect(page.getByRole('status')).toContainText('Nenhuma pelada cancelada.');
+});

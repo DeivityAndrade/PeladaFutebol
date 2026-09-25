@@ -121,6 +121,7 @@ export class App implements OnInit, OnDestroy {
   teamId = signal('');
   tab = signal('lineup');
   groupTab = signal('games');
+  gameListTab = signal<'upcoming' | 'finished' | 'cancelled'>('upcoming');
   sidebar = signal(false);
   theme = signal<'light' | 'dark'>(
     document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'light',
@@ -226,6 +227,46 @@ export class App implements OnInit, OnDestroy {
       Math.floor((this.now() + this.serverOffset - Date.parse(game.matchStartedAt)) / 1000),
     );
   });
+  upcomingGames = computed(() =>
+    this.games()
+      .filter((game) => !this.isCancelledGame(game) && !this.isArchivedGame(game))
+      .sort((a, b) => {
+        const liveFirst = Number(b.matchStatus === 'LIVE') - Number(a.matchStatus === 'LIVE');
+        return liveFirst || Date.parse(a.startsAt) - Date.parse(b.startsAt);
+      }),
+  );
+  finishedGames = computed(() =>
+    this.games()
+      .filter((game) => this.isArchivedGame(game))
+      .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt)),
+  );
+  cancelledGames = computed(() =>
+    this.games()
+      .filter((game) => this.isCancelledGame(game))
+      .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt)),
+  );
+  visibleGames = computed(() => {
+    switch (this.gameListTab()) {
+      case 'finished':
+        return this.finishedGames();
+      case 'cancelled':
+        return this.cancelledGames();
+      default:
+        return this.upcomingGames();
+    }
+  });
+  pastWithoutResult = computed(() => {
+    const game = this.detail()?.game;
+    return !!game && this.isPastWithoutResult(game);
+  });
+  matchWasCancelled = computed(() => {
+    const game = this.detail()?.game;
+    return !!game && this.isCancelledGame(game);
+  });
+  matchSummaryUnavailable = computed(() => this.pastWithoutResult() || this.matchWasCancelled());
+  matchTabVisible = computed(
+    () => !!this.detail()?.game.liveEnabled || this.matchSummaryUnavailable(),
+  );
 
   async ngOnInit() {
     try {
@@ -284,7 +325,10 @@ export class App implements OnInit, OnDestroy {
         const clubs = await this.api.request<Club[]>('/groups');
         this.clubs.set(clubs);
         this.club.set(clubs.find((c) => c.id === parts[1]) || null);
-        this.games.set(await this.api.request<Game[]>('/groups/' + parts[1] + '/games'));
+        const games = await this.api.request<Game[]>('/groups/' + parts[1] + '/games');
+        this.serverOffset = games.length ? Date.parse(games[0].serverNow) - Date.now() : 0;
+        this.now.set(Date.now());
+        this.games.set(games);
         this.friendlies.set(
           await this.api.request<SocialSchedule[]>('/groups/' + parts[1] + '/friendlies'),
         );
@@ -301,7 +345,10 @@ export class App implements OnInit, OnDestroy {
         );
       } else if (page === 'game') {
         const d = await this.api.request<Detail>('/games/' + parts[1]);
-        if (version === this.routeVersion) this.setDetail(d);
+        if (version === this.routeVersion) {
+          this.setDetail(d);
+          this.tab.set(this.shouldOpenMatchSummary(d.game) ? 'match' : 'lineup');
+        }
       } else if (page === 'invite') {
         this.form = { invite: parts[1] };
         this.modal.set('join');
@@ -359,6 +406,81 @@ export class App implements OnInit, OnDestroy {
   setDetail(detail: Detail | null) {
     if (detail) this.serverOffset = Date.parse(detail.game.serverNow) - Date.now();
     this.detail.set(detail);
+  }
+  private isCancelledGame(game: Game) {
+    return game.cancelled || game.matchStatus === 'CANCELLED';
+  }
+  private hasGameTimePassed(game: Game) {
+    const startsAt = Date.parse(game.startsAt);
+    return Number.isFinite(startsAt) && startsAt <= this.now() + this.serverOffset;
+  }
+  private isArchivedGame(game: Game) {
+    if (this.isCancelledGame(game)) return false;
+    if (game.matchStatus === 'FINISHED') return true;
+    return game.matchStatus !== 'LIVE' && this.hasGameTimePassed(game);
+  }
+  private isPastWithoutResult(game: Game) {
+    return (
+      !this.isCancelledGame(game) &&
+      game.matchStatus !== 'FINISHED' &&
+      game.matchStatus !== 'LIVE' &&
+      this.hasGameTimePassed(game)
+    );
+  }
+  private shouldOpenMatchSummary(game: Game) {
+    return (
+      game.matchStatus === 'FINISHED' ||
+      this.isPastWithoutResult(game) ||
+      this.isCancelledGame(game)
+    );
+  }
+  gameStatusLabel(game: Game) {
+    if (this.isCancelledGame(game)) return 'Cancelada';
+    if (game.matchStatus === 'LIVE') return 'Ao vivo';
+    if (game.matchStatus === 'FINISHED') return 'Finalizada';
+    if (this.isPastWithoutResult(game)) return 'Resultado não registrado';
+    return game.editable ? 'Inscrições abertas' : 'Aguardando início';
+  }
+  gameCardSummary(game: Game) {
+    if (this.isCancelledGame(game)) return 'Evento cancelado';
+    if (game.matchStatus === 'FINISHED') return 'Ver placar e súmula';
+    if (this.isPastWithoutResult(game)) return 'Sem resultado';
+    if (game.matchStatus === 'LIVE') return 'Acompanhar ao vivo';
+    return `${game.confirmed}/${game.teamCount * game.teamSize} confirmados`;
+  }
+  gameListEmptyTitle() {
+    if (this.gameListTab() === 'finished') return 'Nenhuma partida finalizada.';
+    if (this.gameListTab() === 'cancelled') return 'Nenhuma pelada cancelada.';
+    if (this.games().length) return 'Nenhuma pelada próxima.';
+    return 'A quadra está esperando.';
+  }
+  gameListEmptyMessage() {
+    if (this.gameListTab() === 'finished') {
+      return 'Quando uma pelada passar ou for encerrada, ela aparecerá aqui com o resultado disponível.';
+    }
+    if (this.gameListTab() === 'cancelled') {
+      return 'As peladas canceladas do grupo aparecerão nesta lista.';
+    }
+    if (this.games().length) {
+      return 'As partidas passadas e canceladas estão nas abas ao lado.';
+    }
+    return this.groupOwner()
+      ? 'Marque a primeira pelada do grupo.'
+      : 'O organizador ainda não marcou uma pelada.';
+  }
+  moveGameListTab(event: KeyboardEvent, current: 'upcoming' | 'finished' | 'cancelled') {
+    const tabs = ['upcoming', 'finished', 'cancelled'] as const;
+    let nextIndex = tabs.indexOf(current);
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (nextIndex + 1) % 3;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (nextIndex + 2) % 3;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = 2;
+    else return;
+
+    event.preventDefault();
+    const next = tabs[nextIndex];
+    this.gameListTab.set(next);
+    requestAnimationFrame(() => document.getElementById(`game-filter-${next}`)?.focus());
   }
   showDemo(finished: boolean) {
     this.demoFinished.set(finished);
