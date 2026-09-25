@@ -75,6 +75,7 @@ Curto, de parceiro de grupo, sem gíria forçada.
 
 ## Estrutura das telas
 
-- **Pública (demonstração):** faixa de apresentação com “O jogo começa aqui.” e a marca-botão “Criar minha pelada”, seguida da pelada de exemplo.
+- **Página inicial (`#inicio`, “Visão geral”):** componente `app-home-page`. Faixa noturna com a chamada, os botões “Criar minha pelada” e “Ver demonstração” e a prévia do campo real com dados fictícios identificados; funcionalidades em Antes do jogo / No campo (sobre o gramado) / Depois do jogo; três passos; acesso à demonstração; dúvidas comuns confirmadas no produto; fechamento com a marca-botão. O topo troca a navegação do app pelos links de seção (`#inicio/<seção>`) e ganha o botão lima “Criar minha pelada”.
+- **Pública (demonstração, `#demo`):** faixa de apresentação com “O jogo começa aqui.” e a marca-botão “Criar minha pelada”, seguida da pelada de exemplo.
 - **Operacionais:** sem cabeçalho promocional. O nome da pelada é o título; a presença fica no placar, antes das abas.
 - **Navegação:** barra superior no computador; gaveta lateral abaixo de 960 px.

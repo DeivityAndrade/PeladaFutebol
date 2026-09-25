@@ -56,7 +56,9 @@ docker compose up --build
 
 Abra **http://localhost:8080**. O banco e o aplicativo ficam acessíveis apenas na máquina local. O Compose mantém os dados em um volume PostgreSQL.
 
-A página inicial é uma demonstração somente para consulta. Clique em **Criar minha pelada** para cadastrar uma conta e começar seu próprio grupo. Não existem senhas públicas para os jogadores fictícios.
+A página inicial (**Visão geral**, `#inicio`) apresenta o Tô Dentro: funcionalidades por momento do jogo, como funciona, dúvidas comuns e uma prévia real do campo com os dados fictícios da demonstração. Clique em **Criar minha pelada** para cadastrar uma conta e começar seu próprio grupo, ou em **Ver demonstração** (`#demo`) para abrir a pelada de exemplo, somente para consulta. Não existem senhas públicas para os jogadores fictícios. Quem já está conectado continua abrindo direto em **Meus grupos**.
+
+![Página inicial](docs/screenshots/inicio.png)
 
 ```sh
 docker compose down

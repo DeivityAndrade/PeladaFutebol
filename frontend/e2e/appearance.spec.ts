@@ -140,6 +140,64 @@ const finishedDetail = {
   ratingsVisibleAt: '2099-10-11T21:00:00Z',
 };
 
+test('página inicial apresenta o produto e leva à demonstração', async ({ page }) => {
+  await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, body: '{}' }));
+  await page.route('**/api/demo', (route) =>
+    route.fulfill({ json: { ...detail, club: { ...club, demo: true } } }),
+  );
+  await page.route('**/api/demo/finished', (route) => route.fulfill({ json: finishedDetail }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'A pelada organizada do convite ao apito final.',
+  );
+  await expect(page.getByRole('link', { name: 'Visão geral' })).toHaveCount(0);
+  await expect(page.locator('.home-preview .field-player')).toHaveCount(5);
+  await expect(page.locator('.home-preview figcaption')).toContainText('dados fictícios');
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/inicio.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+
+  for (const [label, id] of [
+    ['Funcionalidades', 'funcionalidades'],
+    ['Como funciona', 'como-funciona'],
+    ['Demonstração', 'demonstracao'],
+  ]) {
+    await page.locator('.top-nav').getByRole('link', { name: label }).click();
+    await expect(page).toHaveURL(new RegExp(`#inicio/${id}$`));
+    await expect(page.locator('#' + id)).toBeFocused();
+  }
+
+  await page.locator('.home-hero').getByRole('button', { name: 'Criar minha pelada' }).click();
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Criar minha conta' }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.locator('.home-faq summary').first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.home-faq details').first()).toHaveAttribute('open', '');
+
+  await page.locator('.home-hero').getByRole('button', { name: 'Ver demonstração' }).click();
+  await expect(page).toHaveURL(/#demo$/);
+  await expect(page.getByRole('heading', { name: 'O jogo começa aqui.' })).toBeVisible();
+  await page.getByRole('link', { name: 'Visão geral' }).click();
+  await expect(page).toHaveURL(/#inicio$/);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: path.resolve('../docs/screenshots/inicio-mobile.png'),
+    fullPage: true,
+    animations: 'disabled',
+  });
+});
+
 test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ page }) => {
   await page.route('**/api/auth/me', (route) => route.fulfill({ status: 401, body: '{}' }));
   await page.route('**/api/demo', (route) => route.fulfill({ json: detail }));
@@ -192,10 +250,7 @@ test('aparência, menu, tema e abas funcionam no desktop e celular', async ({ pa
 
   await page.getByRole('link', { name: 'Visão geral' }).focus();
   await expect(page.getByRole('link', { name: 'Visão geral' })).toBeFocused();
-  await expect(page.getByRole('link', { name: 'Visão geral' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(page.getByRole('link', { name: 'Visão geral' })).toHaveAttribute('href', '#inicio');
   await page.getByRole('button', { name: 'Modo noturno' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(11, 21, 16)');
