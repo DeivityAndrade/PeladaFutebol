@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Player, Team, formations } from './models';
+import { GoalkeeperReservation, Player, Team, formations } from './models';
 import { Icon } from './icon';
 
 @Component({
@@ -41,17 +41,16 @@ import { Icon } from './icon';
           [style.left.%]="pos.x"
           [style.top.%]="pos.y"
           [class.empty]="!at(slot)"
+          [class.reserved]="slot === 0 && !!reservation && !at(0)"
           [class.selected]="selecting === slot"
           [class.me]="!!meId && at(slot)?.id === meId"
-          [disabled]="!editable || busy"
-          [draggable]="editable && !!at(slot)"
+          [disabled]="!editable || busy || locked(slot)"
+          [draggable]="editable && !!at(slot) && !locked(slot)"
           (dragstart)="drag($event, at(slot))"
           (dragover)="$event.preventDefault()"
           (drop)="drop($event, slot)"
           (click)="selecting = slot"
-          [attr.aria-label]="
-            'Escalar ' + pos.label + (at(slot) ? ': ' + at(slot)!.name : ' — posição vazia')
-          "
+          [attr.aria-label]="positionLabel(slot, pos.label)"
         >
           <span class="jersey"
             ><svg viewBox="0 0 60 58" aria-hidden="true">
@@ -62,14 +61,28 @@ import { Icon } from './icon';
                 stroke-width="1.5"
               /></svg
             ><b [style.color]="at(slot) ? numberInk() : '#ffffff'">{{
-              at(slot) ? numberFor(at(slot)!) : '+'
+              at(slot) ? numberFor(at(slot)!) : slot === 0 && reservation ? '' : '+'
             }}</b></span
           >
-          <span class="player-label">{{ at(slot) ? shortName(at(slot)!.name) : 'Escolher' }}</span
+          <span class="player-label">{{
+            at(slot)
+              ? shortName(at(slot)!.name)
+              : slot === 0 && reservation
+                ? 'Reservado'
+                : 'Escolher'
+          }}</span
           ><span class="position-label">{{ pos.label }}</span>
         </button>
       }
     </div>
+    @if (reservation && !at(0)) {
+      <p class="pitch-reserved-note" role="note">
+        <app-icon name="lock" /><span
+          >Gol reservado para <strong>{{ reservation.goalkeeperName }}</strong> até
+          {{ deadlineLabel }}. Ninguém ocupa a posição enquanto o convite aguarda resposta.</span
+        >
+      </p>
+    }
     <div class="pitch-note">
       <app-icon [name]="editable ? 'edit' : 'lock'" /><span>{{
         editable
@@ -87,7 +100,7 @@ import { Icon } from './icon';
             (ngModelChange)="choose($event)"
           >
             <option value="">Deixar posição vazia</option>
-            @for (p of roster; track p.id) {
+            @for (p of movable; track p.id) {
               <option [value]="p.id">{{ p.name }}</option>
             }</select
           ><button class="icon-button" aria-label="Fechar seleção" (click)="selecting = null">
@@ -133,6 +146,11 @@ export class Pitch {
   @Input() editable = false;
   @Input() busy = false;
   @Input() meId: string | null = null;
+  /** Pending goalkeeper invite holding this team's goal until the answer. */
+  @Input() reservation: GoalkeeperReservation | null = null;
+  /** Accepted guest goalkeeper, who stays in goal until leaving the match. */
+  @Input() guestId: string | null = null;
+  @Input() deadlineLabel = '';
   @Output() save = new EventEmitter<{
     formation: string;
     slots: (string | null)[];
@@ -144,6 +162,20 @@ export class Pitch {
   }
   get bench() {
     return this.roster.filter((p) => p.slot === null);
+  }
+  get movable() {
+    return this.roster.filter((p) => p.id !== this.guestId);
+  }
+  locked(slot: number) {
+    return slot === 0 && (!!this.reservation || !!this.guestId);
+  }
+  positionLabel(slot: number, label: string) {
+    const player = this.at(slot);
+    if (slot === 0 && this.reservation && !player)
+      return `${label} — reservado para ${this.reservation.goalkeeperName} até ${this.deadlineLabel}`;
+    if (slot === 0 && player && player.id === this.guestId)
+      return `${label}: ${player.name}, goleiro convidado`;
+    return 'Escalar ' + label + (player ? ': ' + player.name : ' — posição vazia');
   }
   at(slot: number) {
     return this.roster.find((p) => p.slot === slot);
@@ -182,6 +214,7 @@ export class Pitch {
   }
   move(id: string | null, target: number | null) {
     if (!this.editable || this.busy) return;
+    if ((target !== null && this.locked(target)) || (id && id === this.guestId)) return;
     const slots = this.slots();
     const origin = id ? slots.indexOf(id) : -1;
     const displaced = target !== null ? slots[target] : null;
@@ -202,7 +235,8 @@ export class Pitch {
     if (id && this.roster.some((p) => p.id === id)) this.move(id, target);
   }
   benchSelect(p: Player) {
-    const target = this.selecting ?? this.slots().findIndex((v) => v === null);
+    const target =
+      this.selecting ?? this.slots().findIndex((v, slot) => v === null && !this.locked(slot));
     if (target >= 0) {
       this.move(p.id, target);
       this.selecting = null;

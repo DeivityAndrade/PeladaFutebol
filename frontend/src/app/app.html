@@ -14,7 +14,11 @@
   >
   <button
     type="button"
-    (click)="detail() && !demo() ? navigate('group/' + detail()!.club.id) : navigate('groups')"
+    (click)="
+      detail() && !demo() && !guestViewer()
+        ? navigate('group/' + detail()!.club.id)
+        : navigate('groups')
+    "
     [class.active]="page() === 'group'"
     [attr.aria-current]="page() === 'group' ? 'page' : null"
   >
@@ -183,7 +187,11 @@
             ><span>{{ date(detail()!.game.startsAt, 'month').replace('.', '') }}</span>
           </div>
           <div class="match-info">
-            @if (!demo()) {
+            @if (guestViewer()) {
+              <span class="match-back guest-context"
+                ><app-icon name="shield" />Goleiro convidado · {{ detail()!.club.name }}</span
+              >
+            } @else if (!demo()) {
               <a class="match-back" [href]="'#group/' + detail()!.club.id"
                 ><app-icon name="chevron" />{{ detail()!.club.name }}</a
               >
@@ -282,21 +290,27 @@
                   [disabled]="busy()"
                 >
                   <app-icon name="check" />{{
-                    detail()!.game.confirmed >= capacity()
-                      ? 'Entrar na espera'
-                      : 'Confirmar presença'
+                    spotsTaken() >= capacity() ? 'Entrar na espera' : 'Confirmar presença'
                   }}
                 </button>
               }
               <div class="match-secondary-actions">
                 @if (mine() && editable()) {
                   <button class="button ghost-on-dark" (click)="open('leave')" [disabled]="busy()">
-                    {{ mine()!.status === 'WAITING' ? 'Sair da fila' : 'Desistir' }}
+                    {{
+                      guestViewer()
+                        ? 'Sair da partida'
+                        : mine()!.status === 'WAITING'
+                          ? 'Sair da fila'
+                          : 'Desistir'
+                    }}
                   </button>
                 }
-                <button class="button ghost-on-dark" (click)="share(detail()!.club)">
-                  <app-icon name="user-plus" />Convidar galera
-                </button>
+                @if (!guestViewer()) {
+                  <button class="button ghost-on-dark" (click)="share(detail()!.club)">
+                    <app-icon name="user-plus" />Convidar galera
+                  </button>
+                }
               </div>
             </div>
           }
@@ -382,6 +396,11 @@
                 [editable]="captain()"
                 [busy]="busy()"
                 [meId]="user()?.id || null"
+                [reservation]="teamReservation()"
+                [guestId]="teamGuestId()"
+                [deadlineLabel]="
+                  teamReservation() ? reservationDeadline(teamReservation()!.expiresAt) : ''
+                "
                 (save)="saveLineup($event)"
               />
             </section>
@@ -405,7 +424,11 @@
               <section class="panel roster-panel">
                 <div class="compact-heading">
                   <h3>{{ team()!.name }}</h3>
-                  <span>{{ roster().length }} jogadores</span>
+                  <span
+                    >{{ roster().length }} jogadores{{
+                      teamReservation() ? ' · 1 vaga reservada' : ''
+                    }}</span
+                  >
                 </div>
                 @for (p of rosterDisplay(); track p.id; let index = $index) {
                   @if (index === starters().length && reserves().length) {
@@ -426,11 +449,14 @@
                     @if (p.id === user()?.id) {
                       <span class="me-badge">Você</span>
                     }
+                    @if (p.guestGoalkeeper) {
+                      <span class="guest-badge">Goleiro convidado</span>
+                    }
                     @if (p.id === team()!.captainId) {
                       <span class="captain-badge small" title="Capitão"
                         >C<span class="sr-only">apitão</span></span
                       >
-                    } @else if (captain()) {
+                    } @else if (captain() && !p.guestGoalkeeper) {
                       <button
                         class="icon-button"
                         [disabled]="busy()"
@@ -442,7 +468,7 @@
                     }
                   </div>
                 }
-                @if (!roster().length) {
+                @if (!roster().length && !teamReservation()) {
                   <p class="muted small">
                     O organizador indica o capitão. Depois, ele escolhe os jogadores.
                   </p>
@@ -470,7 +496,7 @@
                       <span>{{ p.name }}</span
                       ><button
                         class="icon-button"
-                        [disabled]="busy() || roster().length >= detail()!.game.teamSize"
+                        [disabled]="busy() || teamSlotsTaken() >= detail()!.game.teamSize"
                         [attr.aria-label]="'Escolher ' + p.name"
                         (click)="pick(p)"
                       >
@@ -483,7 +509,19 @@
                   }
                 </section>
               }
-              @if (!demo()) {
+              @if (guestViewer()) {
+                <div class="tip-card">
+                  <app-icon name="shield" />
+                  <div>
+                    <strong>Você joga só esta partida.</strong>
+                    <p>
+                      Como goleiro convidado, você fica no gol de
+                      {{ teamName(mine()?.teamId || null) }}. A agenda, os membros e o financeiro do
+                      grupo continuam privados.
+                    </p>
+                  </div>
+                </div>
+              } @else if (!demo()) {
                 <div class="tip-card">
                   <app-icon name="info" />
                   <div>
@@ -638,7 +676,11 @@
                 @for (p of detail()!.attendees; track p.id) {
                   @if (p.teamId === t.id && p.status === 'CONFIRMED') {
                     <div class="rating-row">
-                      <button class="profile-link" [disabled]="demo()" (click)="openProfile(p)">
+                      <button
+                        class="profile-link"
+                        [disabled]="!canOpenProfile(p)"
+                        (click)="openProfile(p)"
+                      >
                         {{ p.name }}
                       </button>
                       @if (ratingOpen()) {
@@ -1947,13 +1989,18 @@
           </form>
         }
         @case ('leave') {
-          <h2 id="modal-title">Não vai dar desta vez?</h2>
+          <h2 id="modal-title">
+            {{ guestViewer() ? 'Sair do gol desta partida?' : 'Não vai dar desta vez?' }}
+          </h2>
           <p>
-            Você sairá da pelada e do seu time. Se houver lista de espera, o primeiro da fila ficará
-            com sua vaga.
+            {{
+              guestViewer()
+                ? 'O gol fica livre e o organizador poderá convidar outro goleiro. Depois de sair, você deixa de ver esta partida.'
+                : 'Você sairá da pelada e do seu time. Se houver lista de espera, o primeiro da fila ficará com sua vaga.'
+            }}
           </p>
           <button class="button primary full-width" [disabled]="busy()" (click)="leave()">
-            Confirmar desistência</button
+            {{ guestViewer() ? 'Sair da partida' : 'Confirmar desistência' }}</button
           ><button class="text-button auth-toggle" (click)="closeModal()">
             Manter minha presença
           </button>

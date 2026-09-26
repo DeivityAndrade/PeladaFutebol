@@ -359,7 +359,7 @@ test('Social: busca próxima, convite, conversa privada e amistoso sincronizado'
   });
   const pendingPage = await pendingUi.newPage();
   await pendingPage.goto('/#social');
-  await pendingPage.getByRole('tab', { name: /Convites e conversas/ }).focus();
+  await pendingPage.getByRole('tab', { name: /Amistosos/ }).focus();
   await pendingPage.keyboard.press('Enter');
   await pendingPage.locator('.social-match-row').filter({ hasText: 'Pelada da Casa' }).click();
   await expect(pendingPage.locator('.social-proposal-card')).toContainText(
@@ -401,7 +401,7 @@ test('Social: busca próxima, convite, conversa privada e amistoso sincronizado'
   await expect
     .poll(() => socialPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true);
-  await socialPage.getByRole('tab', { name: 'Meus perfis' }).click();
+  await socialPage.getByRole('tab', { name: 'Perfis de grupo' }).click();
   await expect(socialPage.getByRole('heading', { name: 'Perfil social' })).toBeVisible();
   await expect
     .poll(() => socialPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth))

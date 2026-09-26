@@ -17,9 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class Social {
 
-  private static final Set<Integer> RADII = Set.of(10, 25, 50, 100, 200);
+  static final Set<Integer> RADII = Set.of(10, 25, 50, 100, 200);
   private static final Set<String> CATEGORIES = Set.of("PICKUP", "FIXED_TEAM");
-  private static final Set<String> DAYS = Set.of(
+  static final Set<String> DAYS = Set.of(
     "MON",
     "TUE",
     "WED",
@@ -28,12 +28,8 @@ public class Social {
     "SAT",
     "SUN"
   );
-  private static final Set<String> PERIODS = Set.of(
-    "MORNING",
-    "AFTERNOON",
-    "EVENING"
-  );
-  private static final List<String> LEVELS = List.of(
+  static final Set<String> PERIODS = Set.of("MORNING", "AFTERNOON", "EVENING");
+  static final List<String> LEVELS = List.of(
     "RECREATIONAL",
     "INTERMEDIATE",
     "COMPETITIVE"
@@ -61,9 +57,9 @@ public class Social {
     this.clock = clock;
   }
 
+  // The public municipal catalog also serves goalkeeper profiles, so any signed-in player may use it.
   @Transactional(readOnly = true)
-  public List<MunicipalityView> cities(UUID user, String query) {
-    requireOrganizer(user);
+  public List<MunicipalityView> cities(String query) {
     return municipalities
       .search(query)
       .stream()
@@ -643,19 +639,19 @@ public class Social {
     );
   }
 
-  private static List<String> values(String encoded) {
+  static List<String> values(String encoded) {
     if (encoded == null || encoded.isBlank()) return List.of();
     return Arrays.stream(encoded.split(","))
       .filter(value -> !value.isBlank())
       .toList();
   }
 
-  private static List<String> sorted(List<String> input) {
+  static List<String> sorted(List<String> input) {
     if (input == null) return List.of();
     return input.stream().filter(Objects::nonNull).distinct().sorted().toList();
   }
 
-  private static void requireValues(
+  static void requireValues(
     List<String> values,
     Set<String> allowed,
     String message
@@ -665,7 +661,7 @@ public class Social {
     ) throw new ApiException(400, message);
   }
 
-  private static List<String> normalizedFilter(
+  static List<String> normalizedFilter(
     List<String> input,
     Set<String> allowed,
     String message
@@ -675,7 +671,7 @@ public class Social {
     return values;
   }
 
-  private static double distanceKm(Municipality first, Municipality second) {
+  static double distanceKm(Municipality first, Municipality second) {
     double lat1 = Math.toRadians(first.latitude());
     double lat2 = Math.toRadians(second.latitude());
     double deltaLat = lat2 - lat1;

@@ -29,19 +29,22 @@ public class Games {
   private final Clock clock;
   private final Matches matches;
   private final Finance finance;
+  private final GoalkeeperReservations reservations;
 
   public Games(
     Store store,
     Groups groups,
     Clock clock,
     Matches matches,
-    Finance finance
+    Finance finance,
+    GoalkeeperReservations reservations
   ) {
     this.store = store;
     this.groups = groups;
     this.clock = clock;
     this.matches = matches;
     this.finance = finance;
+    this.reservations = reservations;
   }
 
   public GameDetail create(UUID user, UUID clubId, CreateGame input) {
@@ -107,6 +110,7 @@ public class Games {
     groups.requireMember(user, clubId);
     Club club = store.lock(Club.class, clubId);
     ensureSeriesWindow(club);
+    settleStaleReservations(club.id);
     return store
       .list(
         Game.class,
@@ -231,6 +235,21 @@ public class Games {
   private void cancelOccurrence(Game game) {
     game.cancelled = true;
     finance.cancelGameCharges(game.id);
+    reservations.settle(game);
+  }
+
+  /** Closes pending goalkeeper invites whose deadline or game passed, freeing their spots. */
+  private void settleStaleReservations(UUID clubId) {
+    List<UUID> stale = store.list(
+      UUID.class,
+      "select distinct g.id from GoalkeeperInvite i, Game g where i.gameId=g.id and g.clubId=:club and i.status='PENDING' and (i.expiresAt<=:now or g.startsAt<=:now or g.cancelled=true or g.matchStartedAt is not null)",
+      "club",
+      clubId,
+      "now",
+      clock.instant()
+    );
+    for (UUID gameId : stale)
+      reservations.settle(store.lock(Game.class, gameId));
   }
 
   private ZoneId groupZone(Club club) {
@@ -258,7 +277,7 @@ public class Games {
   @Transactional(readOnly = true)
   public GameDetail get(UUID user, UUID id) {
     Game game = store.get(Game.class, id);
-    groups.requireMember(user, game.clubId);
+    requireViewer(user, game);
     return detail(game, user);
   }
 
@@ -269,11 +288,13 @@ public class Games {
         .stream()
         .filter(p -> p.status.equals("CONFIRMED"))
         .count();
+      // Pending goalkeeper invites keep their spots until the goalkeeper answers.
+      long taken = confirmed + reservations.active(game).size();
       store.save(
         new Participation(
           id,
           user,
-          confirmed < game.teamCount * game.teamSize ? "CONFIRMED" : "WAITING"
+          taken < game.teamCount * game.teamSize ? "CONFIRMED" : "WAITING"
         )
       );
     }
@@ -281,9 +302,9 @@ public class Games {
   }
 
   public GameDetail leave(UUID user, UUID id) {
-    Game game = editable(user, id, false);
+    Game game = editable(user, id, false, true);
     Optional<Participation> existing = participation(id, user);
-    if (existing.isEmpty()) return detail(game);
+    if (existing.isEmpty()) return detail(game, user);
     Participation p = existing.get();
     boolean hadSpot = p.status.equals("CONFIRMED");
     if (p.teamId != null) {
@@ -291,14 +312,15 @@ public class Games {
       if (user.equals(team.captainId)) team.captainId = null;
       team.version++;
     }
+    if (p.goalkeeperInviteId != null) reservations.finish(
+      store.lock(GoalkeeperInvite.class, p.goalkeeperInviteId),
+      "WITHDRAWN",
+      "GOALKEEPER"
+    );
     store.remove(p);
     store.flush();
-    if (hadSpot) attendees(id)
-      .stream()
-      .filter(a -> a.status.equals("WAITING"))
-      .findFirst()
-      .ifPresent(a -> a.status = "CONFIRMED");
-    return detail(game);
+    if (hadSpot) reservations.promoteWaiting(game);
+    return detail(game, user);
   }
 
   public GameDetail cancel(UUID user, UUID id) {
@@ -375,6 +397,7 @@ public class Games {
       game.location = input.location().strip();
       game.startsAt = input.startsAt();
       if (game.seriesId != null) game.seriesException = true;
+      reservations.clampDeadlines(game);
       return detail(game);
     }
 
@@ -419,6 +442,7 @@ public class Games {
       occurrence.title = series.title;
       occurrence.location = series.location;
       occurrence.seriesException = false;
+      reservations.clampDeadlines(occurrence);
     }
     return detail(game);
   }
@@ -438,6 +462,10 @@ public class Games {
         .orElseThrow(() ->
           new ApiException(400, "O capitão precisa estar confirmado na pelada.")
         );
+      if (p.goalkeeperInviteId != null) throw new ApiException(
+        400,
+        "O goleiro convidado participa só desta partida e não pode ser capitão."
+      );
       if (
         p.teamId != null && !p.teamId.equals(teamId)
       ) throw ApiException.conflict("Esse jogador já pertence a outro time.");
@@ -485,6 +513,9 @@ public class Games {
     Participation p = participation(gameId, playerId)
       .filter(a -> teamId.equals(a.teamId))
       .orElseThrow(ApiException::notFound);
+    if (p.goalkeeperInviteId != null) throw ApiException.conflict(
+      "O goleiro convidado fica no gol deste time até sair da partida."
+    );
     p.slot = null;
     p.teamId = null;
     team.version++;
@@ -513,11 +544,31 @@ public class Games {
       .stream()
       .collect(Collectors.toMap(p -> p.playerId, Function.identity()));
     Map<Team, Integer> counts = new LinkedHashMap<>();
-    Set<UUID> pinnedCaptains = new HashSet<>();
-    teams.forEach(team -> counts.put(team, 0));
+    Set<UUID> pinned = new HashSet<>();
+    // A reserved goal already takes one spot of its team.
+    Set<UUID> reservedTeams = reservations
+      .active(game)
+      .stream()
+      .map(invite -> invite.teamId)
+      .collect(Collectors.toSet());
+    teams.forEach(team ->
+      counts.put(team, reservedTeams.contains(team.id) ? 1 : 0)
+    );
 
-    for (Participation participation : confirmed) participation.slot = null;
+    // Guest goalkeepers keep their team and the goal; everyone else is redrawn.
+    for (Participation participation : confirmed)
+      if (participation.goalkeeperInviteId == null) participation.slot = null;
     store.flush();
+
+    for (Participation guest : confirmed) {
+      if (guest.goalkeeperInviteId == null || guest.teamId == null) continue;
+      teams
+        .stream()
+        .filter(team -> team.id.equals(guest.teamId))
+        .findFirst()
+        .ifPresent(team -> counts.put(team, counts.get(team) + 1));
+      pinned.add(guest.playerId);
+    }
 
     for (Team team : teams) {
       team.version++;
@@ -528,13 +579,13 @@ public class Games {
         continue;
       }
       captain.teamId = team.id;
-      pinnedCaptains.add(captain.playerId);
-      counts.put(team, 1);
+      pinned.add(captain.playerId);
+      counts.put(team, counts.get(team) + 1);
     }
 
     List<Participation> remaining = confirmed
       .stream()
-      .filter(p -> !pinnedCaptains.contains(p.playerId))
+      .filter(p -> !pinned.contains(p.playerId))
       .collect(Collectors.toCollection(ArrayList::new));
     Collections.shuffle(remaining);
     for (Participation player : remaining) {
@@ -588,6 +639,24 @@ public class Games {
       400,
       "Você só pode escalar jogadores do próprio elenco."
     );
+    UUID goal = input.slots().getFirst();
+    Optional<Participation> guest = roster
+      .values()
+      .stream()
+      .filter(p -> p.goalkeeperInviteId != null)
+      .findFirst();
+    if (
+      guest.isPresent() && !guest.get().playerId.equals(goal)
+    ) throw ApiException.conflict(
+      "O goleiro convidado fica no gol deste time até sair da partida."
+    );
+    if (
+      guest.isEmpty() &&
+      goal != null &&
+      reservations.activeFor(game, teamId).isPresent()
+    ) throw ApiException.conflict(
+      "O gol deste time está reservado para o goleiro convidado até a resposta."
+    );
     // Release unique slots before swapping positions, inside the same transaction.
     roster.values().forEach(p -> p.slot = null);
     store.flush();
@@ -600,10 +669,24 @@ public class Games {
   }
 
   private Game editable(UUID user, UUID id, boolean teamChange) {
+    return editable(user, id, teamChange, false);
+  }
+
+  private Game editable(
+    UUID user,
+    UUID id,
+    boolean teamChange,
+    boolean allowGuest
+  ) {
     // All game mutations serialize on this row: capacity, FIFO queue and team picks stay atomic.
     Game game = store.lock(Game.class, id);
-    Club club = groups.requireMember(user, game.clubId);
+    Club club = store.get(Club.class, game.clubId);
+    if (
+      !groups.isMember(user, club.id) &&
+      !(allowGuest && acceptedGuest(user, game.id))
+    ) throw ApiException.forbidden();
     groups.writable(club);
+    reservations.settle(game);
     if (game.cancelled) throw ApiException.conflict(
       "Esta pelada foi cancelada."
     );
@@ -632,12 +715,39 @@ public class Games {
   }
 
   private void checkRoom(Game game, UUID teamId) {
+    long roster = attendees(game.id)
+      .stream()
+      .filter(a -> teamId.equals(a.teamId))
+      .count();
+    boolean reserved = reservations.activeFor(game, teamId).isPresent();
     if (
-      attendees(game.id)
-        .stream()
-        .filter(a -> teamId.equals(a.teamId))
-        .count() >= game.teamSize
-    ) throw ApiException.conflict("O elenco deste time está completo.");
+      roster + (reserved ? 1 : 0) >= game.teamSize
+    ) throw ApiException.conflict(
+      reserved
+        ? "O elenco deste time está completo: uma vaga está reservada para o goleiro convidado."
+        : "O elenco deste time está completo."
+    );
+  }
+
+  /** Members see every game of the group; a guest goalkeeper sees only the accepted match. */
+  private void requireViewer(UUID user, Game game) {
+    store.get(Club.class, game.clubId);
+    if (
+      !groups.isMember(user, game.clubId) && !acceptedGuest(user, game.id)
+    ) throw ApiException.forbidden();
+  }
+
+  private boolean acceptedGuest(UUID user, UUID gameId) {
+    return store
+      .first(
+        GoalkeeperInvite.class,
+        "from GoalkeeperInvite where gameId=:game and goalkeeperId=:user and status='ACCEPTED'",
+        "game",
+        gameId,
+        "user",
+        user
+      )
+      .isPresent();
   }
 
   private Optional<Participation> participation(UUID gameId, UUID user) {
@@ -721,8 +831,28 @@ public class Games {
       .map(row -> {
         Participation p = (Participation) row[0];
         Player u = (Player) row[1];
-        return new Attendee(u.id, u.name, p.status, p.teamId, p.slot);
+        return new Attendee(
+          u.id,
+          u.name,
+          p.status,
+          p.teamId,
+          p.slot,
+          p.goalkeeperInviteId != null
+        );
       })
+      .toList();
+    Club club = store.get(Club.class, game.clubId);
+    boolean guest = viewer != null && !groups.isMember(viewer, club.id);
+    List<GoalkeeperReservationView> reserved = reservations
+      .active(game)
+      .stream()
+      .map(invite ->
+        new GoalkeeperReservationView(
+          invite.teamId,
+          store.get(Player.class, invite.goalkeeperId).name,
+          invite.expiresAt
+        )
+      )
       .toList();
     List<TeamView> teams = store
       .list(
@@ -750,15 +880,46 @@ public class Games {
       )
       .toList();
     return new GameDetail(
-      view(game),
-      groups.view(store.get(Club.class, game.clubId)),
+      guest ? withoutCharges(view(game)) : view(game),
+      guest ? groups.guestView(club) : groups.view(club),
       people,
       teams,
       score,
       goals,
       matches.publishedRatings(game),
       matches.ownRatings(game, viewer),
-      game.matchEndedAt == null ? null : game.matchEndedAt.plusSeconds(86400)
+      game.matchEndedAt == null ? null : game.matchEndedAt.plusSeconds(86400),
+      reserved,
+      guest
+    );
+  }
+
+  private GameView withoutCharges(GameView g) {
+    return new GameView(
+      g.id(),
+      g.clubId(),
+      g.title(),
+      g.location(),
+      g.startsAt(),
+      g.teamCount(),
+      g.teamSize(),
+      g.confirmed(),
+      g.waiting(),
+      false,
+      null,
+      g.cancelled(),
+      g.editable(),
+      g.teamEditable(),
+      g.liveEnabled(),
+      g.matchStatus(),
+      g.matchStartedAt(),
+      g.matchEndedAt(),
+      g.matchDurationSeconds(),
+      g.correctionOpen(),
+      g.serverNow(),
+      g.recurring(),
+      g.occurrenceIndex(),
+      g.seriesException()
     );
   }
 }

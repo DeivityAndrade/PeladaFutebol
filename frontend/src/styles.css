@@ -3685,6 +3685,247 @@ input[type='checkbox'] {
   border-color: var(--line-soft);
 }
 
+/* ---------- Goleiros na Social ---------- */
+.social-tab-divider {
+  flex: 0 0 1px;
+  align-self: stretch;
+  margin: 8px 4px;
+  background: var(--line);
+}
+
+.keeper-filters {
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(130px, 1fr));
+}
+
+.keeper-form-grid {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr);
+}
+
+.keeper-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.keeper-rating app-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--star);
+}
+
+.keeper-rating.unrated {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.keeper-rating strong {
+  font-weight: 700;
+}
+
+.keeper-state {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.keeper-state.paused {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.keeper-invite-section {
+  display: grid;
+  gap: 12px;
+}
+
+.keeper-invite-section + .keeper-invite-section {
+  margin-top: 12px;
+}
+
+.keeper-invite-card {
+  display: grid;
+  gap: 8px;
+}
+
+.keeper-invite-card h3 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.keeper-invite-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.keeper-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.keeper-status[data-status='PENDING'] {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.keeper-status[data-status='ACCEPTED'] {
+  border-color: transparent;
+  background: var(--action);
+  color: var(--action-ink);
+}
+
+.keeper-deadline,
+.keeper-invite-meta span,
+.keeper-game-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keeper-deadline {
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.keeper-deadline app-icon,
+.keeper-invite-meta app-icon,
+.keeper-game-summary app-icon,
+.keeper-note app-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.keeper-invite-who {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.keeper-invite-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.keeper-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.keeper-note-block {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  font-size: 14px;
+}
+
+.keeper-group-field {
+  margin-bottom: 14px;
+}
+
+.keeper-actions {
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+.keeper-game-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.keeper-invite-dialog .keeper-note {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Goleiro convidado e gol reservado na partida */
+.guest-context {
+  color: var(--night-muted);
+}
+
+.guest-context app-icon {
+  transform: none;
+}
+
+.guest-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.field-player.reserved .player-label {
+  background: rgb(11 21 16 / 72%);
+  color: #f2f6ec;
+}
+
+.pitch-reserved-note {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.pitch-reserved-note app-icon {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+
 /* ---------- Responsivo ---------- */
 @media (max-width: 1180px) {
   .match-banner {
@@ -4152,8 +4393,23 @@ input[type='checkbox'] {
   .social-filters,
   .social-form-grid,
   .social-filter-options,
-  .social-form-preferences {
+  .social-form-preferences,
+  .keeper-filters,
+  .keeper-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .social-tab-divider {
+    margin: 8px 2px;
+  }
+
+  .keeper-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .keeper-actions .button {
+    width: 100%;
   }
 
   .social-search-actions .button,

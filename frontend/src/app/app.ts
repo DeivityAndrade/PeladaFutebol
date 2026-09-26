@@ -143,9 +143,15 @@ export class App implements OnInit, OnDestroy {
     () => !!this.user() && this.detail()?.club.ownerId === this.user()!.id && !this.demo(),
   );
   groupOwner = computed(() => !!this.user() && this.club()?.ownerId === this.user()!.id);
-  socialAccess = computed(
-    () => !!this.user() && this.clubs().some((club) => club.ownerId === this.user()!.id),
+  // Social is open to every signed-in player: goalkeeper profiles and invites live there too.
+  socialAccess = computed(() => !!this.user());
+  guestViewer = computed(() => !this.demo() && !!this.detail()?.viewerGuest);
+  reservations = computed(() => this.detail()?.goalkeeperReservations || []);
+  teamReservation = computed(
+    () => this.reservations().find((item) => item.teamId === this.team()?.id) || null,
   );
+  teamGuestId = computed(() => this.roster().find((p) => p.guestGoalkeeper)?.id || null);
+  teamSlotsTaken = computed(() => this.roster().length + (this.teamReservation() ? 1 : 0));
   barbecueSeriesConfigured = computed(() => this.barbecues().some((event) => event.recurring));
   editable = computed(() => !!this.detail()?.game.editable && !this.demo());
   teamEditable = computed(() => !!this.detail()?.game.teamEditable && !this.demo());
@@ -182,12 +188,11 @@ export class App implements OnInit, OnDestroy {
     return squad.findIndex((p) => p.id === me.id) + 1;
   });
   waitingPosition = computed(() => this.waiting().findIndex((p) => p.id === this.user()?.id) + 1);
-  spotsLeft = computed(() => Math.max(0, this.capacity() - (this.detail()?.game.confirmed || 0)));
+  spotsTaken = computed(() => (this.detail()?.game.confirmed || 0) + this.reservations().length);
+  spotsLeft = computed(() => Math.max(0, this.capacity() - this.spotsTaken()));
   spotsDash = computed(() => {
     const circumference = 2 * Math.PI * 26;
-    const ratio = this.capacity()
-      ? Math.min(1, (this.detail()?.game.confirmed || 0) / this.capacity())
-      : 0;
+    const ratio = this.capacity() ? Math.min(1, this.spotsTaken() / this.capacity()) : 0;
     return `${(circumference * ratio).toFixed(1)} ${circumference.toFixed(1)}`;
   });
   live = computed(() => this.detail()?.game.matchStatus === 'LIVE');
@@ -197,6 +202,7 @@ export class App implements OnInit, OnDestroy {
     return (
       !!d &&
       !this.demo() &&
+      !this.guestViewer() &&
       d.game.matchStatus === 'READY' &&
       d.attendees.filter((p) => p.status === 'CONFIRMED').length > 0 &&
       d.attendees.every((p) => p.status !== 'CONFIRMED' || !!p.teamId) &&
@@ -204,7 +210,12 @@ export class App implements OnInit, OnDestroy {
     );
   });
   canScore = computed(
-    () => !this.demo() && !!this.mine() && this.mine()?.status === 'CONFIRMED' && this.live(),
+    () =>
+      !this.demo() &&
+      !this.guestViewer() &&
+      !!this.mine() &&
+      this.mine()?.status === 'CONFIRMED' &&
+      this.live(),
   );
   canChangeGoals = computed(
     () => this.canScore() || (this.canCorrect() && !!this.detail()?.game.correctionOpen),
@@ -317,10 +328,6 @@ export class App implements OnInit, OnDestroy {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
       } else if (page === 'social') {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
-        if (!this.clubs().some((club) => club.ownerId === this.user()?.id)) {
-          this.navigate('groups');
-          return;
-        }
       } else if (page === 'group') {
         const clubs = await this.api.request<Club[]>('/groups');
         this.clubs.set(clubs);
@@ -1095,14 +1102,21 @@ export class App implements OnInit, OnDestroy {
     });
   }
   leave() {
+    const guest = this.guestViewer();
     void this.action(async () => {
-      this.setDetail(
-        await this.api.request<Detail>(
-          '/games/' + this.detail()!.game.id + '/attendance',
-          'DELETE',
-        ),
+      const updated = await this.api.request<Detail>(
+        '/games/' + this.detail()!.game.id + '/attendance',
+        'DELETE',
       );
       this.modal.set('');
+      if (guest) {
+        // A guest goalkeeper only sees the accepted match, so leaving returns to Social.
+        this.setDetail(null);
+        this.navigate('social');
+        this.notify('Você saiu da partida e o gol foi liberado.');
+        return;
+      }
+      this.setDetail(updated);
       this.notify('Sua participação foi cancelada.');
     });
   }
@@ -1196,7 +1210,9 @@ export class App implements OnInit, OnDestroy {
     }).format(new Date(iso));
   }
   eligibleCaptains() {
-    return this.confirmed().filter((p) => !p.teamId || p.teamId === this.team()?.id);
+    return this.confirmed().filter(
+      (p) => !p.guestGoalkeeper && (!p.teamId || p.teamId === this.team()?.id),
+    );
   }
   clockText() {
     const seconds = this.elapsedSeconds();
@@ -1220,6 +1236,7 @@ export class App implements OnInit, OnDestroy {
   canRate(player: Player) {
     return (
       this.ratingOpen() &&
+      !this.guestViewer() &&
       this.mine()?.status === 'CONFIRMED' &&
       !!this.mine()?.teamId &&
       player.teamId === this.mine()?.teamId &&
@@ -1309,8 +1326,20 @@ export class App implements OnInit, OnDestroy {
       this.notify('Nota salva. Você pode alterá-la até o fim do prazo.');
     });
   }
+  canOpenProfile(player: Player) {
+    // Detailed profiles need a shared group; guests and guest goalkeepers have none.
+    return !this.demo() && !this.guestViewer() && !player.guestGoalkeeper;
+  }
+  reservationDeadline(iso: string) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: this.currentGroupTimeZone(),
+    }).format(new Date(iso));
+  }
   openProfile(player: Player) {
-    if (this.demo()) return;
+    if (!this.canOpenProfile(player)) return;
     void this.action(async () => {
       this.profile.set(await this.api.request<PlayerProfile>('/players/' + player.id + '/profile'));
       this.modal.set('profile');

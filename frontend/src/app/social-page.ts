@@ -6,18 +6,24 @@ import {
   OnInit,
   inject,
   signal,
+  WritableSignal,
   computed,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from './api';
 import { Icon } from './icon';
 import {
+  GoalkeeperInvite,
+  GoalkeeperInviteGroupOption,
+  GoalkeeperProfile,
+  GoalkeeperSearchResult,
   Municipality,
+  MyGoalkeeperProfile,
+  SkillLevel,
   SocialListing,
   SocialMatch,
   SocialMessage,
   SocialOwnedGroup,
-  SocialSchedule,
   SocialSearchResult,
 } from './models';
 
@@ -44,6 +50,73 @@ interface ProposalDraft {
   location: string;
 }
 
+interface GoalkeeperDraft {
+  skillLevel: SkillLevel;
+  preferredDays: string[];
+  preferredPeriods: string[];
+  description: string;
+  published: boolean;
+}
+
+interface GoalkeeperInviteDraft {
+  clubId: string;
+  gameId: string;
+  teamId: string;
+  message: string;
+}
+
+type SocialView = 'search' | 'goalkeepers' | 'profiles' | 'inbox' | 'gk-invites' | 'gk-profile';
+
+/** City autocomplete backed by the local municipal catalog. */
+class CityPicker {
+  query = signal('');
+  options = signal<Municipality[]>([]);
+  city = signal<Municipality | null>(null);
+  private timer?: ReturnType<typeof setTimeout>;
+
+  constructor(
+    private lookup: (query: string) => Promise<Municipality[]>,
+    private changed: () => void = () => {},
+  ) {}
+
+  input(query: string) {
+    this.query.set(query);
+    const selected = this.options().find((city) => city.label === query);
+    if (selected) {
+      this.city.set(selected);
+      return;
+    }
+    this.city.set(null);
+    this.changed();
+    clearTimeout(this.timer);
+    if (query.trim().length < 2) {
+      this.options.set([]);
+      return;
+    }
+    this.timer = setTimeout(async () => {
+      const cities = await this.lookup(query);
+      if (query === this.query()) this.options.set(cities);
+    }, 220);
+  }
+
+  choose(city: Municipality) {
+    this.city.set(city);
+    this.query.set(city.label);
+    this.options.set([]);
+    this.changed();
+  }
+
+  reset(city: Municipality | null) {
+    this.city.set(city);
+    this.query.set(city?.label ?? '');
+    this.options.set([]);
+  }
+
+  dispose() {
+    clearTimeout(this.timer);
+  }
+}
+
 @Component({
   selector: 'app-social-page',
   standalone: true,
@@ -53,15 +126,15 @@ interface ProposalDraft {
 export class SocialPage implements OnInit, OnDestroy {
   private api = inject(Api);
   private pollTimer?: ReturnType<typeof setInterval>;
-  private searchCityTimer?: ReturnType<typeof setTimeout>;
-  private profileCityTimer?: ReturnType<typeof setTimeout>;
   private noticeTimer?: ReturnType<typeof setTimeout>;
+  private returnFocus: HTMLElement | null = null;
 
   busy = signal(false);
   loading = signal(true);
   error = signal('');
   notice = signal('');
-  view = signal<'search' | 'profiles' | 'inbox'>('search');
+  organizer = signal(false);
+  view = signal<SocialView>('gk-profile');
   ownedGroups = signal<SocialOwnedGroup[]>([]);
   invitations = signal<SocialMatch[]>([]);
   results = signal<SocialSearchResult[]>([]);
@@ -75,9 +148,10 @@ export class SocialPage implements OnInit, OnDestroy {
     this.invitations().reduce((total, match) => total + match.unreadMessages, 0),
   );
 
-  searchCityQuery = signal('');
-  searchCityOptions = signal<Municipality[]>([]);
-  searchCity = signal<Municipality | null>(null);
+  searchCity = new CityPicker(
+    (query) => this.findCities(query),
+    () => this.searched.set(false),
+  );
   searchRadius = signal(50);
   searchCategory = signal('');
   searchLevel = signal('');
@@ -89,15 +163,40 @@ export class SocialPage implements OnInit, OnDestroy {
   selectedGroup = computed(
     () => this.ownedGroups().find((group) => group.clubId === this.selectedGroupId()) ?? null,
   );
-  profileCityQuery = signal('');
-  profileCityOptions = signal<Municipality[]>([]);
-  profileCity = signal<Municipality | null>(null);
+  profileCity = new CityPicker((query) => this.findCities(query));
   draft: ListingDraft = this.emptyDraft();
 
   inviting = signal<SocialSearchResult | null>(null);
   inviteDraft: InviteDraft = this.emptyInvite();
   proposalDraft: ProposalDraft = { startsAt: '', location: '' };
   editingProposal = signal(false);
+
+  // Goalkeeper profile of the signed-in player.
+  goalkeeperProfile = signal<GoalkeeperProfile | null>(null);
+  goalkeeperCity = new CityPicker((query) => this.findCities(query));
+  goalkeeperDraft: GoalkeeperDraft = this.emptyGoalkeeperDraft();
+
+  // Goalkeeper search, organizers only.
+  keeperCity = new CityPicker(
+    (query) => this.findCities(query),
+    () => this.keeperSearched.set(false),
+  );
+  keeperRadius = signal(25);
+  keeperLevel = signal('');
+  keeperDays = signal<string[]>([]);
+  keeperPeriods = signal<string[]>([]);
+  keeperSearched = signal(false);
+  keeperResults = signal<GoalkeeperSearchResult[]>([]);
+
+  // Goalkeeper invites.
+  receivedInvites = signal<GoalkeeperInvite[]>([]);
+  sentInvites = signal<GoalkeeperInvite[]>([]);
+  pendingReceived = computed(() => this.receivedInvites().filter((item) => item.canAccept).length);
+  pendingSent = computed(() => this.sentInvites().filter((item) => item.canCancel).length);
+  keeperInviting = signal<GoalkeeperSearchResult | null>(null);
+  inviteOptions = signal<GoalkeeperInviteGroupOption[]>([]);
+  optionsLoading = signal(false);
+  keeperInviteDraft: GoalkeeperInviteDraft = this.emptyKeeperInvite();
 
   readonly categories = [
     { value: 'PICKUP', label: 'Pelada ou grupo aberto' },
@@ -118,7 +217,7 @@ export class SocialPage implements OnInit, OnDestroy {
     { value: 'EVENING', label: 'Noite' },
   ];
   readonly radii = [10, 25, 50, 100, 200];
-  readonly levels = [
+  readonly levels: { value: SkillLevel; label: string }[] = [
     { value: 'RECREATIONAL', label: 'Recreativo' },
     { value: 'INTERMEDIATE', label: 'Intermediário' },
     { value: 'COMPETITIVE', label: 'Competitivo' },
@@ -128,6 +227,8 @@ export class SocialPage implements OnInit, OnDestroy {
     void this.load();
     this.pollTimer = setInterval(() => {
       if (document.hidden || this.busy()) return;
+      void this.refreshKeeperInvites();
+      if (!this.organizer()) return;
       void this.refreshInbox();
       if (this.activeMatch()?.chatOpen) void this.loadMessages(false);
     }, 15000);
@@ -135,13 +236,19 @@ export class SocialPage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     clearInterval(this.pollTimer);
-    clearTimeout(this.searchCityTimer);
-    clearTimeout(this.profileCityTimer);
     clearTimeout(this.noticeTimer);
+    [this.searchCity, this.profileCity, this.goalkeeperCity, this.keeperCity].forEach((picker) =>
+      picker.dispose(),
+    );
   }
 
   @HostListener('document:keydown.escape', ['$event'])
   onEscape(event: Event) {
+    if (this.keeperInviting()) {
+      event.preventDefault();
+      this.closeKeeperInvite();
+      return;
+    }
     if (!this.inviting()) return;
     event.preventDefault();
     this.closeInvite();
@@ -150,13 +257,31 @@ export class SocialPage implements OnInit, OnDestroy {
   private async load() {
     this.loading.set(true);
     try {
-      const [groups, matches] = await Promise.all([
-        this.api.request<SocialOwnedGroup[]>('/social/mine'),
-        this.api.request<SocialMatch[]>('/social/invitations'),
+      const [mine, received] = await Promise.all([
+        this.api.request<MyGoalkeeperProfile>('/social/goalkeeper-profile'),
+        this.api.request<GoalkeeperInvite[]>('/social/goalkeeper-invites/received'),
       ]);
-      this.ownedGroups.set(groups);
-      this.invitations.set(matches);
-      if (groups.length) this.selectGroup(groups[0].clubId);
+      this.organizer.set(mine.organizer);
+      this.applyGoalkeeperProfile(mine.profile);
+      this.receivedInvites.set(received);
+      if (mine.organizer) {
+        const [groups, matches, sent] = await Promise.all([
+          this.api.request<SocialOwnedGroup[]>('/social/mine'),
+          this.api.request<SocialMatch[]>('/social/invitations'),
+          this.api.request<GoalkeeperInvite[]>('/social/goalkeeper-invites/sent'),
+        ]);
+        this.ownedGroups.set(groups);
+        this.invitations.set(matches);
+        this.sentInvites.set(sent);
+        if (groups.length) this.selectGroup(groups[0].clubId);
+      }
+      this.view.set(
+        mine.organizer
+          ? 'search'
+          : received.some((item) => item.canAccept)
+            ? 'gk-invites'
+            : 'gk-profile',
+      );
     } catch (error) {
       this.showError(error);
     } finally {
@@ -177,10 +302,26 @@ export class SocialPage implements OnInit, OnDestroy {
     }
   }
 
-  selectView(view: 'search' | 'profiles' | 'inbox') {
+  private async refreshKeeperInvites() {
+    try {
+      const [received, sent] = await Promise.all([
+        this.api.request<GoalkeeperInvite[]>('/social/goalkeeper-invites/received'),
+        this.organizer()
+          ? this.api.request<GoalkeeperInvite[]>('/social/goalkeeper-invites/sent')
+          : Promise.resolve([] as GoalkeeperInvite[]),
+      ]);
+      this.receivedInvites.set(received);
+      this.sentInvites.set(sent);
+    } catch {
+      // Background refresh only; explicit actions report their own errors.
+    }
+  }
+
+  selectView(view: SocialView) {
     this.view.set(view);
     this.error.set('');
     if (view === 'inbox') void this.refreshInbox();
+    if (view === 'gk-invites') void this.refreshKeeperInvites();
   }
 
   selectGroup(clubId: string) {
@@ -200,90 +341,26 @@ export class SocialPage implements OnInit, OnDestroy {
           published: listing.published,
         }
       : this.emptyDraft();
-    if (listing) {
-      const city: Municipality = {
-        code: listing.municipalityCode,
-        name: listing.municipalityName,
-        uf: listing.uf,
-        label: `${listing.municipalityName} — ${listing.uf}`,
-      };
-      this.profileCity.set(city);
-      this.profileCityQuery.set(city.label);
-    } else {
-      this.profileCity.set(null);
-      this.profileCityQuery.set('');
-    }
-    this.profileCityOptions.set([]);
-  }
-
-  onSearchCityInput(query: string) {
-    this.searchCityQuery.set(query);
-    const selected = this.searchCityOptions().find((city) => city.label === query);
-    if (selected) {
-      this.searchCity.set(selected);
-      return;
-    }
-    this.searchCity.set(null);
-    this.searched.set(false);
-    clearTimeout(this.searchCityTimer);
-    if (query.trim().length < 2) {
-      this.searchCityOptions.set([]);
-      return;
-    }
-    this.searchCityTimer = setTimeout(() => void this.findCities(query, 'search'), 220);
-  }
-
-  onProfileCityInput(query: string) {
-    this.profileCityQuery.set(query);
-    const selected = this.profileCityOptions().find((city) => city.label === query);
-    if (selected) {
-      this.profileCity.set(selected);
-      return;
-    }
-    this.profileCity.set(null);
-    clearTimeout(this.profileCityTimer);
-    if (query.trim().length < 2) {
-      this.profileCityOptions.set([]);
-      return;
-    }
-    this.profileCityTimer = setTimeout(() => void this.findCities(query, 'profile'), 220);
-  }
-
-  chooseCity(city: Municipality, target: 'search' | 'profile') {
-    if (target === 'search') {
-      this.searchCity.set(city);
-      this.searchCityQuery.set(city.label);
-      this.searchCityOptions.set([]);
-      this.searched.set(false);
-    } else {
-      this.profileCity.set(city);
-      this.profileCityQuery.set(city.label);
-      this.profileCityOptions.set([]);
-    }
-  }
-
-  private async findCities(query: string, target: 'search' | 'profile') {
-    try {
-      const cities = await this.api.request<Municipality[]>(
-        `/social/cities?query=${encodeURIComponent(query)}`,
-      );
-      if (target === 'search' && query === this.searchCityQuery())
-        this.searchCityOptions.set(cities);
-      if (target === 'profile' && query === this.profileCityQuery())
-        this.profileCityOptions.set(cities);
-    } catch (error) {
-      this.showError(error);
-    }
-  }
-
-  toggleSearchDay(value: string) {
-    this.searchDays.update((current) =>
-      current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
+    this.profileCity.reset(
+      listing
+        ? this.municipality(listing.municipalityCode, listing.municipalityName, listing.uf)
+        : null,
     );
   }
 
-  toggleSearchPeriod(value: string) {
-    this.searchPeriods.update((current) =>
+  private async findCities(query: string) {
+    try {
+      return await this.api.request<Municipality[]>(
+        `/social/cities?query=${encodeURIComponent(query)}`,
+      );
+    } catch (error) {
+      this.showError(error);
+      return [];
+    }
+  }
+
+  toggle(list: WritableSignal<string[]>, value: string) {
+    list.update((current) =>
       current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
     );
   }
@@ -298,8 +375,18 @@ export class SocialPage implements OnInit, OnDestroy {
     };
   }
 
+  toggleGoalkeeperDraft(key: 'preferredDays' | 'preferredPeriods', value: string) {
+    const current = this.goalkeeperDraft[key];
+    this.goalkeeperDraft = {
+      ...this.goalkeeperDraft,
+      [key]: current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    };
+  }
+
   async runSearch() {
-    const city = this.searchCity();
+    const city = this.searchCity.city();
     if (!city) {
       this.showError('Escolha uma cidade da lista antes de buscar.');
       return;
@@ -328,7 +415,7 @@ export class SocialPage implements OnInit, OnDestroy {
 
   saveListing() {
     const group = this.selectedGroup();
-    const city = this.profileCity();
+    const city = this.profileCity.city();
     if (!group || !city) {
       this.showError('Escolha a cidade da quadra pela lista de sugestões.');
       return;
@@ -515,6 +602,251 @@ export class SocialPage implements OnInit, OnDestroy {
     );
   }
 
+  // ---------- Goalkeeper profile ----------
+
+  private applyGoalkeeperProfile(profile: GoalkeeperProfile | null) {
+    this.goalkeeperProfile.set(profile);
+    this.goalkeeperDraft = profile
+      ? {
+          skillLevel: profile.skillLevel,
+          preferredDays: [...profile.preferredDays],
+          preferredPeriods: [...profile.preferredPeriods],
+          description: profile.description,
+          published: profile.published,
+        }
+      : this.emptyGoalkeeperDraft();
+    this.goalkeeperCity.reset(
+      profile
+        ? this.municipality(profile.municipalityCode, profile.municipalityName, profile.uf)
+        : null,
+    );
+  }
+
+  saveGoalkeeperProfile() {
+    const city = this.goalkeeperCity.city();
+    if (!city) {
+      this.showError('Escolha sua cidade pela lista de sugestões.');
+      return;
+    }
+    this.runBusy(async () => {
+      const saved = await this.api.request<GoalkeeperProfile>('/social/goalkeeper-profile', 'PUT', {
+        ...this.goalkeeperDraft,
+        municipalityCode: city.code,
+      });
+      this.applyGoalkeeperProfile(saved);
+      this.showNotice(
+        saved.published
+          ? 'Perfil de goleiro publicado. Organizadores próximos já podem encontrar você.'
+          : 'Perfil de goleiro salvo e pausado. Ele não aparece nas buscas.',
+      );
+    });
+  }
+
+  removeGoalkeeperProfile() {
+    if (!this.goalkeeperProfile()) return;
+    if (!window.confirm('Excluir seu perfil de goleiro? Ele deixa de aparecer nas buscas.')) return;
+    this.runBusy(async () => {
+      await this.api.request<void>('/social/goalkeeper-profile', 'DELETE');
+      this.applyGoalkeeperProfile(null);
+      this.showNotice('Perfil de goleiro excluído.');
+    });
+  }
+
+  // ---------- Goalkeeper search and invites ----------
+
+  async runKeeperSearch() {
+    const city = this.keeperCity.city();
+    if (!city) {
+      this.showError('Escolha uma cidade da lista antes de buscar.');
+      return;
+    }
+    this.busy.set(true);
+    this.error.set('');
+    this.keeperSearched.set(true);
+    try {
+      const params = new URLSearchParams({
+        cityCode: city.code,
+        radiusKm: String(this.keeperRadius()),
+      });
+      if (this.keeperLevel()) params.set('skillLevel', this.keeperLevel());
+      this.keeperDays().forEach((day) => params.append('days', day));
+      this.keeperPeriods().forEach((period) => params.append('periods', period));
+      this.keeperResults.set(
+        await this.api.request<GoalkeeperSearchResult[]>(
+          `/social/goalkeepers?${params.toString()}`,
+        ),
+      );
+    } catch (error) {
+      this.showError(error);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  async openKeeperInvite(result: GoalkeeperSearchResult) {
+    this.returnFocus = document.activeElement as HTMLElement | null;
+    this.keeperInviteDraft = this.emptyKeeperInvite();
+    this.keeperInviting.set(result);
+    this.error.set('');
+    this.optionsLoading.set(true);
+    try {
+      const options = await this.api.request<GoalkeeperInviteGroupOption[]>(
+        '/social/goalkeeper-invites/options',
+      );
+      this.inviteOptions.set(options);
+      const group = options.find((item) => item.games.length) ?? options[0];
+      if (group) this.chooseInviteGroup(group.clubId);
+    } catch (error) {
+      this.showError(error);
+    } finally {
+      this.optionsLoading.set(false);
+      requestAnimationFrame(() =>
+        document
+          .querySelector<HTMLElement>('.keeper-invite-dialog select, .keeper-invite-dialog button')
+          ?.focus(),
+      );
+    }
+  }
+
+  closeKeeperInvite() {
+    this.keeperInviting.set(null);
+    this.error.set('');
+    const target = this.returnFocus;
+    this.returnFocus = null;
+    requestAnimationFrame(() => target?.focus());
+  }
+
+  inviteGroup() {
+    return (
+      this.inviteOptions().find((item) => item.clubId === this.keeperInviteDraft.clubId) ?? null
+    );
+  }
+
+  inviteGame() {
+    return (
+      this.inviteGroup()?.games.find((item) => item.gameId === this.keeperInviteDraft.gameId) ??
+      null
+    );
+  }
+
+  inviteTeam() {
+    return (
+      this.inviteGame()?.teams.find((item) => item.teamId === this.keeperInviteDraft.teamId) ?? null
+    );
+  }
+
+  chooseInviteGroup(clubId: string) {
+    const group = this.inviteOptions().find((item) => item.clubId === clubId);
+    this.keeperInviteDraft = { ...this.keeperInviteDraft, clubId, gameId: '', teamId: '' };
+    const game = group?.games.find((item) => item.teams.some((team) => team.available));
+    if (game) this.chooseInviteGame(game.gameId);
+  }
+
+  chooseInviteGame(gameId: string) {
+    const game = this.inviteGroup()?.games.find((item) => item.gameId === gameId);
+    this.keeperInviteDraft = {
+      ...this.keeperInviteDraft,
+      gameId,
+      teamId: game?.teams.find((team) => team.available)?.teamId ?? '',
+    };
+  }
+
+  sendKeeperInvite() {
+    const target = this.keeperInviting();
+    const draft = this.keeperInviteDraft;
+    if (!target || !draft.gameId || !draft.teamId) {
+      this.showError('Escolha a pelada e um time com o gol livre.');
+      return;
+    }
+    this.runBusy(async () => {
+      const invite = await this.api.request<GoalkeeperInvite>(
+        '/social/goalkeeper-invites',
+        'POST',
+        {
+          profileId: target.profileId,
+          gameId: draft.gameId,
+          teamId: draft.teamId,
+          message: draft.message,
+        },
+      );
+      this.sentInvites.update((items) => [
+        invite,
+        ...items.filter((item) => item.id !== invite.id),
+      ]);
+      this.closeKeeperInvite();
+      this.view.set('gk-invites');
+      this.showNotice(
+        `Convite enviado. O gol de ${invite.teamName} fica reservado para ${invite.goalkeeperName} até a resposta.`,
+      );
+    });
+  }
+
+  answerKeeperInvite(
+    invite: GoalkeeperInvite,
+    action: 'accept' | 'decline' | 'cancel' | 'withdraw',
+  ) {
+    if (
+      action === 'withdraw' &&
+      !window.confirm(
+        'Sair desta partida? O gol fica livre para o organizador convidar outro goleiro.',
+      )
+    )
+      return;
+    if (action === 'cancel' && !window.confirm('Cancelar este convite e liberar o gol?')) return;
+    this.runBusy(async () => {
+      const updated = await this.api.request<GoalkeeperInvite>(
+        `/social/goalkeeper-invites/${invite.id}/${action}`,
+        'POST',
+      );
+      const replace = (items: GoalkeeperInvite[]) =>
+        items.map((item) => (item.id === updated.id ? updated : item));
+      this.receivedInvites.update(replace);
+      this.sentInvites.update(replace);
+      this.showNotice(this.answerNotice(action, updated));
+    });
+  }
+
+  private answerNotice(action: string, invite: GoalkeeperInvite) {
+    if (action === 'accept' && invite.status === 'ACCEPTED')
+      return `Convite aceito. Você está no gol de ${invite.teamName}.`;
+    if (action === 'decline') return 'Convite recusado. O gol foi liberado.';
+    if (action === 'cancel') return 'Convite cancelado. O gol foi liberado.';
+    if (action === 'withdraw') return 'Você saiu da partida e o gol foi liberado.';
+    return invite.outcome || 'Este convite não aguarda mais resposta.';
+  }
+
+  keeperStatus(status: GoalkeeperInvite['status']) {
+    const labels: Record<GoalkeeperInvite['status'], string> = {
+      PENDING: 'Aguardando resposta',
+      ACCEPTED: 'Aceito',
+      DECLINED: 'Recusado',
+      CANCELLED: 'Cancelado',
+      EXPIRED: 'Expirado',
+      WITHDRAWN: 'Goleiro saiu',
+    };
+    return labels[status];
+  }
+
+  rating(average: number | null, count: number) {
+    if (average == null || !count) return 'Sem avaliações ainda';
+    const value = average.toLocaleString('pt-BR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    return `${value} de 5 · ${count} ${count === 1 ? 'partida avaliada' : 'partidas avaliadas'}`;
+  }
+
+  gameDate(value: string, timeZone: string) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone,
+    }).format(new Date(value));
+  }
+
   matchOpponent(match: SocialMatch) {
     return match.outgoing ? match.guestClubName : match.hostClubName;
   }
@@ -573,6 +905,10 @@ export class SocialPage implements OnInit, OnDestroy {
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   }
 
+  private municipality(code: string, name: string, uf: string): Municipality {
+    return { code, name, uf, label: `${name} — ${uf}` };
+  }
+
   private emptyDraft(): ListingDraft {
     return {
       categories: ['PICKUP'],
@@ -586,8 +922,22 @@ export class SocialPage implements OnInit, OnDestroy {
     };
   }
 
+  private emptyGoalkeeperDraft(): GoalkeeperDraft {
+    return {
+      skillLevel: 'INTERMEDIATE',
+      preferredDays: [],
+      preferredPeriods: [],
+      description: '',
+      published: true,
+    };
+  }
+
   private emptyInvite(): InviteDraft {
     return { senderClubId: '', startsAt: '', location: '', message: '' };
+  }
+
+  private emptyKeeperInvite(): GoalkeeperInviteDraft {
+    return { clubId: '', gameId: '', teamId: '', message: '' };
   }
 
   private async runBusy(action: () => Promise<void>) {
@@ -604,7 +954,11 @@ export class SocialPage implements OnInit, OnDestroy {
 
   private showError(error: unknown) {
     this.error.set(
-      error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.',
+      typeof error === 'string'
+        ? error
+        : error instanceof Error
+          ? error.message
+          : 'Não foi possível concluir. Tente novamente.',
     );
   }
 

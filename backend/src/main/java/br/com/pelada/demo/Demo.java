@@ -294,7 +294,9 @@ public class Demo {
       detail.goals(),
       detail.ratings(),
       detail.myRatings(),
-      detail.ratingsVisibleAt()
+      detail.ratingsVisibleAt(),
+      detail.goalkeeperReservations(),
+      detail.viewerGuest()
     );
   }
 

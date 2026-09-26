@@ -100,6 +100,94 @@ export interface SocialSchedule {
   location: string;
   status: 'SCHEDULED' | 'CHANGE_PENDING' | 'CANCELLED';
 }
+export type SkillLevel = 'RECREATIONAL' | 'INTERMEDIATE' | 'COMPETITIVE';
+export interface GoalkeeperProfile {
+  published: boolean;
+  municipalityCode: string;
+  municipalityName: string;
+  uf: string;
+  skillLevel: SkillLevel;
+  preferredDays: string[];
+  preferredPeriods: string[];
+  description: string;
+  averageRating: number | null;
+  ratedGames: number;
+  updatedAt: string;
+}
+export interface MyGoalkeeperProfile {
+  profile: GoalkeeperProfile | null;
+  organizer: boolean;
+}
+export interface GoalkeeperSearchResult {
+  profileId: string;
+  name: string;
+  municipalityName: string;
+  uf: string;
+  distanceKm: number;
+  skillLevel: SkillLevel;
+  preferredDays: string[];
+  preferredPeriods: string[];
+  description: string;
+  averageRating: number | null;
+  ratedGames: number;
+  scheduleCompatible: boolean;
+}
+export interface GoalkeeperInviteTeamOption {
+  teamId: string;
+  name: string;
+  color: string;
+  available: boolean;
+  unavailableReason: string | null;
+}
+export interface GoalkeeperInviteGameOption {
+  gameId: string;
+  title: string;
+  location: string;
+  startsAt: string;
+  teams: GoalkeeperInviteTeamOption[];
+}
+export interface GoalkeeperInviteGroupOption {
+  clubId: string;
+  clubName: string;
+  timeZone: string;
+  games: GoalkeeperInviteGameOption[];
+}
+export type GoalkeeperInviteStatus =
+  'PENDING' | 'ACCEPTED' | 'DECLINED' | 'CANCELLED' | 'EXPIRED' | 'WITHDRAWN';
+export interface GoalkeeperInvite {
+  id: string;
+  status: GoalkeeperInviteStatus;
+  statusReason: string | null;
+  outcome: string | null;
+  outgoing: boolean;
+  goalkeeperName: string;
+  organizerName: string;
+  clubId: string;
+  clubName: string;
+  gameId: string;
+  gameTitle: string;
+  startsAt: string;
+  location: string;
+  timeZone: string;
+  teamId: string;
+  teamName: string;
+  teamColor: string;
+  message: string;
+  createdAt: string;
+  expiresAt: string;
+  respondedAt: string | null;
+  closedAt: string | null;
+  canAccept: boolean;
+  canDecline: boolean;
+  canCancel: boolean;
+  canWithdraw: boolean;
+  canOpenGame: boolean;
+}
+export interface GoalkeeperReservation {
+  teamId: string;
+  goalkeeperName: string;
+  expiresAt: string;
+}
 export interface Game {
   id: string;
   clubId: string;
@@ -132,6 +220,7 @@ export interface Player {
   status: 'CONFIRMED' | 'WAITING';
   teamId: string | null;
   slot: number | null;
+  guestGoalkeeper: boolean;
 }
 export interface Team {
   id: string;
@@ -151,6 +240,8 @@ export interface Detail {
   ratings: Rating[];
   myRatings: OwnRating[];
   ratingsVisibleAt: string | null;
+  goalkeeperReservations: GoalkeeperReservation[];
+  viewerGuest: boolean;
 }
 export interface Goal {
   id: string;

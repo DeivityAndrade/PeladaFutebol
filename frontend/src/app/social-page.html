@@ -1,53 +1,100 @@
 <section class="social-page" aria-labelledby="social-title">
   <div class="page-heading social-heading">
     <div>
-      <span class="eyebrow green">CONEXÕES ENTRE GRUPOS</span>
+      <span class="eyebrow green">{{
+        organizer() ? 'CONEXÕES ENTRE GRUPOS' : 'JOGUE ONDE FALTA GOLEIRO'
+      }}</span>
       <h1 id="social-title">Social<span>.</span></h1>
-      <p>Encontre uma equipe por perto e combine um amistoso com quem organiza.</p>
+      <p>
+        {{
+          organizer()
+            ? 'Encontre equipes e goleiros por perto, combine amistosos e acompanhe seus convites.'
+            : 'Publique seu perfil de goleiro e responda aos convites de organizadores para jogar.'
+        }}
+      </p>
     </div>
-    <span class="social-private-note"><app-icon name="lock" /> Só organizadores</span>
   </div>
 
   @if (notice()) {
     <div class="alert social-notice" role="status">{{ notice() }}</div>
   }
-  @if (error()) {
+  @if (error() && !keeperInviting()) {
     <div class="alert error" role="alert">{{ error() }}</div>
   }
 
-  <div class="group-tabs social-tabs" role="tablist" aria-label="Área Social">
-    <button
-      role="tab"
-      [attr.aria-selected]="view() === 'search'"
-      [class.active]="view() === 'search'"
-      (click)="selectView('search')"
-    >
-      Buscar times
-    </button>
-    <button
-      role="tab"
-      [attr.aria-selected]="view() === 'profiles'"
-      [class.active]="view() === 'profiles'"
-      (click)="selectView('profiles')"
-    >
-      Meus perfis
-    </button>
-    <button
-      role="tab"
-      [attr.aria-selected]="view() === 'inbox'"
-      [class.active]="view() === 'inbox'"
-      (click)="selectView('inbox')"
-    >
-      Convites e conversas
-      @if (unreadTotal()) {
-        <span class="social-unread">{{ unreadTotal() }}</span>
+  @if (!loading()) {
+    <div class="group-tabs social-tabs" role="tablist" aria-label="Área Social">
+      @if (organizer()) {
+        <button
+          role="tab"
+          [attr.aria-selected]="view() === 'search'"
+          [class.active]="view() === 'search'"
+          (click)="selectView('search')"
+        >
+          Buscar times
+        </button>
+        <button
+          role="tab"
+          [attr.aria-selected]="view() === 'goalkeepers'"
+          [class.active]="view() === 'goalkeepers'"
+          (click)="selectView('goalkeepers')"
+        >
+          Buscar goleiros
+        </button>
+        <button
+          role="tab"
+          [attr.aria-selected]="view() === 'profiles'"
+          [class.active]="view() === 'profiles'"
+          (click)="selectView('profiles')"
+        >
+          Perfis de grupo
+        </button>
+        <button
+          role="tab"
+          [attr.aria-selected]="view() === 'inbox'"
+          [class.active]="view() === 'inbox'"
+          (click)="selectView('inbox')"
+        >
+          Amistosos
+          @if (unreadTotal()) {
+            <span
+              class="social-unread"
+              [attr.aria-label]="unreadTotal() + ' mensagens não lidas'"
+              >{{ unreadTotal() }}</span
+            >
+          }
+        </button>
+        <span class="social-tab-divider" aria-hidden="true"></span>
       }
-    </button>
-  </div>
+      <button
+        role="tab"
+        [attr.aria-selected]="view() === 'gk-invites'"
+        [class.active]="view() === 'gk-invites'"
+        (click)="selectView('gk-invites')"
+      >
+        Convites de goleiro
+        @if (pendingReceived()) {
+          <span
+            class="social-unread"
+            [attr.aria-label]="pendingReceived() + ' aguardando sua resposta'"
+            >{{ pendingReceived() }}</span
+          >
+        }
+      </button>
+      <button
+        role="tab"
+        [attr.aria-selected]="view() === 'gk-profile'"
+        [class.active]="view() === 'gk-profile'"
+        (click)="selectView('gk-profile')"
+      >
+        Meu perfil de goleiro
+      </button>
+    </div>
+  }
 
   @if (loading()) {
     <div class="panel social-loading" role="status">Carregando área Social…</div>
-  } @else if (view() === 'search') {
+  } @else if (view() === 'search' && organizer()) {
     <section class="panel social-search-panel" aria-labelledby="social-search-heading">
       <div class="social-section-heading">
         <div>
@@ -58,28 +105,29 @@
             na busca.
           </p>
         </div>
+        <span class="social-private-note"><app-icon name="lock" /> Só organizadores</span>
       </div>
       <div class="social-filters">
         <label class="social-city-field"
           >Cidade
           <input
             type="search"
-            [ngModel]="searchCityQuery()"
-            (ngModelChange)="onSearchCityInput($event)"
+            [ngModel]="searchCity.query()"
+            (ngModelChange)="searchCity.input($event)"
             placeholder="Digite uma cidade"
             autocomplete="off"
             aria-label="Cidade para buscar times"
           />
-          @if (searchCityOptions().length) {
+          @if (searchCity.options().length) {
             <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
-              @for (city of searchCityOptions(); track city.code) {
-                <button type="button" role="option" (click)="chooseCity(city, 'search')">
+              @for (city of searchCity.options(); track city.code) {
+                <button type="button" role="option" (click)="searchCity.choose(city)">
                   {{ city.label }}
                 </button>
               }
             </div>
           }
-          @if (searchCity(); as city) {
+          @if (searchCity.city(); as city) {
             <span class="field-hint">Origem: {{ city.label }}</span>
           }
         </label>
@@ -120,7 +168,7 @@
                 class="social-choice"
                 [class.selected]="searchDays().includes(day.value)"
                 [attr.aria-pressed]="searchDays().includes(day.value)"
-                (click)="toggleSearchDay(day.value)"
+                (click)="toggle(searchDays, day.value)"
               >
                 {{ day.label }}
               </button>
@@ -136,7 +184,7 @@
                 class="social-choice"
                 [class.selected]="searchPeriods().includes(period.value)"
                 [attr.aria-pressed]="searchPeriods().includes(period.value)"
-                (click)="toggleSearchPeriod(period.value)"
+                (click)="toggle(searchPeriods, period.value)"
               >
                 {{ period.label }}
               </button>
@@ -149,7 +197,7 @@
         ><button
           class="button primary"
           type="button"
-          [disabled]="busy() || !searchCity()"
+          [disabled]="busy() || !searchCity.city()"
           (click)="runSearch()"
         >
           <app-icon name="search" />Buscar equipes
@@ -215,13 +263,181 @@
             <h3>Nenhum grupo apareceu por aqui.</h3>
             <p>Tente aumentar o raio ou ajustar os filtros, ou publique o perfil do seu grupo.</p>
             <button class="button secondary" (click)="selectView('profiles')">
-              Ver meus perfis
+              Ver perfis de grupo
             </button>
           </div>
         }
       </div>
     }
-  } @else if (view() === 'profiles') {
+  } @else if (view() === 'goalkeepers' && organizer()) {
+    <section class="panel social-search-panel" aria-labelledby="keeper-search-heading">
+      <div class="social-section-heading">
+        <div>
+          <span class="eyebrow">GOLEIROS POR PERTO</span>
+          <h2 id="keeper-search-heading">Falta goleiro?</h2>
+          <p>
+            Veja quem topa fechar o gol na sua pelada. A busca mostra nome, cidade, nível,
+            disponibilidade, descrição e nota geral — nunca e-mail ou histórico de partidas.
+          </p>
+        </div>
+        <span class="social-private-note"><app-icon name="lock" /> Só organizadores</span>
+      </div>
+      <div class="social-filters keeper-filters">
+        <label class="social-city-field"
+          >Cidade
+          <input
+            type="search"
+            [ngModel]="keeperCity.query()"
+            (ngModelChange)="keeperCity.input($event)"
+            placeholder="Digite uma cidade"
+            autocomplete="off"
+            aria-label="Cidade para buscar goleiros"
+          />
+          @if (keeperCity.options().length) {
+            <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
+              @for (city of keeperCity.options(); track city.code) {
+                <button type="button" role="option" (click)="keeperCity.choose(city)">
+                  {{ city.label }}
+                </button>
+              }
+            </div>
+          }
+          @if (keeperCity.city(); as city) {
+            <span class="field-hint">Origem: {{ city.label }}</span>
+          }
+        </label>
+        <label
+          >Raio
+          <select
+            aria-label="Raio da busca de goleiros"
+            [ngModel]="keeperRadius()"
+            (ngModelChange)="keeperRadius.set(+$event)"
+          >
+            @for (radius of radii; track radius) {
+              <option [ngValue]="radius">{{ radius }} km</option>
+            }
+          </select>
+        </label>
+        <label
+          >Nível
+          <select
+            aria-label="Nível do goleiro"
+            [ngModel]="keeperLevel()"
+            (ngModelChange)="keeperLevel.set($event)"
+          >
+            <option value="">Todos</option>
+            @for (level of levels; track level.value) {
+              <option [value]="level.value">{{ level.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <div class="social-filter-options">
+        <fieldset>
+          <legend>Disponível nos dias</legend>
+          <div class="social-choice-row">
+            @for (day of days; track day.value) {
+              <button
+                type="button"
+                class="social-choice"
+                [class.selected]="keeperDays().includes(day.value)"
+                [attr.aria-pressed]="keeperDays().includes(day.value)"
+                (click)="toggle(keeperDays, day.value)"
+              >
+                {{ day.label }}
+              </button>
+            }
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Nos períodos</legend>
+          <div class="social-choice-row">
+            @for (period of periods; track period.value) {
+              <button
+                type="button"
+                class="social-choice"
+                [class.selected]="keeperPeriods().includes(period.value)"
+                [attr.aria-pressed]="keeperPeriods().includes(period.value)"
+                (click)="toggle(keeperPeriods, period.value)"
+              >
+                {{ period.label }}
+              </button>
+            }
+          </div>
+        </fieldset>
+      </div>
+      <div class="social-search-actions">
+        <span class="field-hint">Até 100 goleiros, do mais próximo ao mais distante.</span
+        ><button
+          class="button primary"
+          type="button"
+          [disabled]="busy() || !keeperCity.city()"
+          (click)="runKeeperSearch()"
+        >
+          <app-icon name="search" />Buscar goleiros
+        </button>
+      </div>
+    </section>
+
+    @if (keeperSearched()) {
+      <div class="social-results-heading">
+        <h2>Goleiros encontrados</h2>
+        <span>{{ keeperResults().length }} resultados</span>
+      </div>
+      <div class="social-result-list">
+        @for (keeper of keeperResults(); track keeper.profileId) {
+          <article class="panel social-result-card keeper-card">
+            <div class="social-result-main">
+              <div class="social-result-title">
+                <span class="social-group-mark"><app-icon name="shield" /></span>
+                <div>
+                  <h3>{{ keeper.name }}</h3>
+                  <span
+                    >{{ keeper.municipalityName }} — {{ keeper.uf }} ·
+                    {{ keeper.distanceKm | number: '1.0-1' }} km</span
+                  >
+                </div>
+              </div>
+              <p>{{ keeper.description || 'Goleiro disponível para completar o time.' }}</p>
+              <p class="keeper-rating" [class.unrated]="!keeper.ratedGames">
+                @if (keeper.ratedGames) {
+                  <app-icon name="star" />
+                }
+                <span>{{ rating(keeper.averageRating, keeper.ratedGames) }}</span>
+              </p>
+              <div class="social-chips">
+                <span>{{ skillLabel(keeper.skillLevel) }}</span>
+              </div>
+              <div class="social-preferences">
+                <span><strong>Dias:</strong> {{ formatDays(keeper.preferredDays) }}</span
+                ><span
+                  ><strong>Períodos:</strong> {{ formatPeriods(keeper.preferredPeriods) }}</span
+                >
+              </div>
+              @if (keeper.scheduleCompatible) {
+                <div class="social-match-hints"><span>Horários compatíveis</span></div>
+              }
+            </div>
+            <button
+              class="button primary social-invite-button"
+              type="button"
+              [disabled]="busy()"
+              [attr.aria-label]="'Convidar ' + keeper.name + ' para jogar'"
+              (click)="openKeeperInvite(keeper)"
+            >
+              <app-icon name="user-plus" />Convidar para jogar
+            </button>
+          </article>
+        } @empty {
+          <div class="panel empty-state social-empty">
+            <app-icon name="shield" />
+            <h3>Nenhum goleiro apareceu por aqui.</h3>
+            <p>Aumente o raio ou tire filtros de nível, dia e período.</p>
+          </div>
+        }
+      </div>
+    }
+  } @else if (view() === 'profiles' && organizer()) {
     <section class="panel social-profile-panel" aria-labelledby="social-profile-heading">
       <div class="social-section-heading">
         <div>
@@ -250,21 +466,21 @@
               <input
                 type="search"
                 name="profileCity"
-                [ngModel]="profileCityQuery()"
-                (ngModelChange)="onProfileCityInput($event)"
+                [ngModel]="profileCity.query()"
+                (ngModelChange)="profileCity.input($event)"
                 placeholder="Digite uma cidade"
                 autocomplete="off"
               />
-              @if (profileCityOptions().length) {
+              @if (profileCity.options().length) {
                 <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
-                  @for (city of profileCityOptions(); track city.code) {
-                    <button type="button" role="option" (click)="chooseCity(city, 'profile')">
+                  @for (city of profileCity.options(); track city.code) {
+                    <button type="button" role="option" (click)="profileCity.choose(city)">
                       {{ city.label }}
                     </button>
                   }
                 </div>
               }
-              @if (profileCity(); as city) {
+              @if (profileCity.city(); as city) {
                 <span class="field-hint">{{ city.label }}</span>
               }
             </label>
@@ -367,7 +583,11 @@
                   Retirar perfil
                 </button>
               }
-              <button class="button primary" type="submit" [disabled]="busy() || !profileCity()">
+              <button
+                class="button primary"
+                type="submit"
+                [disabled]="busy() || !profileCity.city()"
+              >
                 <app-icon name="check" />Salvar perfil
               </button>
             </div>
@@ -383,7 +603,7 @@
         </div>
       }
     </section>
-  } @else {
+  } @else if (view() === 'inbox' && organizer()) {
     <div class="social-inbox-layout">
       <section class="panel social-inbox-panel" aria-labelledby="social-inbox-heading">
         <div class="social-section-heading">
@@ -587,7 +807,287 @@
         }
       </section>
     </div>
+  } @else if (view() === 'gk-invites') {
+    @if (organizer()) {
+      <section class="keeper-invite-section" aria-labelledby="keeper-sent-heading">
+        <div class="social-results-heading">
+          <h2 id="keeper-sent-heading">Convites enviados</h2>
+          <span>{{ pendingSent() }} aguardando resposta</span>
+        </div>
+        <div class="social-result-list">
+          @for (invite of sentInvites(); track invite.id) {
+            <ng-container *ngTemplateOutlet="keeperInviteCard; context: { $implicit: invite }" />
+          } @empty {
+            <div class="panel empty-state social-empty">
+              <app-icon name="shield" />
+              <h3>Nenhum convite de goleiro enviado.</h3>
+              <p>Busque goleiros por perto e reserve o gol de uma pelada até a resposta.</p>
+              <button class="button secondary" (click)="selectView('goalkeepers')">
+                Buscar goleiros
+              </button>
+            </div>
+          }
+        </div>
+      </section>
+    }
+    @if (!organizer() || receivedInvites().length) {
+      <section class="keeper-invite-section" aria-labelledby="keeper-received-heading">
+        <div class="social-results-heading">
+          <h2 id="keeper-received-heading">Convites recebidos</h2>
+          <span>{{ pendingReceived() }} aguardando sua resposta</span>
+        </div>
+        <div class="social-result-list">
+          @for (invite of receivedInvites(); track invite.id) {
+            <ng-container *ngTemplateOutlet="keeperInviteCard; context: { $implicit: invite }" />
+          } @empty {
+            <div class="panel empty-state social-empty">
+              <app-icon name="shield" />
+              <h3>Nenhum convite recebido.</h3>
+              <p>Publique seu perfil de goleiro para aparecer nas buscas de organizadores.</p>
+              <button class="button secondary" (click)="selectView('gk-profile')">
+                Meu perfil de goleiro
+              </button>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  } @else {
+    <section class="panel social-profile-panel" aria-labelledby="keeper-profile-heading">
+      <div class="social-section-heading">
+        <div>
+          <span class="eyebrow">SEU PERFIL NO GOL</span>
+          <h2 id="keeper-profile-heading">Perfil de goleiro</h2>
+          <p>
+            Organizadores próximos encontram você pela cidade, pelo nível e pelos horários. Seu
+            e-mail, seu histórico e quem avaliou você nunca aparecem.
+          </p>
+        </div>
+        @if (goalkeeperProfile(); as saved) {
+          <span class="keeper-state" [class.paused]="!saved.published">{{
+            saved.published ? 'Publicado' : 'Pausado'
+          }}</span>
+        }
+      </div>
+      <form class="social-profile-form" (ngSubmit)="saveGoalkeeperProfile()">
+        <div class="social-form-grid keeper-form-grid">
+          <label class="social-city-field"
+            >Sua cidade
+            <input
+              type="search"
+              name="keeperCity"
+              [ngModel]="goalkeeperCity.query()"
+              (ngModelChange)="goalkeeperCity.input($event)"
+              placeholder="Digite uma cidade"
+              autocomplete="off"
+            />
+            @if (goalkeeperCity.options().length) {
+              <div class="social-suggestions" role="listbox" aria-label="Sugestões de cidades">
+                @for (city of goalkeeperCity.options(); track city.code) {
+                  <button type="button" role="option" (click)="goalkeeperCity.choose(city)">
+                    {{ city.label }}
+                  </button>
+                }
+              </div>
+            }
+            @if (goalkeeperCity.city(); as city) {
+              <span class="field-hint">{{ city.label }}</span>
+            }
+          </label>
+          <label
+            >Nível<select name="keeperLevel" [(ngModel)]="goalkeeperDraft.skillLevel">
+              @for (level of levels; track level.value) {
+                <option [value]="level.value">{{ level.label }}</option>
+              }
+            </select></label
+          >
+        </div>
+        <label
+          >Sobre você no gol<textarea
+            name="keeperDescription"
+            [(ngModel)]="goalkeeperDraft.description"
+            maxlength="300"
+            rows="3"
+            placeholder="Ex.: Jogo há 10 anos, bom na saída de bola e com as mãos."
+          ></textarea>
+          <span class="field-hint">{{ goalkeeperDraft.description.length }}/300</span>
+        </label>
+        <div class="social-form-preferences">
+          <fieldset>
+            <legend>Dias em que pode jogar</legend>
+            <div class="social-choice-row">
+              @for (day of days; track day.value) {
+                <button
+                  type="button"
+                  class="social-choice"
+                  [class.selected]="goalkeeperDraft.preferredDays.includes(day.value)"
+                  [attr.aria-pressed]="goalkeeperDraft.preferredDays.includes(day.value)"
+                  (click)="toggleGoalkeeperDraft('preferredDays', day.value)"
+                >
+                  {{ day.label }}
+                </button>
+              }
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Períodos</legend>
+            <div class="social-choice-row">
+              @for (period of periods; track period.value) {
+                <button
+                  type="button"
+                  class="social-choice"
+                  [class.selected]="goalkeeperDraft.preferredPeriods.includes(period.value)"
+                  [attr.aria-pressed]="goalkeeperDraft.preferredPeriods.includes(period.value)"
+                  (click)="toggleGoalkeeperDraft('preferredPeriods', period.value)"
+                >
+                  {{ period.label }}
+                </button>
+              }
+            </div>
+          </fieldset>
+        </div>
+        @if (goalkeeperProfile(); as saved) {
+          <p class="keeper-rating" [class.unrated]="!saved.ratedGames">
+            @if (saved.ratedGames) {
+              <app-icon name="star" />
+            }
+            <span
+              ><strong>Nota geral na busca:</strong>
+              {{ rating(saved.averageRating, saved.ratedGames) }}</span
+            >
+          </p>
+        }
+        <div class="social-profile-footer">
+          <label class="social-publish-toggle"
+            ><input
+              type="checkbox"
+              name="keeperPublished"
+              [(ngModel)]="goalkeeperDraft.published"
+            />
+            Publicar meu perfil para organizadores próximos</label
+          >
+          <div class="social-profile-actions">
+            @if (goalkeeperProfile()) {
+              <button
+                class="button secondary"
+                type="button"
+                (click)="removeGoalkeeperProfile()"
+                [disabled]="busy()"
+              >
+                Excluir perfil
+              </button>
+            }
+            <button
+              class="button primary"
+              type="submit"
+              [disabled]="busy() || !goalkeeperCity.city()"
+            >
+              <app-icon name="check" />Salvar perfil de goleiro
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
   }
+
+  <ng-template #keeperInviteCard let-invite>
+    <article
+      class="panel keeper-invite-card"
+      [attr.aria-label]="'Convite de goleiro para ' + invite.gameTitle"
+    >
+      <div class="keeper-invite-top">
+        <span class="keeper-status" [attr.data-status]="invite.status">{{
+          keeperStatus(invite.status)
+        }}</span>
+        @if (invite.canAccept || invite.canCancel) {
+          <span class="keeper-deadline"
+            ><app-icon name="clock" />Responder até
+            {{ gameDate(invite.expiresAt, invite.timeZone) }}</span
+          >
+        }
+      </div>
+      <h3>{{ invite.gameTitle }}</h3>
+      <p class="keeper-invite-who">
+        {{
+          invite.outgoing
+            ? 'Goleiro: ' + invite.goalkeeperName + ' · ' + invite.clubName
+            : invite.organizerName + ' convidou você · ' + invite.clubName
+        }}
+      </p>
+      <div class="keeper-invite-meta">
+        <span><app-icon name="calendar" />{{ gameDate(invite.startsAt, invite.timeZone) }}</span>
+        <span><app-icon name="pin" />{{ invite.location }}</span>
+        <span
+          ><span class="team-swatch" [style.background]="invite.teamColor"></span>Gol de
+          {{ invite.teamName }}</span
+        >
+      </div>
+      @if (invite.message) {
+        <p class="social-invite-message">{{ invite.message }}</p>
+      }
+      @if (invite.status === 'PENDING' && invite.outgoing) {
+        <p class="keeper-note">O gol de {{ invite.teamName }} está reservado até a resposta.</p>
+      }
+      @if (invite.outcome) {
+        <p class="keeper-note">{{ invite.outcome }}</p>
+      }
+      @if (
+        invite.canAccept ||
+        invite.canDecline ||
+        invite.canCancel ||
+        invite.canWithdraw ||
+        invite.canOpenGame
+      ) {
+        <div class="social-chat-actions keeper-actions">
+          @if (invite.canAccept) {
+            <button
+              class="button primary"
+              type="button"
+              [disabled]="busy()"
+              (click)="answerKeeperInvite(invite, 'accept')"
+            >
+              <app-icon name="check" />Aceitar e entrar no gol
+            </button>
+          }
+          @if (invite.canDecline) {
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="busy()"
+              (click)="answerKeeperInvite(invite, 'decline')"
+            >
+              Recusar
+            </button>
+          }
+          @if (invite.canOpenGame) {
+            <a class="button secondary" [href]="'#game/' + invite.gameId"
+              ><app-icon name="pitch" />Abrir partida</a
+            >
+          }
+          @if (invite.canWithdraw) {
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="busy()"
+              (click)="answerKeeperInvite(invite, 'withdraw')"
+            >
+              Sair da partida
+            </button>
+          }
+          @if (invite.canCancel) {
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="busy()"
+              (click)="answerKeeperInvite(invite, 'cancel')"
+            >
+              Cancelar convite
+            </button>
+          }
+        </div>
+      }
+    </article>
+  </ng-template>
 
   @if (inviting(); as target) {
     <div class="social-dialog-scrim" (click)="closeInvite()">
@@ -653,6 +1153,156 @@
             </button>
           </div>
         </form>
+      </section>
+    </div>
+  }
+
+  @if (keeperInviting(); as keeper) {
+    <div class="social-dialog-scrim" (click)="closeKeeperInvite()">
+      <section
+        class="panel social-invite-dialog keeper-invite-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keeper-invite-title"
+        aria-describedby="keeper-invite-summary"
+        (click)="$event.stopPropagation()"
+      >
+        <div class="social-dialog-heading">
+          <div>
+            <span class="eyebrow">CONVIDAR PARA JOGAR</span>
+            <h2 id="keeper-invite-title">{{ keeper.name }}</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Fechar"
+            (click)="closeKeeperInvite()"
+          >
+            <app-icon name="close" />
+          </button>
+        </div>
+        <p id="keeper-invite-summary">
+          {{ keeper.name }} joga só a partida escolhida, sem entrar no grupo. O convite vale por 24
+          horas ou até o início da pelada, o que vier primeiro.
+        </p>
+        @if (error()) {
+          <div class="alert error" role="alert">{{ error() }}</div>
+        }
+        @if (optionsLoading()) {
+          <p class="keeper-note" role="status">Carregando suas próximas peladas…</p>
+        } @else if (!inviteOptions().length || !inviteGroup()?.games?.length) {
+          <div class="keeper-note-block">
+            <strong>Nenhuma pelada futura disponível.</strong>
+            <p>
+              Marque uma pelada no seu grupo antes do horário de início para convidar um goleiro.
+            </p>
+          </div>
+          @if (inviteOptions().length > 1) {
+            <label class="keeper-group-field"
+              >Grupo<select
+                name="keeperInviteGroup"
+                [ngModel]="keeperInviteDraft.clubId"
+                (ngModelChange)="chooseInviteGroup($event)"
+              >
+                @for (group of inviteOptions(); track group.clubId) {
+                  <option [value]="group.clubId">{{ group.clubName }}</option>
+                }
+              </select></label
+            >
+          }
+          <div class="social-dialog-actions">
+            <button class="button secondary" type="button" (click)="closeKeeperInvite()">
+              Voltar
+            </button>
+          </div>
+        } @else {
+          <form class="social-invite-form" (ngSubmit)="sendKeeperInvite()">
+            @if (inviteOptions().length > 1) {
+              <label
+                >Grupo<select
+                  name="keeperInviteGroup"
+                  [ngModel]="keeperInviteDraft.clubId"
+                  (ngModelChange)="chooseInviteGroup($event)"
+                >
+                  @for (group of inviteOptions(); track group.clubId) {
+                    <option [value]="group.clubId">{{ group.clubName }}</option>
+                  }
+                </select></label
+              >
+            }
+            <label
+              >Pelada<select
+                name="keeperInviteGame"
+                [ngModel]="keeperInviteDraft.gameId"
+                (ngModelChange)="chooseInviteGame($event)"
+                required
+              >
+                <option value="" disabled>Escolha a pelada</option>
+                @for (game of inviteGroup()!.games; track game.gameId) {
+                  <option [value]="game.gameId">
+                    {{ gameDate(game.startsAt, inviteGroup()!.timeZone) }} · {{ game.title }}
+                  </option>
+                }
+              </select></label
+            >
+            @if (inviteGame(); as game) {
+              <div class="keeper-game-summary">
+                <span
+                  ><app-icon name="calendar" />{{
+                    gameDate(game.startsAt, inviteGroup()!.timeZone)
+                  }}</span
+                >
+                <span><app-icon name="pin" />{{ game.location }}</span>
+              </div>
+              <label
+                >Time<select
+                  name="keeperInviteTeam"
+                  [(ngModel)]="keeperInviteDraft.teamId"
+                  required
+                >
+                  <option value="" disabled>Escolha o time</option>
+                  @for (team of game.teams; track team.teamId) {
+                    <option [value]="team.teamId" [disabled]="!team.available">
+                      {{ team.name }}{{ team.available ? ' · gol livre' : ' · indisponível' }}
+                    </option>
+                  }
+                </select></label
+              >
+              @for (team of game.teams; track team.teamId) {
+                @if (!team.available) {
+                  <span class="field-hint">{{ team.name }}: {{ team.unavailableReason }}</span>
+                }
+              }
+            }
+            <label
+              >Mensagem <span class="field-hint">opcional</span
+              ><textarea
+                name="keeperInviteMessage"
+                [(ngModel)]="keeperInviteDraft.message"
+                maxlength="300"
+                rows="3"
+                placeholder="Conte o nível da pelada e combine a chegada."
+              ></textarea>
+            </label>
+            @if (inviteTeam(); as team) {
+              <p class="keeper-note">
+                <app-icon name="lock" />O gol de {{ team.name }} fica reservado para
+                {{ keeper.name }} até a resposta. Ninguém ocupa a posição nesse período.
+              </p>
+            }
+            <div class="social-dialog-actions">
+              <button class="button secondary" type="button" (click)="closeKeeperInvite()">
+                Voltar</button
+              ><button
+                class="button primary"
+                type="submit"
+                [disabled]="busy() || !keeperInviteDraft.teamId"
+              >
+                Enviar convite
+              </button>
+            </div>
+          </form>
+        }
       </section>
     </div>
   }

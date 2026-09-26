@@ -86,7 +86,7 @@ public class Groups {
     );
   }
 
-  private boolean isMember(UUID user, UUID clubId) {
+  public boolean isMember(UUID user, UUID clubId) {
     return store
       .first(
         Member.class,
@@ -129,6 +129,26 @@ public class Groups {
       club.billingDueDay,
       club.occasionalAmountCents,
       club.pixInstructions,
+      club.timeZone
+    );
+  }
+
+  /** What a guest goalkeeper may see: no invite link, members or finance settings. */
+  public ClubView guestView(Club club) {
+    return new ClubView(
+      club.id,
+      club.name,
+      "",
+      club.ownerId,
+      null,
+      0,
+      club.demo,
+      "NONE",
+      false,
+      null,
+      1,
+      null,
+      "",
       club.timeZone
     );
   }

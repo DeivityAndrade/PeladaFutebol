@@ -19,17 +19,26 @@ public class Matches {
   private final Groups groups;
   private final Clock clock;
   private final Finance finance;
+  private final GoalkeeperReservations reservations;
 
-  public Matches(Store store, Groups groups, Clock clock, Finance finance) {
+  public Matches(
+    Store store,
+    Groups groups,
+    Clock clock,
+    Finance finance,
+    GoalkeeperReservations reservations
+  ) {
     this.store = store;
     this.groups = groups;
     this.clock = clock;
     this.finance = finance;
+    this.reservations = reservations;
   }
 
   public Game start(UUID user, UUID id) {
     Game game = lockedMemberGame(user, id);
     requireLiveGame(game);
+    reservations.settle(game);
     if (
       game.cancelled || game.matchStartedAt != null
     ) throw ApiException.conflict("A partida já foi iniciada ou cancelada.");
@@ -304,6 +313,28 @@ public class Matches {
     if (
       shared.stream().noneMatch(targetClubs::contains)
     ) throw ApiException.forbidden();
+    List<PlayerGameRating> all = ratedGames(playerId);
+    List<PlayerGameRating> history = all
+      .stream()
+      .filter(g -> shared.contains(store.get(Game.class, g.gameId()).clubId))
+      .toList();
+    return new PlayerProfile(
+      player.id,
+      player.name,
+      overall(all),
+      all.size(),
+      history
+    );
+  }
+
+  /** Same overall average as the profile, limited to the average and the rated game count. */
+  @Transactional(readOnly = true)
+  public PublicRating publicRating(UUID playerId) {
+    List<PlayerGameRating> all = ratedGames(playerId);
+    return new PublicRating(overall(all), all.size());
+  }
+
+  private List<PlayerGameRating> ratedGames(UUID playerId) {
     Map<UUID, DoubleSummaryStatistics> byGame = store
       .list(
         Rating.class,
@@ -318,7 +349,7 @@ public class Matches {
           Collectors.summarizingDouble(r -> r.stars)
         )
       );
-    List<PlayerGameRating> all = byGame
+    return byGame
       .entrySet()
       .stream()
       .map(entry -> {
@@ -336,24 +367,17 @@ public class Matches {
       .filter(Objects::nonNull)
       .sorted(Comparator.comparing(PlayerGameRating::startsAt).reversed())
       .toList();
-    Double average = all.isEmpty()
+  }
+
+  // Every rated game weighs the same in the overall average.
+  private static Double overall(List<PlayerGameRating> games) {
+    return games.isEmpty()
       ? null
-      : all
+      : games
           .stream()
           .mapToDouble(PlayerGameRating::average)
           .average()
           .orElseThrow();
-    List<PlayerGameRating> history = all
-      .stream()
-      .filter(g -> shared.contains(store.get(Game.class, g.gameId()).clubId))
-      .toList();
-    return new PlayerProfile(
-      player.id,
-      player.name,
-      average,
-      all.size(),
-      history
-    );
   }
 
   public boolean published(Game game) {

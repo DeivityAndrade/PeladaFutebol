@@ -7,6 +7,7 @@ import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Barbecues;
 import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
+import br.com.pelada.social.Goalkeepers;
 import br.com.pelada.social.Social;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -28,6 +29,7 @@ public class ApiController {
   private final Barbecues barbecues;
   private final Finance finance;
   private final Social social;
+  private final Goalkeepers goalkeepers;
 
   public ApiController(
     Accounts accounts,
@@ -36,7 +38,8 @@ public class ApiController {
     Matches matches,
     Barbecues barbecues,
     Finance finance,
-    Social social
+    Social social,
+    Goalkeepers goalkeepers
   ) {
     this.accounts = accounts;
     this.groups = groups;
@@ -45,6 +48,7 @@ public class ApiController {
     this.barbecues = barbecues;
     this.finance = finance;
     this.social = social;
+    this.goalkeepers = goalkeepers;
   }
 
   private UUID user(Authentication auth) {
@@ -79,7 +83,7 @@ public class ApiController {
     Authentication auth,
     @RequestParam(defaultValue = "") String query
   ) {
-    return social.cities(user(auth), query);
+    return social.cities(query);
   }
 
   @GetMapping("/social/mine")
@@ -195,6 +199,103 @@ public class ApiController {
     @Valid @RequestBody SocialMessageInput input
   ) {
     return social.sendMessage(user(auth), id, input);
+  }
+
+  @GetMapping("/social/goalkeeper-profile")
+  public MyGoalkeeperProfile myGoalkeeperProfile(Authentication auth) {
+    return goalkeepers.mine(user(auth));
+  }
+
+  @PutMapping("/social/goalkeeper-profile")
+  public GoalkeeperProfileView saveGoalkeeperProfile(
+    Authentication auth,
+    @Valid @RequestBody GoalkeeperProfileInput input
+  ) {
+    return goalkeepers.saveProfile(user(auth), input);
+  }
+
+  @DeleteMapping("/social/goalkeeper-profile")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void removeGoalkeeperProfile(Authentication auth) {
+    goalkeepers.removeProfile(user(auth));
+  }
+
+  @GetMapping("/social/goalkeepers")
+  public List<GoalkeeperSearchResult> searchGoalkeepers(
+    Authentication auth,
+    @RequestParam String cityCode,
+    @RequestParam(defaultValue = "50") int radiusKm,
+    @RequestParam(required = false) String skillLevel,
+    @RequestParam(required = false) List<String> days,
+    @RequestParam(required = false) List<String> periods
+  ) {
+    return goalkeepers.search(
+      user(auth),
+      cityCode,
+      radiusKm,
+      skillLevel,
+      days,
+      periods
+    );
+  }
+
+  @GetMapping("/social/goalkeeper-invites/options")
+  public List<GoalkeeperInviteGroupOption> goalkeeperInviteOptions(
+    Authentication auth
+  ) {
+    return goalkeepers.inviteOptions(user(auth));
+  }
+
+  @GetMapping("/social/goalkeeper-invites/received")
+  public List<GoalkeeperInviteView> receivedGoalkeeperInvites(
+    Authentication auth
+  ) {
+    return goalkeepers.received(user(auth));
+  }
+
+  @GetMapping("/social/goalkeeper-invites/sent")
+  public List<GoalkeeperInviteView> sentGoalkeeperInvites(Authentication auth) {
+    return goalkeepers.sent(user(auth));
+  }
+
+  @PostMapping("/social/goalkeeper-invites")
+  public GoalkeeperInviteView createGoalkeeperInvite(
+    Authentication auth,
+    @Valid @RequestBody GoalkeeperInviteInput input
+  ) {
+    return goalkeepers.invite(user(auth), input);
+  }
+
+  @PostMapping("/social/goalkeeper-invites/{id}/accept")
+  public GoalkeeperInviteView acceptGoalkeeperInvite(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return goalkeepers.accept(user(auth), id);
+  }
+
+  @PostMapping("/social/goalkeeper-invites/{id}/decline")
+  public GoalkeeperInviteView declineGoalkeeperInvite(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return goalkeepers.decline(user(auth), id);
+  }
+
+  @PostMapping("/social/goalkeeper-invites/{id}/cancel")
+  public GoalkeeperInviteView cancelGoalkeeperInvite(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return goalkeepers.cancel(user(auth), id);
+  }
+
+  @PostMapping("/social/goalkeeper-invites/{id}/withdraw")
+  public GoalkeeperInviteView withdrawGoalkeeperInvite(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return goalkeepers.withdraw(user(auth), id);
   }
 
   @GetMapping("/groups/{id}/finance")

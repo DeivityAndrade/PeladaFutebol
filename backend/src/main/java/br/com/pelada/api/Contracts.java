@@ -484,7 +484,8 @@ public final class Contracts {
     String name,
     String status,
     UUID teamId,
-    Integer slot
+    Integer slot,
+    boolean guestGoalkeeper
   ) {}
 
   public record TeamView(
@@ -505,6 +506,132 @@ public final class Contracts {
     List<GoalView> goals,
     List<RatingView> ratings,
     List<OwnRating> myRatings,
-    Instant ratingsVisibleAt
+    Instant ratingsVisibleAt,
+    List<GoalkeeperReservationView> goalkeeperReservations,
+    boolean viewerGuest
+  ) {}
+
+  public record GoalkeeperReservationView(
+    UUID teamId,
+    String goalkeeperName,
+    Instant expiresAt
+  ) {}
+
+  public record GoalkeeperProfileInput(
+    @NotBlank @Pattern(regexp = "[0-9]{7}") String municipalityCode,
+    @NotBlank
+    @Pattern(regexp = "RECREATIONAL|INTERMEDIATE|COMPETITIVE")
+    String skillLevel,
+    @NotNull
+    @Size(max = 7)
+    List<@Pattern(regexp = "MON|TUE|WED|THU|FRI|SAT|SUN") String> preferredDays,
+    @NotNull
+    @Size(max = 3)
+    List<@Pattern(
+      regexp = "MORNING|AFTERNOON|EVENING"
+    ) String> preferredPeriods,
+    @NotNull @Size(max = 300) String description,
+    boolean published
+  ) {}
+
+  /** Public projection of the overall rating: no games, raters or individual stars. */
+  public record PublicRating(Double average, int ratedGames) {}
+
+  public record GoalkeeperProfileView(
+    boolean published,
+    String municipalityCode,
+    String municipalityName,
+    String uf,
+    String skillLevel,
+    List<String> preferredDays,
+    List<String> preferredPeriods,
+    String description,
+    Double averageRating,
+    int ratedGames,
+    Instant updatedAt
+  ) {}
+
+  public record MyGoalkeeperProfile(
+    GoalkeeperProfileView profile,
+    boolean organizer
+  ) {}
+
+  public record GoalkeeperSearchResult(
+    UUID profileId,
+    String name,
+    String municipalityName,
+    String uf,
+    double distanceKm,
+    String skillLevel,
+    List<String> preferredDays,
+    List<String> preferredPeriods,
+    String description,
+    Double averageRating,
+    int ratedGames,
+    boolean scheduleCompatible
+  ) {}
+
+  public record GoalkeeperInviteInput(
+    @NotNull UUID profileId,
+    @NotNull UUID gameId,
+    @NotNull UUID teamId,
+    @Size(max = 300) String message
+  ) {
+    public GoalkeeperInviteInput {
+      if (message == null) message = "";
+    }
+  }
+
+  public record GoalkeeperInviteTeamOption(
+    UUID teamId,
+    String name,
+    String color,
+    boolean available,
+    String unavailableReason
+  ) {}
+
+  public record GoalkeeperInviteGameOption(
+    UUID gameId,
+    String title,
+    String location,
+    Instant startsAt,
+    List<GoalkeeperInviteTeamOption> teams
+  ) {}
+
+  public record GoalkeeperInviteGroupOption(
+    UUID clubId,
+    String clubName,
+    String timeZone,
+    List<GoalkeeperInviteGameOption> games
+  ) {}
+
+  public record GoalkeeperInviteView(
+    UUID id,
+    String status,
+    String statusReason,
+    String outcome,
+    boolean outgoing,
+    String goalkeeperName,
+    String organizerName,
+    UUID clubId,
+    String clubName,
+    UUID gameId,
+    String gameTitle,
+    Instant startsAt,
+    String location,
+    String timeZone,
+    UUID teamId,
+    String teamName,
+    String teamColor,
+    String message,
+    Instant createdAt,
+    Instant expiresAt,
+    Instant respondedAt,
+    Instant closedAt,
+    boolean canAccept,
+    boolean canDecline,
+    boolean canCancel,
+    boolean canWithdraw,
+    boolean canOpenGame
   ) {}
 }

@@ -193,6 +193,8 @@ public class Finance {
     YearMonth gameMonth = YearMonth.from(gameDate);
     for (Participation participation : confirmed) {
       if (!participation.status.equals("CONFIRMED")) continue;
+      // Guest goalkeepers play one match by invitation and are never charged by the group.
+      if (participation.goalkeeperInviteId != null) continue;
       Member member = store
         .first(
           Member.class,

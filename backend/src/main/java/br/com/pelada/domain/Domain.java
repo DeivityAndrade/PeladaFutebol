@@ -89,6 +89,72 @@ public final class Domain {
     }
   }
 
+  @Entity(name = "GoalkeeperProfile")
+  @Table(name = "goalkeeper_profiles")
+  public static class GoalkeeperProfile {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID playerId;
+    public boolean published;
+    public String municipalityCode;
+    public String skillLevel;
+    public String preferredDays = "";
+    public String preferredPeriods = "";
+    public String description = "";
+    public Instant createdAt;
+    public Instant updatedAt;
+
+    protected GoalkeeperProfile() {}
+
+    public GoalkeeperProfile(UUID playerId, Instant now) {
+      this.playerId = playerId;
+      this.createdAt = now;
+      this.updatedAt = now;
+    }
+  }
+
+  @Entity(name = "GoalkeeperInvite")
+  @Table(name = "goalkeeper_invites")
+  public static class GoalkeeperInvite {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID organizerId;
+    public UUID goalkeeperId;
+    public UUID gameId;
+    public UUID teamId;
+    public String message = "";
+    public String status = "PENDING";
+    public String statusReason;
+    public Instant createdAt;
+    public Instant expiresAt;
+    public Instant respondedAt;
+    public Instant closedAt;
+
+    protected GoalkeeperInvite() {}
+
+    public GoalkeeperInvite(
+      UUID organizerId,
+      UUID goalkeeperId,
+      UUID gameId,
+      UUID teamId,
+      String message,
+      Instant createdAt,
+      Instant expiresAt
+    ) {
+      this.organizerId = organizerId;
+      this.goalkeeperId = goalkeeperId;
+      this.gameId = gameId;
+      this.teamId = teamId;
+      this.message = message;
+      this.createdAt = createdAt;
+      this.expiresAt = expiresAt;
+    }
+  }
+
   @Entity(name = "SocialMatch")
   @Table(name = "social_matches")
   public static class SocialMatch {
@@ -487,6 +553,7 @@ public final class Domain {
     public String status;
     public UUID teamId;
     public Integer slot;
+    public UUID goalkeeperInviteId;
 
     protected Participation() {}
 
