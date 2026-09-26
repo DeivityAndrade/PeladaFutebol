@@ -123,7 +123,7 @@ test('demonstração, navegação, teclado e layout desktop/mobile', async ({ pa
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.setViewportSize({ width: 1440, height: 1100 });
-  await page.goto('/');
+  await page.goto('/#demo');
   await expect(page.getByRole('heading', { name: 'O jogo começa aqui.' })).toBeVisible();
   await expect(page.locator('.sidebar')).toHaveCSS('position', 'fixed');
   await expect(page.locator('.field')).toHaveCSS('position', 'relative');
@@ -180,7 +180,7 @@ test('demonstração, navegação, teclado e layout desktop/mobile', async ({ pa
   await page.goto('/#groups');
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Fechar' }).click();
-  await expect(page).toHaveURL(/#demo$/);
+  await expect(page).toHaveURL(/#inicio$/);
   expect(errors).toEqual([]);
 });
 
@@ -418,7 +418,7 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
 }) => {
   const email = `organizador-${crypto.randomUUID()}@example.com`;
   await page.goto('/');
-  await page.getByRole('button', { name: 'Criar minha pelada' }).click();
+  await page.locator('.home-hero').getByRole('button', { name: 'Criar minha pelada' }).click();
   await page.getByLabel('Seu nome').fill('Capitão do Teste');
   await page.getByLabel('E-mail', { exact: true }).fill(email);
   await page.getByLabel('Senha', { exact: true }).fill('PeladaTeste123!');
@@ -434,7 +434,8 @@ test('cadastro, grupo, convite, pelada, escolha de elenco e escalação persisti
   await page.getByRole('button', { name: 'Marcar pelada', exact: true }).click();
   await page.getByLabel('Nome da pelada').fill('Jogo de integração');
   await page.getByLabel('Local e quadra').fill('Arena de Teste');
-  await page.getByLabel('Data e horário').fill('2099-10-10T20:00');
+  await page.getByLabel('Data').fill('2099-10-10');
+  await page.getByLabel('Horário').fill('20:00');
   await page.getByLabel('Repetir esta pelada toda semana').check();
   await page.getByLabel('Última data (opcional)').fill('2099-10-24');
   await page

@@ -1,9 +1,9 @@
 <a class="skip-link" href="#main" (click)="skipToMain($event)">Pular para o conteúdo</a>
 <ng-template #navLinks>
   <a
-    href="#demo"
-    [class.active]="page() === 'demo'"
-    [attr.aria-current]="page() === 'demo' ? 'page' : null"
+    href="#inicio"
+    [class.active]="page() === 'inicio'"
+    [attr.aria-current]="page() === 'inicio' ? 'page' : null"
     ><app-icon name="home" /><span class="nav-text">Visão geral</span></a
   >
   <a
@@ -43,10 +43,24 @@
     >
   }
 </ng-template>
+<ng-template #homeLinks>
+  <a href="#inicio/funcionalidades" (click)="sameSection($event, 'funcionalidades')"
+    ><app-icon name="grid" /><span class="nav-text">Funcionalidades</span></a
+  >
+  <a href="#inicio/como-funciona" (click)="sameSection($event, 'como-funciona')"
+    ><app-icon name="check" /><span class="nav-text">Como funciona</span></a
+  >
+  <a href="#inicio/demonstracao" (click)="sameSection($event, 'demonstracao')"
+    ><app-icon name="pitch" /><span class="nav-text">Demonstração</span></a
+  >
+  @if (user()) {
+    <a href="#groups"><app-icon name="users" /><span class="nav-text">Meus grupos</span></a>
+  }
+</ng-template>
 <div class="app-shell">
   <aside class="sidebar" [class.mobile-open]="sidebar()" aria-label="Menu principal">
     <div class="sidebar-head">
-      <a class="brand" [attr.href]="user() ? '#groups' : '#demo'" aria-label="Tô Dentro, início"
+      <a class="brand" [attr.href]="user() ? '#groups' : '#inicio'" aria-label="Tô Dentro, início"
         ><app-brand
       /></a>
       <button
@@ -59,7 +73,7 @@
       </button>
     </div>
     <nav id="drawer-navigation" class="drawer-nav" aria-label="Navegação principal">
-      <ng-container *ngTemplateOutlet="navLinks" />
+      <ng-container *ngTemplateOutlet="home() ? homeLinks : navLinks" />
     </nav>
   </aside>
   @if (sidebar()) {
@@ -78,12 +92,12 @@
         >
           <app-icon name="menu" />
         </button>
-        <a class="brand" [attr.href]="user() ? '#groups' : '#demo'" aria-label="Tô Dentro, início"
+        <a class="brand" [attr.href]="user() ? '#groups' : '#inicio'" aria-label="Tô Dentro, início"
           ><app-brand
         /></a>
       </div>
       <nav class="top-nav" aria-label="Navegação principal">
-        <ng-container *ngTemplateOutlet="navLinks" />
+        <ng-container *ngTemplateOutlet="home() ? homeLinks : navLinks" />
       </nav>
       <div class="account-actions">
         @if (demo()) {
@@ -108,10 +122,15 @@
           <button class="button secondary account-entry" type="button" (click)="openAuth()">
             Entrar
           </button>
+          @if (home()) {
+            <button class="button home-cta topbar-cta" type="button" (click)="startPelada()">
+              Criar minha pelada
+            </button>
+          }
         }
       </div>
     </header>
-    <main id="main" tabindex="-1">
+    <main id="main" tabindex="-1" [class.home-main]="home()">
       @if (error() && !modal()) {
         <div class="alert error" role="alert">
           <app-icon name="info" /><span>{{ error() }}</span
@@ -124,6 +143,14 @@
           <h2>Preparando o campo…</h2>
           <p>Buscando sua próxima pelada.</p>
         </div>
+      } @else if (home()) {
+        <app-home-page
+          [signedIn]="!!user()"
+          [preview]="homePreview()"
+          (create)="startPelada()"
+          (login)="openAuth()"
+          (demo)="openDemo($event)"
+        />
       } @else if (page() === 'reset-password') {
         <section class="panel auth-reset-page" aria-labelledby="reset-title">
           <app-brand />
@@ -170,11 +197,7 @@
               <h1 id="demo-title">O jogo começa aqui.</h1>
               <p>Confirme presença, monte os times e acompanhe a partida em um só lugar.</p>
             </div>
-            <button
-              class="brand-cta"
-              type="button"
-              (click)="user() ? navigate('groups') : openAuth('register')"
-            >
+            <button class="brand-cta" type="button" (click)="startPelada()">
               <app-brand variant="button" /><span class="brand-cta-label"
                 >Criar minha pelada<app-icon name="arrow"
               /></span>
@@ -1448,7 +1471,11 @@
   <div class="toast" role="status"><app-icon name="check" />{{ toast() }}</div>
 }
 @if (modal()) {
-  <div class="modal-overlay" (click)="modal() !== 'auth' && closeModal()">
+  <div
+    class="modal-overlay"
+    (pointerdown)="rememberModalPointer($event)"
+    (click)="closeModalFromBackdrop($event)"
+  >
     <section
       class="modal"
       role="dialog"
@@ -1673,29 +1700,42 @@
                 [(ngModel)]="form['location']"
                 required
                 maxlength="160"
-                placeholder="Arena da Vila · Quadra 02" /></label
-            ><label
-              >Data e horário<input
-                type="datetime-local"
-                name="startsAt"
-                [(ngModel)]="form['startsAt']"
-                required
-              /><small>Horário do grupo: {{ groupTimeZoneLabel() }}.</small></label
-            >
+                placeholder="Arena da Vila · Quadra 02"
+            /></label>
+            <fieldset class="date-time-field">
+              <legend>Data e horário</legend>
+              <div class="form-row">
+                <label
+                  >Data<input
+                    type="date"
+                    name="startsDate"
+                    [(ngModel)]="form['startsDate']"
+                    required
+                /></label>
+                <label
+                  >Horário<input
+                    type="time"
+                    name="startsTime"
+                    [(ngModel)]="form['startsTime']"
+                    required
+                /></label>
+              </div>
+              <small>Horário do grupo: {{ groupTimeZoneLabel() }}.</small>
+            </fieldset>
             <label class="check-label finance-game-toggle">
               <input type="checkbox" name="recurring" [(ngModel)]="form['recurring']" />
               Repetir esta pelada toda semana
             </label>
             @if (form['recurring']) {
               <div class="form-hint">
-                A primeira data define {{ weekdayFor(form['startsAt']) }} e o horário da série.
+                A primeira data define {{ weekdayFor(gameStartsAt()) }} e o horário da série.
               </div>
               <label
                 >Última data (opcional)<input
                   type="date"
                   name="recurrenceEndsOn"
                   [(ngModel)]="form['recurrenceEndsOn']"
-                  [min]="form['startsAt']?.slice(0, 10) || null"
+                  [min]="form['startsDate'] || null"
                 /><small
                   >Sem término, o sistema prepara somente as próximas oito ocorrências.</small
                 >
@@ -1764,15 +1804,28 @@
                 name="location"
                 [(ngModel)]="form['location']"
                 required
-                maxlength="160" /></label
-            ><label
-              >Data e horário<input
-                type="datetime-local"
-                name="startsAt"
-                [(ngModel)]="form['startsAt']"
-                required
-              /><small>Horário do grupo: {{ groupTimeZoneLabel() }}.</small></label
-            >
+                maxlength="160"
+            /></label>
+            <fieldset class="date-time-field">
+              <legend>Data e horário</legend>
+              <div class="form-row">
+                <label
+                  >Data<input
+                    type="date"
+                    name="startsDate"
+                    [(ngModel)]="form['startsDate']"
+                    required
+                /></label>
+                <label
+                  >Horário<input
+                    type="time"
+                    name="startsTime"
+                    [(ngModel)]="form['startsTime']"
+                    required
+                /></label>
+              </div>
+              <small>Horário do grupo: {{ groupTimeZoneLabel() }}.</small>
+            </fieldset>
             @if (detail()!.game.recurring) {
               <label
                 >Aplicar a alteração<select name="scope" [(ngModel)]="form['scope']">
@@ -1967,17 +2020,36 @@
           <p>Escolha um capitão confirmado. Ele montará o elenco e a escalação.</p>
           <form (ngSubmit)="configureTeam()">
             <label
-              >Nome do time<input
-                name="name"
-                [(ngModel)]="form['name']"
-                required
-                maxlength="60" /></label
-            ><label
-              >Cor do uniforme<input
-                type="color"
-                name="color"
-                [(ngModel)]="form['color']"
-                required /></label
+              >Nome do time<input name="name" [(ngModel)]="form['name']" required maxlength="60"
+            /></label>
+            <fieldset class="team-color-field">
+              <legend>Cor do uniforme</legend>
+              <div class="team-color-options" role="group" aria-label="Cores do uniforme">
+                @for (color of teamColors; track color) {
+                  <button
+                    type="button"
+                    class="team-color-option"
+                    [class.selected]="form['color'] === color"
+                    [style.background-color]="color"
+                    [attr.aria-label]="'Usar a cor ' + color"
+                    [attr.aria-pressed]="form['color'] === color"
+                    (click)="setTeamColor(color)"
+                  ></button>
+                }
+              </div>
+              <label
+                >Código da cor<input
+                  class="team-color-code"
+                  name="color"
+                  [(ngModel)]="form['color']"
+                  required
+                  maxlength="7"
+                  pattern="#[0-9a-fA-F]{6}"
+                  placeholder="#d8f36a"
+                  spellcheck="false"
+              /></label>
+              <small>Escolha uma cor ou informe o código hexadecimal.</small>
+            </fieldset>
             ><label
               >Capitão<select aria-label="Capitão" name="captainId" [(ngModel)]="form['captainId']">
                 <option value="">A definir</option>
@@ -2019,11 +2091,16 @@
               </select></label
             >
           }
-          <button class="button danger-button full-width" [disabled]="busy()" (click)="cancel()">
-            {{
-              form['scope'] === 'THIS_AND_FUTURE' ? 'Cancelar esta e as futuras' : 'Cancelar pelada'
-            }}
-          </button>
+          <div class="form-actions">
+            <button class="button secondary" type="button" (click)="closeModal()">Voltar</button>
+            <button class="button danger-button" [disabled]="busy()" (click)="cancel()">
+              {{
+                form['scope'] === 'THIS_AND_FUTURE'
+                  ? 'Cancelar esta e as futuras'
+                  : 'Cancelar pelada'
+              }}
+            </button>
+          </div>
         }
         @case ('finish') {
           <h2 id="modal-title">Encerrar a partida?</h2>

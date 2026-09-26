@@ -62,13 +62,13 @@ test('goleiro publica perfil, organizador convida, gol fica reservado e convidad
   await expect(keeperPage.getByRole('heading', { name: 'Perfil de goleiro' })).toBeVisible();
   await expect(keeperPage.getByRole('tab', { name: 'Buscar goleiros' })).toHaveCount(0);
   await expect(keeperPage.getByRole('tab', { name: 'Buscar times' })).toHaveCount(0);
-  await keeperPage.getByLabel('Sua cidade').focus();
+  await keeperPage.getByLabel('Sua cidade', { exact: true }).focus();
   await keeperPage.keyboard.type('São Paulo');
   const option = keeperPage.getByRole('option', { name: 'São Paulo — SP' });
   await expect(option).toBeVisible();
   await option.focus();
   await keeperPage.keyboard.press('Enter');
-  await expect(keeperPage.getByLabel('Sua cidade')).toHaveValue('São Paulo — SP');
+  await expect(keeperPage.getByLabel('Sua cidade', { exact: true })).toHaveValue('São Paulo — SP');
   await keeperPage.getByLabel('Nível').selectOption('COMPETITIVE');
   await keeperPage.getByLabel('Sobre você no gol').fill('Saio bem do gol e falo muito com a zaga.');
   await keeperPage.getByRole('button', { name: 'Sáb', exact: true }).press('Enter');

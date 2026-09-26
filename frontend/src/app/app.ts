@@ -28,6 +28,7 @@ import { Icon } from './icon';
 import { Brand } from './brand';
 import { Pitch } from './pitch';
 import { SocialPage } from './social-page';
+import { HomePage } from './home-page';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -91,7 +92,7 @@ function dateTimeForZone(iso: string, timeZone: string) {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage, Brand],
+  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage, Brand, HomePage],
   templateUrl: './app.html',
 })
 export class App implements OnInit, OnDestroy {
@@ -109,7 +110,8 @@ export class App implements OnInit, OnDestroy {
   financeGameFilter = signal('');
   financeLoading = signal(false);
   barbecueInvite = signal<Barbecue | null>(null);
-  page = signal('demo');
+  page = signal('inicio');
+  homePreview = signal<Detail | null>(null);
   resetToken = signal('');
   authNotice = signal('');
   loading = signal(true);
@@ -135,10 +137,12 @@ export class App implements OnInit, OnDestroy {
   private timer?: ReturnType<typeof setInterval>;
   private noticeTimer?: ReturnType<typeof setTimeout>;
   private routeVersion = 0;
+  private modalPointerStartedOnBackdrop = false;
   team = computed(
     () => this.detail()?.teams.find((t) => t.id === this.teamId()) || this.detail()?.teams[0],
   );
   demo = computed(() => this.page() === 'demo');
+  home = computed(() => this.page() === 'inicio');
   owner = computed(
     () => !!this.user() && this.detail()?.club.ownerId === this.user()!.id && !this.demo(),
   );
@@ -307,7 +311,8 @@ export class App implements OnInit, OnDestroy {
   @HostListener('window:hashchange') async route() {
     const version = ++this.routeVersion;
     const parts = location.hash.slice(1).split('/');
-    const page = parts[0] || 'demo';
+    const page = parts[0] || 'inicio';
+    const previous = this.page();
     this.page.set(page);
     this.modal.set('');
     this.sidebar.set(false);
@@ -317,7 +322,16 @@ export class App implements OnInit, OnDestroy {
     if (page !== 'reset-password') this.resetToken.set('');
     if (page !== 'barbecue-invite') this.barbecueInvite.set(null);
     try {
-      if (page === 'demo') {
+      if (page === 'inicio') {
+        // A página inicial não espera a prévia: o texto e as ações aparecem imediatamente.
+        if (this.detail()?.club.demo) this.setDetail(null);
+        this.loading.set(false);
+        this.scrollHome(parts[1], previous === 'inicio');
+        if (!this.homePreview()) {
+          const preview = await this.api.request<Detail>('/demo').catch(() => null);
+          if (version === this.routeVersion) this.homePreview.set(preview);
+        }
+      } else if (page === 'demo') {
         const d = await this.api.request<Detail>(this.demoFinished() ? '/demo/finished' : '/demo');
         if (version === this.routeVersion) this.setDetail(d);
       } else if (page === 'reset-password') {
@@ -360,7 +374,7 @@ export class App implements OnInit, OnDestroy {
         this.form = { invite: parts[1] };
         this.modal.set('join');
       } else {
-        this.navigate('demo');
+        this.navigate('inicio');
       }
     } catch (e) {
       this.showError(e);
@@ -489,6 +503,34 @@ export class App implements OnInit, OnDestroy {
     this.gameListTab.set(next);
     requestAnimationFrame(() => document.getElementById(`game-filter-${next}`)?.focus());
   }
+  openDemo(finished: boolean) {
+    this.demoFinished.set(finished);
+    this.tab.set(finished ? 'match' : 'lineup');
+    this.navigate('demo');
+  }
+  startPelada() {
+    if (this.user()) this.navigate('groups');
+    else this.openAuth('register');
+  }
+  /** Links de seção usam rotas `#inicio/<seção>`; repetir o mesmo link rola de novo até ela. */
+  sameSection(event: MouseEvent, section: string) {
+    if (location.hash !== '#inicio/' + section || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    this.closeSidebar();
+    this.scrollHome(section, true);
+  }
+  private scrollHome(section: string | undefined, samePage: boolean) {
+    const smooth = samePage && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(() => {
+      const target = section ? document.getElementById(section) : null;
+      if (!target) {
+        scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+        return;
+      }
+      target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+      target.focus({ preventScroll: true });
+    });
+  }
   showDemo(finished: boolean) {
     this.demoFinished.set(finished);
     this.tab.set(finished ? 'match' : 'lineup');
@@ -532,6 +574,8 @@ export class App implements OnInit, OnDestroy {
     if (name === 'game')
       this.form = {
         title: 'Pelada da semana',
+        startsDate: '',
+        startsTime: '',
         teamCount: 2,
         teamSize: 7,
         recurring: false,
@@ -551,13 +595,19 @@ export class App implements OnInit, OnDestroy {
         timeZone: this.browserGroupTimeZone(),
       };
     if (name === 'cancel') this.form = { scope: 'ONE' };
-    if (name === 'edit-game' && this.detail())
+    if (name === 'edit-game' && this.detail()) {
+      const [startsDate, startsTime] = this.localDateTime(
+        this.detail()!.game.startsAt,
+        this.detail()!.club.timeZone,
+      ).split('T');
       this.form = {
         title: this.detail()!.game.title,
         location: this.detail()!.game.location,
-        startsAt: this.localDateTime(this.detail()!.game.startsAt, this.detail()!.club.timeZone),
+        startsDate,
+        startsTime,
         scope: 'ONE',
       };
+    }
     if (name === 'finance-settings') {
       const settings = this.financeData()?.settings || this.club();
       this.form = {
@@ -585,7 +635,17 @@ export class App implements OnInit, OnDestroy {
     if (this.busy()) return;
     const wasAuth = this.modal() === 'auth';
     this.modal.set('');
-    if (wasAuth && !this.user() && this.page() !== 'demo') this.navigate('demo');
+    if (wasAuth && !this.user() && !this.demo() && !this.home()) this.navigate('inicio');
+  }
+  rememberModalPointer(event: PointerEvent) {
+    this.modalPointerStartedOnBackdrop = event.target === event.currentTarget;
+  }
+  closeModalFromBackdrop(event: MouseEvent) {
+    const clickStartedOnBackdrop = this.modalPointerStartedOnBackdrop;
+    this.modalPointerStartedOnBackdrop = false;
+    if (event.target === event.currentTarget && clickStartedOnBackdrop && this.modal() !== 'auth') {
+      this.closeModal();
+    }
   }
   @HostListener('document:keydown.escape') escape() {
     this.closeModal();
@@ -634,7 +694,7 @@ export class App implements OnInit, OnDestroy {
       );
       this.modal.set('');
       this.notify('Bom jogo! Você entrou na sua conta.');
-      if (this.page() === 'demo') this.navigate('groups');
+      if (this.demo() || this.home()) this.navigate('groups');
       else await this.route();
     });
   }
@@ -643,7 +703,7 @@ export class App implements OnInit, OnDestroy {
       await this.api.request('/auth/logout', 'POST');
       this.user.set(null);
       this.setDetail(null);
-      this.navigate('demo');
+      this.navigate('inicio');
     });
   }
   completePasswordReset() {
@@ -660,7 +720,7 @@ export class App implements OnInit, OnDestroy {
       this.authMode = 'login';
       this.authNotice.set('Senha atualizada. Entre com a nova senha.');
       this.modal.set('auth');
-      this.navigate('demo');
+      this.navigate('inicio');
       this.notify('Sua senha foi alterada.');
     });
   }
@@ -701,7 +761,7 @@ export class App implements OnInit, OnDestroy {
       const d = await this.api.request<Detail>('/groups/' + this.club()!.id + '/games', 'POST', {
         title: this.form['title'],
         location: this.form['location'],
-        startsAt: localDateTimeInZone(this.form['startsAt'], timeZone),
+        startsAt: localDateTimeInZone(this.gameStartsAt(), timeZone),
         teamCount: Number(this.form['teamCount']),
         teamSize: Number(this.form['teamSize']),
         chargeOccasional: !!this.form['chargeOccasional'],
@@ -724,7 +784,7 @@ export class App implements OnInit, OnDestroy {
         title: this.form['title'],
         location: this.form['location'],
         startsAt: localDateTimeInZone(
-          this.form['startsAt'],
+          this.gameStartsAt(),
           detail.club.timeZone || 'America/Sao_Paulo',
         ),
         scope: this.form['scope'] || 'ONE',
@@ -1038,6 +1098,9 @@ export class App implements OnInit, OnDestroy {
   localDateTime(iso: string, timeZone = this.currentGroupTimeZone()) {
     return dateTimeForZone(iso, timeZone);
   }
+  gameStartsAt() {
+    return `${this.form['startsDate'] || ''}T${this.form['startsTime'] || ''}`;
+  }
   currentGroupTimeZone() {
     if (this.page() === 'group') return this.club()?.timeZone || 'America/Sao_Paulo';
     if (this.page() === 'game' || this.page() === 'demo')
@@ -1074,11 +1137,16 @@ export class App implements OnInit, OnDestroy {
     return Date.parse(iso) > Date.now();
   }
   configureTeam() {
+    const color = String(this.form['color'] || '').trim();
+    if (!/^#[0-9a-f]{6}$/i.test(color)) {
+      this.error.set('Informe uma cor no formato #RRGGBB.');
+      return;
+    }
     void this.action(async () => {
       this.setDetail(
         await this.api.request<Detail>(this.teamPath(), 'PUT', {
           name: this.form['name'],
-          color: this.form['color'],
+          color,
           captainId: this.form['captainId'] || null,
         }),
       );
@@ -1088,6 +1156,10 @@ export class App implements OnInit, OnDestroy {
   }
   teamPath() {
     return '/games/' + this.detail()!.game.id + '/teams/' + this.team()!.id;
+  }
+  readonly teamColors = ['#d8f36a', '#8d9dff', '#ffa96b', '#70d9cb', '#f198c8', '#79b7f3'];
+  setTeamColor(color: string) {
+    this.form['color'] = color;
   }
   attend() {
     void this.action(async () => {

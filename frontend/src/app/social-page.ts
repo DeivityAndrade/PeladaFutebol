@@ -112,6 +112,12 @@ class CityPicker {
     this.options.set([]);
   }
 
+  clear() {
+    clearTimeout(this.timer);
+    this.reset(null);
+    this.changed();
+  }
+
   dispose() {
     clearTimeout(this.timer);
   }
@@ -128,6 +134,7 @@ export class SocialPage implements OnInit, OnDestroy {
   private pollTimer?: ReturnType<typeof setInterval>;
   private noticeTimer?: ReturnType<typeof setTimeout>;
   private returnFocus: HTMLElement | null = null;
+  private pointerStartedOnBackdrop = false;
 
   busy = signal(false);
   loading = signal(true);
@@ -462,6 +469,18 @@ export class SocialPage implements OnInit, OnDestroy {
     this.inviteDraft = { senderClubId: group.clubId, startsAt: '', location: '', message: '' };
     this.inviting.set(result);
     this.error.set('');
+  }
+
+  rememberBackdropPointer(event: PointerEvent) {
+    this.pointerStartedOnBackdrop = event.target === event.currentTarget;
+  }
+
+  // Closes only when the click both started and ended on the backdrop, so text selection
+  // that ends outside the dialog does not discard the form.
+  backdropClicked(event: MouseEvent) {
+    const startedOnBackdrop = this.pointerStartedOnBackdrop;
+    this.pointerStartedOnBackdrop = false;
+    return event.target === event.currentTarget && startedOnBackdrop;
   }
 
   closeInvite() {
