@@ -1,0 +1,35 @@
+Copyright (c) 2026 Deivity Andrade (github.com/DeivityAndrade). Todos os direitos reservados.
+
+Este repositório é público apenas para fins de portfólio e consulta.
+
+O código-fonte, a documentação, o nome e a marca "Tô Dentro", a identidade visual, as capturas
+de tela e os demais arquivos deste repositório são protegidos por direitos autorais. Nenhuma
+licença de uso é concedida.
+
+É permitido:
+
+- visualizar e ler o conteúdo deste repositório;
+- visualizar e criar forks dentro da plataforma GitHub, conforme os Termos de Serviço do GitHub.
+  O fork não concede nenhum direito de uso fora dessa finalidade.
+
+Sem autorização prévia e por escrito do titular, não é permitido copiar, reproduzir, modificar,
+distribuir, sublicenciar, vender, publicar, hospedar ou usar este conteúdo, no todo ou em parte,
+em qualquer projeto, pessoal ou comercial.
+
+Componentes de terceiros continuam sujeitos às suas próprias licenças, entre eles:
+
+- as fontes Barlow e Barlow Condensed (SIL Open Font License 1.1; ver
+  frontend/public/fonts/barlow/OFL.txt);
+- os dados municipais do IBGE descritos em docs/municipality-data.md;
+- as bibliotecas declaradas em backend/pom.xml e frontend/package.json.
+
+Pedidos de autorização podem ser feitos pelo perfil github.com/DeivityAndrade.
+
+---
+
+Copyright (c) 2026 Deivity Andrade. All rights reserved.
+
+This repository is public for portfolio and reference purposes only. No license is granted to
+copy, modify, distribute or use its contents, in whole or in part, without prior written
+permission from the copyright holder. Viewing and forking within GitHub are allowed as provided
+by the GitHub Terms of Service. Third-party components remain under their own licenses.
