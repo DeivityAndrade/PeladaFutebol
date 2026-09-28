@@ -186,3 +186,10 @@ bancárias nem aprova comprovantes automaticamente. O envio de lembretes pelo Wh
 Tô Dentro apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas nem
 notificações externas. Os convites são compartilhados copiando o link. A configuração de recuperação
 de senha e recorrência semanal está em [seu guia](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md).
+
+## Licença
+
+Este repositório é público como portfólio: o código pode ser lido, mas **não pode ser copiado,
+modificado, distribuído ou reutilizado** sem autorização por escrito. Todos os direitos são
+reservados; veja [LICENSE](LICENSE). Componentes de terceiros, como as fontes Barlow e os dados
+do IBGE, seguem as próprias licenças.
