@@ -13,6 +13,9 @@
 - Conversar sobre o jogo em um chat privado entre organizadores. O amistoso entra nas agendas dos
   dois grupos somente depois que ambos confirmam os detalhes.
 - Marcar peladas com local, data, quantidade de times e limite de jogadores.
+- Consultar a **Agenda de jogos** em um calendário mensal com todos os seus grupos, filtrar por grupo,
+  selecionar um dia, abrir a pelada e marcar um novo jogo na data escolhida. Amistosos e séries semanais
+  aparecem na agenda; amistosos compartilhados entre dois dos seus grupos aparecem uma única vez.
 - Repetir uma pelada semanalmente, com encerramento opcional; cada data tem presenças, equipes e escalação próprias.
 - Confirmar presença ou entrar em uma fila de espera com promoção automática.
 - Definir capitães; cada capitão escolhe seu elenco entre os jogadores disponíveis.
@@ -33,6 +36,22 @@
 - Alternar entre visual claro e noturno. Sem escolha salva, o app segue o tema do sistema; a preferência fica salva no navegador.
 
 Reservas já têm vaga na pelada e pertencem a um time. A lista de espera é para quem ainda não tem vaga no evento.
+
+## Agenda mensal
+
+Abra **Agenda de jogos** no menu após entrar na conta. Use **Hoje**, as setas de mês ou o destaque
+**Próximo jogo** para navegar. No calendário, as setas do teclado escolhem dias; `Home` e `End`
+levam ao início e ao fim da semana; `Page Up` e `Page Down` trocam de mês. No celular, o marcador
+mostra quantos jogos existem no dia e os detalhes completos ficam abaixo do calendário.
+
+Com todos os grupos selecionados, as datas e os horários seguem o fuso do navegador, indicado na
+tela. Ao filtrar um grupo, seguem o fuso desse grupo. **Marcar neste dia** reutiliza o formulário
+existente e fica disponível apenas para o organizador; a data selecionada é preenchida no formulário.
+**Atualizar agenda** recarrega os dados. Falhas em um grupo não escondem os jogos dos demais.
+Não há novas migrações, serviços ou dependências para essa tela: ela consulta as APIs existentes
+de peladas e amistosos, com no máximo quatro requisições simultâneas.
+
+![Calendário mensal — desktop](docs/screenshots/agenda-mensal-desktop-claro.png)
 
 ## Tecnologias
 
