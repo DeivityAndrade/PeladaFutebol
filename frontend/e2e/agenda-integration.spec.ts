@@ -37,6 +37,10 @@ test('jogo criado pelo calendário é persistido e pode ser reaberto após recar
     );
     // Move into the next month to ensure the first occurrence is in the future.
     await page.getByRole('button', { name: 'Próximo mês', exact: true }).click();
+    await expect(page.locator('.calendar-day.selected')).not.toHaveAttribute(
+      'id',
+      'agenda-day-' + selectedDate,
+    );
     const targetDate = (await page.locator('.selected').getAttribute('id'))!.replace(
       'agenda-day-',
       '',

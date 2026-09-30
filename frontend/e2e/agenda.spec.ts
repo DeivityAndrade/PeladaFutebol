@@ -330,6 +330,8 @@ for (const viewport of [
       ).toBeVisible();
       await page.keyboard.press('Escape');
       await page.locator('#agenda-day-2026-10-22').click();
+      await expect(page.locator('#agenda-day-2026-10-22')).toHaveClass(/selected/);
+      await expect(page.locator('.fixture-detail')).toHaveCount(1);
       await expect(page.locator('.fixture-detail')).toContainText('edição ajustada');
       await expect(page.locator('.fixture-open')).toBeVisible();
     }
