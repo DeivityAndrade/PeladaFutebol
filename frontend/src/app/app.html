@@ -8,22 +8,17 @@
   >
   <a
     href="#groups"
-    [class.active]="page() === 'groups'"
-    [attr.aria-current]="page() === 'groups' ? 'page' : null"
+    [class.active]="page() === 'groups' || page() === 'group'"
+    [attr.aria-current]="page() === 'groups' || page() === 'group' ? 'page' : null"
     ><app-icon name="users" /><span class="nav-text">Meus grupos</span></a
   >
-  <button
-    type="button"
-    (click)="
-      detail() && !demo() && !guestViewer()
-        ? navigate('group/' + detail()!.club.id)
-        : navigate('groups')
-    "
-    [class.active]="page() === 'group'"
-    [attr.aria-current]="page() === 'group' ? 'page' : null"
+  <a
+    href="#agenda"
+    [class.active]="page() === 'agenda'"
+    [attr.aria-current]="page() === 'agenda' ? 'page' : null"
   >
     <app-icon name="calendar" /><span class="nav-text">Agenda de jogos</span>
-  </button>
+  </a>
   @if (detail() && !demo()) {
     <button
       type="button"
@@ -832,6 +827,13 @@
             <button class="button primary" (click)="open('club')">Criar meu primeiro grupo</button>
           </div>
         }
+      } @else if (page() === 'agenda' && user()) {
+        <app-agenda-page
+          [clubs]="clubs()"
+          [userId]="user()!.id"
+          (navigate)="navigate($event)"
+          (create)="markAgendaGame($event)"
+        />
       } @else if (page() === 'social' && user()) {
         <app-social-page />
       } @else if (page() === 'group' && club()) {

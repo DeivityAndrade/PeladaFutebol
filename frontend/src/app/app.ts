@@ -29,6 +29,7 @@ import { Brand } from './brand';
 import { Pitch } from './pitch';
 import { SocialPage } from './social-page';
 import { HomePage } from './home-page';
+import { AgendaPage } from './agenda-page';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -92,7 +93,7 @@ function dateTimeForZone(iso: string, timeZone: string) {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage, Brand, HomePage],
+  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage, Brand, HomePage, AgendaPage],
   templateUrl: './app.html',
 })
 export class App implements OnInit, OnDestroy {
@@ -338,7 +339,7 @@ export class App implements OnInit, OnDestroy {
         this.resetToken.set(parts[1] || '');
       } else if (!this.user()) {
         this.openAuth();
-      } else if (page === 'groups') {
+      } else if (page === 'groups' || page === 'agenda') {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
       } else if (page === 'social') {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
@@ -385,6 +386,11 @@ export class App implements OnInit, OnDestroy {
   navigate(path: string) {
     if (location.hash === '#' + path) void this.route();
     else location.hash = path;
+  }
+  markAgendaGame(selection: { club: Club; date: string }) {
+    this.club.set(selection.club);
+    this.open('game');
+    this.form['startsDate'] = selection.date;
   }
   toggleTheme() {
     const next = this.theme() === 'dark' ? 'light' : 'dark';

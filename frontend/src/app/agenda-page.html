@@ -1,0 +1,293 @@
+<section class="agenda" aria-labelledby="agenda-title">
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow green">SEU FUTEBOL, DIA A DIA</span>
+      <h1 id="agenda-title">Agenda de jogos<span>.</span></h1>
+      <p>Escolha um dia e veja onde a bola vai rolar.</p>
+    </div>
+    <div class="heading-actions">
+      @if (ownedClubs().length > 1 && !groupId()) {
+        <label class="create-group-label"
+          >Marcar no grupo
+          <select
+            [ngModel]="createClubId() || ownedClubs()[0].id"
+            (ngModelChange)="createClubId.set($event)"
+          >
+            @for (club of ownedClubs(); track club.id) {
+              <option [value]="club.id">{{ club.name }}</option>
+            }
+          </select>
+        </label>
+      }
+      @if (createClub()) {
+        <button class="button primary" type="button" (click)="markGame()">
+          <app-icon name="plus" />Marcar pelada
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (!clubs().length) {
+    <div class="panel empty-state">
+      <app-icon name="calendar" />
+      <h2>Sua agenda começa com um grupo.</h2>
+      <p>Crie um grupo ou entre com um convite para acompanhar os jogos por aqui.</p>
+      <button class="button primary" type="button" (click)="navigate.emit('groups')">
+        Ir para meus grupos
+      </button>
+    </div>
+  } @else {
+    <div class="agenda-tools">
+      <label
+        >Grupo
+        <select
+          aria-label="Filtrar por grupo"
+          [ngModel]="groupId()"
+          (ngModelChange)="changeGroup($event)"
+        >
+          <option value="">Todos os meus grupos</option>
+          @for (club of clubs(); track club.id) {
+            <option [value]="club.id">{{ club.name }}</option>
+          }
+        </select>
+      </label>
+      <span class="zone-note"
+        ><app-icon name="clock" />Horários de {{ timeZone().replaceAll('_', ' ') }}</span
+      >
+      <button
+        class="text-button reload-button"
+        type="button"
+        [disabled]="loading()"
+        (click)="reload()"
+      >
+        {{ loading() ? 'Atualizando…' : 'Atualizar agenda' }}
+      </button>
+    </div>
+
+    @if (failures().length) {
+      <div class="alert error" role="alert">
+        <app-icon name="info" />
+        <span
+          >Não foi possível carregar: {{ failures().join(', ') }}. Os outros jogos continuam
+          visíveis.</span
+        >
+        <button class="text-button" type="button" [disabled]="loading()" (click)="reload()">
+          Tentar novamente
+        </button>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="agenda-loading" role="status">
+        <span class="spinner"></span>Buscando os jogos dos seus grupos…
+      </div>
+    } @else {
+      @if (nextEvent(); as next) {
+        <button
+          class="next-fixture"
+          type="button"
+          (click)="goNext()"
+          aria-label="Mostrar próximo jogo no calendário"
+        >
+          <span class="next-fixture-date"
+            ><strong>{{ eventDate(next).split(' ')[0] }}</strong
+            ><span>{{ eventDate(next).split(' ').slice(1).join(' ') }}</span></span
+          >
+          <span class="next-fixture-copy"
+            ><span>{{ next.game?.matchStatus === 'LIVE' ? 'EM CAMPO AGORA' : 'PRÓXIMO JOGO' }}</span
+            ><strong>{{ next.title }}</strong
+            ><span>{{ next.club.name }} · {{ next.location }}</span></span
+          >
+          <span class="next-fixture-time"
+            ><app-icon name="clock" />{{ time(next) }}<app-icon class="next-arrow" name="arrow"
+          /></span>
+        </button>
+      }
+
+      <div class="agenda-layout">
+        <section class="calendar" aria-labelledby="calendar-month">
+          <div class="calendar-toolbar">
+            <div>
+              <h2 id="calendar-month" aria-live="polite">{{ monthTitle() }}</h2>
+              <p>
+                {{ scheduledCount() }} {{ scheduledCount() === 1 ? 'jogo no mês' : 'jogos no mês' }}
+              </p>
+            </div>
+            <div class="month-controls">
+              <button class="today-button" type="button" (click)="goToday()">Hoje</button>
+              <button
+                class="icon-button"
+                type="button"
+                aria-label="Mês anterior"
+                (click)="changeMonth(-1)"
+              >
+                <app-icon class="previous" name="chevron" />
+              </button>
+              <button
+                class="icon-button"
+                type="button"
+                aria-label="Próximo mês"
+                (click)="changeMonth(1)"
+              >
+                <app-icon name="chevron" />
+              </button>
+            </div>
+          </div>
+          <p id="calendar-help" class="sr-only">
+            Use as setas para escolher um dia, Page Up e Page Down para trocar de mês. Os jogos do
+            dia aparecem após o calendário.
+          </p>
+          <div
+            class="calendar-grid"
+            role="grid"
+            aria-labelledby="calendar-month"
+            aria-describedby="calendar-help"
+          >
+            <div class="weekdays" role="row">
+              @for (weekday of ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']; track weekday) {
+                <span role="columnheader">{{ weekday }}</span>
+              }
+            </div>
+            @for (week of weeks(); track week[0].key) {
+              <div class="calendar-week" role="row">
+                @for (day of week; track day.key) {
+                  <div role="gridcell" [attr.aria-selected]="selectedDay() === day.key">
+                    <button
+                      class="calendar-day"
+                      type="button"
+                      [id]="'agenda-day-' + day.key"
+                      [class.outside]="!day.inMonth"
+                      [class.selected]="selectedDay() === day.key"
+                      [class.today]="today() === day.key"
+                      [class.has-games]="day.events.length > 0"
+                      [attr.aria-label]="dayLabel(day)"
+                      [attr.aria-current]="today() === day.key ? 'date' : null"
+                      [attr.tabindex]="selectedDay() === day.key ? 0 : -1"
+                      (click)="selectDay(day.key)"
+                      (keydown)="moveDay($event, day)"
+                    >
+                      <span class="day-heading"
+                        ><span class="day-number">{{ day.number }}</span>
+                        @if (today() === day.key) {
+                          <span class="today-word">Hoje</span>
+                        }
+                      </span>
+                      <span class="day-events" aria-hidden="true">
+                        @for (event of day.events.slice(0, 2); track event.key) {
+                          <span
+                            class="day-event"
+                            [class.event-cancelled]="cancelled(event)"
+                            [class.event-live]="event.game?.matchStatus === 'LIVE'"
+                            [class.event-friendly]="event.kind === 'friendly'"
+                          >
+                            <span class="event-dot"></span><strong>{{ time(event) }}</strong
+                            ><span class="day-event-title">{{ event.title }}</span>
+                          </span>
+                        }
+                        @if (day.events.length > 2) {
+                          <span class="more-events"
+                            >+{{ day.events.length - 2 }}
+                            {{ day.events.length === 3 ? 'jogo' : 'jogos' }}</span
+                          >
+                        }
+                      </span>
+                      @if (day.events.length) {
+                        <span class="mobile-game-marker" aria-hidden="true"
+                          ><app-icon name="ball" /><span>{{ day.events.length }}</span></span
+                        >
+                      }
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+          <div class="calendar-legend">
+            <span><i class="event-dot"></i>Pelada</span
+            ><span><i class="event-dot friendly-dot"></i>Amistoso</span
+            ><span><i class="today-legend"></i>Hoje</span>
+          </div>
+        </section>
+
+        <section class="day-detail" aria-labelledby="selected-day-title">
+          <div class="day-detail-heading">
+            <span class="eyebrow">DIA SELECIONADO</span>
+            <h2 id="selected-day-title">{{ selectedTitle() }}</h2>
+            <p role="status">
+              {{
+                selectedEvents().length
+                  ? selectedEvents().length +
+                    (selectedEvents().length === 1 ? ' jogo marcado' : ' jogos marcados')
+                  : 'Nenhum jogo marcado'
+              }}
+            </p>
+          </div>
+          @for (event of selectedEvents(); track event.key) {
+            <article class="fixture-detail" [class.cancelled-fixture]="cancelled(event)">
+              <div class="fixture-meta">
+                <span class="fixture-time">{{ time(event) }}</span
+                ><span
+                  class="fixture-status"
+                  [class.live-status]="event.game?.matchStatus === 'LIVE'"
+                  >{{ status(event) }}</span
+                >
+              </div>
+              <h3>{{ event.title }}</h3>
+              <p class="fixture-group">{{ event.club.name }}</p>
+              <p class="fixture-location">
+                <app-icon name="pin" /><span>{{ event.location }}</span>
+              </p>
+              @if (event.game; as game) {
+                <p class="fixture-attendance">
+                  <app-icon name="users" /><span
+                    >{{ game.confirmed }}/{{ game.teamCount * game.teamSize }} confirmados
+                    @if (game.waiting) {
+                      · {{ game.waiting }} na espera
+                    }
+                  </span>
+                </p>
+                @if (game.recurring) {
+                  <p class="fixture-series">
+                    <app-icon name="calendar" />Série semanal{{
+                      game.seriesException ? ' · edição ajustada' : ''
+                    }}
+                  </p>
+                }
+              } @else {
+                <p class="fixture-series">Amistoso entre grupos</p>
+              }
+              @if (event.club.timeZone && event.club.timeZone !== timeZone()) {
+                <p class="fixture-series">
+                  {{ time(event, true) }} no fuso do grupo ·
+                  {{ event.club.timeZone.replaceAll('_', ' ') }}
+                </p>
+              }
+              <button
+                class="button secondary fixture-open"
+                type="button"
+                (click)="openEvent(event)"
+              >
+                {{ event.kind === 'game' ? 'Abrir pelada' : 'Ver agenda do grupo'
+                }}<app-icon name="arrow" />
+              </button>
+            </article>
+          } @empty {
+            <div class="free-day">
+              <app-icon name="pitch" />
+              <h3>Dia livre no calendário.</h3>
+              <p>Selecione um dia com jogo para ver os detalhes e acompanhar sua pelada.</p>
+            </div>
+          }
+          @if (createClub()) {
+            <button class="button primary day-create" type="button" (click)="markGame()">
+              <app-icon name="plus" />Marcar neste dia
+            </button>
+          }
+          <p class="calendar-footnote">
+            Presenças e escalações continuam na página de cada pelada.
+          </p>
+        </section>
+      </div>
+    }
+  }
+</section>
