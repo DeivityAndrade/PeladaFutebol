@@ -30,6 +30,8 @@ import { Pitch } from './pitch';
 import { SocialPage } from './social-page';
 import { HomePage } from './home-page';
 import { AgendaPage } from './agenda-page';
+import { GroupPlayers } from './group-players';
+import { TeamDraw } from './team-draw';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -93,7 +95,18 @@ function dateTimeForZone(iso: string, timeZone: string) {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, Icon, Pitch, SocialPage, Brand, HomePage, AgendaPage],
+  imports: [
+    CommonModule,
+    FormsModule,
+    Icon,
+    Pitch,
+    SocialPage,
+    Brand,
+    HomePage,
+    AgendaPage,
+    GroupPlayers,
+    TeamDraw,
+  ],
   templateUrl: './app.html',
 })
 export class App implements OnInit, OnDestroy {
@@ -1348,14 +1361,11 @@ export class App implements OnInit, OnDestroy {
   startMatch() {
     this.matchAction('start', 'POST', undefined, 'A bola está rolando!');
   }
-  drawTeams() {
-    const id = this.detail()?.game.id;
-    if (!id) return;
-    void this.action(async () => {
-      this.setDetail(await this.api.request<Detail>('/games/' + id + '/teams/draw', 'POST'));
-      this.modal.set('');
-      this.notify('Times sorteados.');
-    });
+  acceptDraw(detail: Detail) {
+    this.setDetail(detail);
+    this.modal.set('');
+    requestAnimationFrame(() => document.getElementById('open-team-draw')?.focus());
+    this.notify('Times aplicados. Agora os capit\u00e3es podem montar a escala\u00e7\u00e3o.');
   }
   finishMatch() {
     this.matchAction(

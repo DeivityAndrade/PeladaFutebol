@@ -242,6 +242,9 @@ public final class Domain {
     public UUID clubId;
     public UUID playerId;
     public String billingType = "OCCASIONAL";
+    public String primaryPosition;
+    public String secondaryPosition;
+    public Integer skillLevel;
     public LocalDate monthlyFrom;
     public LocalDate monthlyThrough;
     public Long monthlyAmountCents;
@@ -513,6 +516,28 @@ public final class Domain {
       this.teamSize = teamSize;
       this.liveEnabled = teamCount == 2;
     }
+  }
+
+  @Entity(name = "DrawAttempt")
+  @Table(name = "draw_attempts")
+  public static class DrawAttempt {
+
+    @Id
+    public UUID id = UUID.randomUUID();
+
+    public UUID gameId;
+    public UUID organizerId;
+    public String fingerprint;
+    public String mode;
+
+    @Column(columnDefinition = "text")
+    public String snapshot;
+
+    public Instant createdAt;
+    public Instant expiresAt;
+    public Instant appliedAt;
+
+    public DrawAttempt() {}
   }
 
   @Entity(name = "Team")

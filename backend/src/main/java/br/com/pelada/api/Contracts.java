@@ -186,6 +186,55 @@ public final class Contracts {
     UUID captainId
   ) {}
 
+  public record ClassificationInput(
+    @Pattern(regexp = "GOALKEEPER|DEFENSE|MIDFIELD|ATTACK|VERSATILE")
+    String primaryPosition,
+    @Pattern(regexp = "GOALKEEPER|DEFENSE|MIDFIELD|ATTACK|VERSATILE")
+    String secondaryPosition,
+    @Min(1) @Max(5) Integer skillLevel
+  ) {}
+
+  public record GroupPlayer(
+    UUID playerId,
+    String name,
+    String primaryPosition,
+    String secondaryPosition,
+    Integer skillLevel
+  ) {}
+
+  public record DrawInput(
+    @NotBlank @Pattern(regexp = "RANDOM|BALANCED") String mode
+  ) {}
+
+  public record DrawPlayer(
+    UUID playerId,
+    String name,
+    String primaryPosition,
+    String secondaryPosition,
+    Integer skillLevel,
+    boolean fixed,
+    boolean guestGoalkeeper
+  ) {}
+
+  public record DrawTeam(
+    UUID teamId,
+    String name,
+    String color,
+    int reservedPlaces,
+    double estimatedAverage,
+    List<DrawPlayer> players
+  ) {}
+
+  public record DrawPreview(
+    UUID id,
+    String mode,
+    Instant expiresAt,
+    int unclassified,
+    List<DrawTeam> teams
+  ) {}
+
+  public record DrawHistory(Instant appliedAt, DrawPreview preview) {}
+
   public record Pick(@NotNull UUID playerId) {}
 
   public record Lineup(

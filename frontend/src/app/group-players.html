@@ -1,0 +1,117 @@
+<section class="panel" aria-labelledby="classification-heading">
+  <div class="section-kicker">ELENCO DO GRUPO</div>
+  <h2 id="classification-heading">Conheça o jogo de cada um.</h2>
+  <p>
+    Posição e nível ajudam no sorteio equilibrado. Esta classificação vale apenas neste grupo e é
+    separada das notas das partidas.
+  </p>
+  @if (error()) {
+    <div class="alert error" role="alert">{{ error() }}</div>
+  }
+  @if (notice()) {
+    <p class="saved" role="status">{{ notice() }}</p>
+  }
+  @if (loading()) {
+    <p role="status">Carregando jogadores…</p>
+  } @else {
+    <label class="search-label"
+      >Procurar jogador<input
+        name="playerSearch"
+        [(ngModel)]="search"
+        type="search"
+        placeholder="Nome do jogador"
+    /></label>
+    @if (editing(); as p) {
+      <form class="classification-editor" (ngSubmit)="save()" aria-labelledby="editing-name">
+        <h3 id="editing-name">Classificar {{ p.name }}</h3>
+        <div class="editor-fields">
+          <label
+            >Posição principal<select
+              id="classification-position"
+              name="primary"
+              [(ngModel)]="primary"
+              (ngModelChange)="secondary === primary && (secondary = '')"
+            >
+              @for (position of positions; track position.value) {
+                <option [value]="position.value">{{ position.label }}</option>
+              }
+            </select></label
+          >
+          <label
+            >Posição secundária <span>(opcional)</span
+            ><select name="secondary" [(ngModel)]="secondary">
+              <option value="">Nenhuma</option>
+              @for (position of positions; track position.value) {
+                @if (position.value !== primary) {
+                  <option [value]="position.value">{{ position.label }}</option>
+                }
+              }
+            </select></label
+          >
+          <label
+            >Nível no grupo<select
+              name="level"
+              [(ngModel)]="level"
+              aria-describedby="level-description"
+            >
+              @for (item of levels; track item.value) {
+                <option [value]="item.value">{{ item.label }}</option>
+              }
+            </select></label
+          >
+        </div>
+        <p id="level-description">{{ levels[level - 1].description }}</p>
+        <div class="editor-actions">
+          <button class="button primary" [disabled]="busy()">Salvar classificação</button>
+          <button class="button secondary" type="button" [disabled]="busy()" (click)="cancel()">
+            Cancelar
+          </button>
+          @if (p.skillLevel !== null) {
+            <button
+              class="button text-danger"
+              type="button"
+              [disabled]="busy()"
+              (click)="save(true)"
+            >
+              Remover classificação
+            </button>
+          }
+        </div>
+      </form>
+    }
+    <ul class="classification-list">
+      @for (p of filtered(); track p.playerId) {
+        <li>
+          <div class="player-description">
+            <strong>{{ p.name }}</strong
+            ><span>{{
+              p.skillLevel === null
+                ? 'Sem classificação'
+                : positionLabel(p.primaryPosition) +
+                  (p.secondaryPosition ? ' · ' + positionLabel(p.secondaryPosition) : '')
+            }}</span>
+          </div>
+          @if (p.skillLevel !== null) {
+            <span class="level-label">Nível {{ p.skillLevel }}</span>
+          }
+          @if (canManage()) {
+            <button
+              class="button secondary"
+              [id]="'classify-' + p.playerId"
+              [attr.aria-label]="'Classificar ' + p.name"
+              (click)="edit(p)"
+              [disabled]="busy()"
+            >
+              {{ p.skillLevel === null ? 'Classificar' : 'Editar' }}
+            </button>
+          }
+        </li>
+      } @empty {
+        <li>Nenhum jogador encontrado.</li>
+      }
+    </ul>
+    @if (!canManage()) {
+      <p>A classificação é definida pelo organizador do grupo.</p>
+    }
+  }
+</section>

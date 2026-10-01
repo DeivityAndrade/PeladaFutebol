@@ -2,10 +2,12 @@ package br.com.pelada.api;
 
 import br.com.pelada.api.Contracts.*;
 import br.com.pelada.auth.Accounts;
+import br.com.pelada.games.Draws;
 import br.com.pelada.games.Games;
 import br.com.pelada.games.Matches;
 import br.com.pelada.groups.Barbecues;
 import br.com.pelada.groups.Finance;
+import br.com.pelada.groups.GroupPlayers;
 import br.com.pelada.groups.Groups;
 import br.com.pelada.social.Goalkeepers;
 import br.com.pelada.social.Social;
@@ -23,6 +25,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class ApiController {
 
   private final Accounts accounts;
+  private final Draws draws;
+  private final GroupPlayers groupPlayers;
   private final Groups groups;
   private final Games games;
   private final Matches matches;
@@ -39,9 +43,13 @@ public class ApiController {
     Barbecues barbecues,
     Finance finance,
     Social social,
-    Goalkeepers goalkeepers
+    Goalkeepers goalkeepers,
+    Draws draws,
+    GroupPlayers groupPlayers
   ) {
     this.accounts = accounts;
+    this.draws = draws;
+    this.groupPlayers = groupPlayers;
     this.groups = groups;
     this.games = games;
     this.matches = matches;
@@ -71,6 +79,50 @@ public class ApiController {
     @Valid @RequestBody CreateClub input
   ) {
     return groups.create(user(auth), input);
+  }
+
+  @GetMapping("/groups/{id}/players")
+  public List<GroupPlayer> groupPlayers(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return groupPlayers.list(user(auth), id);
+  }
+
+  @PutMapping("/groups/{id}/players/{playerId}/classification")
+  public GroupPlayer classifyPlayer(
+    Authentication auth,
+    @PathVariable UUID id,
+    @PathVariable UUID playerId,
+    @Valid @RequestBody ClassificationInput input
+  ) {
+    return groupPlayers.classify(user(auth), id, playerId, input);
+  }
+
+  @PostMapping("/games/{id}/teams/draw/preview")
+  public DrawPreview previewDraw(
+    Authentication auth,
+    @PathVariable UUID id,
+    @Valid @RequestBody DrawInput input
+  ) {
+    return draws.preview(user(auth), id, input);
+  }
+
+  @PostMapping("/games/{id}/teams/draw/{previewId}/apply")
+  public GameDetail applyDraw(
+    Authentication auth,
+    @PathVariable UUID id,
+    @PathVariable UUID previewId
+  ) {
+    return draws.apply(user(auth), id, previewId);
+  }
+
+  @GetMapping("/games/{id}/teams/draw/history")
+  public List<DrawHistory> drawHistory(
+    Authentication auth,
+    @PathVariable UUID id
+  ) {
+    return draws.history(user(auth), id);
   }
 
   @PostMapping("/invites/{invite}/join")
