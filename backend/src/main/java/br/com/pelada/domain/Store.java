@@ -35,6 +35,12 @@ public class Store {
     em.flush();
   }
 
+  public <T> T refreshLocked(Class<T> type, UUID id) {
+    T entity = get(type, id);
+    em.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+    return entity;
+  }
+
   public <T> List<T> list(Class<T> type, String jpql, Object... pairs) {
     TypedQuery<T> query = em.createQuery(jpql, type);
     for (int i = 0; i < pairs.length; i += 2) query.setParameter(

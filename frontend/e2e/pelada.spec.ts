@@ -712,10 +712,12 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
   await ownerPage.getByRole('button', { name: 'Sortear times' }).click();
   const firstDraw = ownerPage.waitForResponse(
     (response) =>
-      response.url().endsWith(`/api/games/${game.game.id}/teams/draw`) &&
+      response.url().includes(`/api/games/${game.game.id}/teams/draw/`) &&
+      response.url().endsWith('/apply') &&
       response.request().method() === 'POST',
   );
-  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Sortear agora' }).click();
+  await ownerPage.getByRole('dialog').getByRole('button', { name: /Gerar/ }).click();
+  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Aplicar times' }).click();
   expect((await firstDraw).ok()).toBeTruthy();
   let detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
   expect(detail.attendees.filter((person: any) => person.status === 'CONFIRMED')).toHaveLength(6);
@@ -741,10 +743,12 @@ test('sorteio manual, recorrência de churrasco e convite individual em desktop 
   await ownerPage.getByRole('button', { name: 'Sortear times' }).click();
   const secondDraw = ownerPage.waitForResponse(
     (response) =>
-      response.url().endsWith(`/api/games/${game.game.id}/teams/draw`) &&
+      response.url().includes(`/api/games/${game.game.id}/teams/draw/`) &&
+      response.url().endsWith('/apply') &&
       response.request().method() === 'POST',
   );
-  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Sortear agora' }).click();
+  await ownerPage.getByRole('dialog').getByRole('button', { name: /Gerar/ }).click();
+  await ownerPage.getByRole('dialog').getByRole('button', { name: 'Aplicar times' }).click();
   expect((await secondDraw).ok()).toBeTruthy();
   detail = await (await organizer.ctx.get(`/api/games/${game.game.id}`)).json();
   expect(

@@ -1,0 +1,133 @@
+<h2 id="modal-title">Monte os times antes de aplicar.</h2>
+<p>
+  {{ confirmed() }} confirmados. Capitães e goleiros convidados permanecem nos seus times. A lista
+  de espera fica de fora.
+</p>
+@if (error()) {
+  <div class="alert error" role="alert">{{ error() }}</div>
+}
+<fieldset class="draw-modes" [disabled]="busy()">
+  <legend>Como sortear?</legend>
+  <label
+    ><input
+      type="radio"
+      name="drawMode"
+      value="BALANCED"
+      [(ngModel)]="mode"
+      (ngModelChange)="preview.set(null)"
+    /><span
+      ><strong>Equilibrado</strong><small>Considera nível e posições no grupo.</small></span
+    ></label
+  >
+  <label
+    ><input
+      type="radio"
+      name="drawMode"
+      value="RANDOM"
+      [(ngModel)]="mode"
+      (ngModelChange)="preview.set(null)"
+    /><span
+      ><strong>Aleatório</strong
+      ><small>Mistura os confirmados, equilibrando a quantidade.</small></span
+    ></label
+  >
+</fieldset>
+<p class="classification-link">
+  Defina posições e níveis na aba
+  <a [href]="'#group/' + clubId()" (click)="classify.emit(); cancelled.emit()">Jogadores do grupo</a
+  >.
+</p>
+@if (preview(); as result) {
+  <section aria-labelledby="preview-title" aria-live="polite" class="preview-section">
+    <div class="preview-heading">
+      <h3 id="preview-title">Prévia dos elencos</h3>
+      <span>Ainda não aplicada</span>
+    </div>
+    @if (result.unclassified) {
+      <p class="draw-note">
+        {{ result.unclassified }} sem classificação: usamos nível estimado 3 apenas no cálculo.
+      </p>
+    }
+    <p class="draw-note">
+      O equilíbrio é uma estimativa, não uma garantia. Ao aplicar, posições dos titulares serão
+      limpas; goleiros convidados mantêm o gol.
+    </p>
+    <div class="preview-teams">
+      @for (team of result.teams; track team.teamId) {
+        <section class="preview-team" [style.--team-color]="team.color">
+          <header>
+            <h4>{{ team.name }}</h4>
+            <span>{{ team.players.length }} jogadores</span>
+          </header>
+          <p class="team-estimate">
+            Nível médio estimado <strong>{{ team.estimatedAverage | number: '1.1-1' }}</strong>
+          </p>
+          <ul>
+            @for (p of team.players; track p.playerId) {
+              <li>
+                <div>
+                  <strong>{{ p.name }}</strong
+                  ><small
+                    >{{ positionLabel(p.primaryPosition)
+                    }}{{ p.secondaryPosition ? ' / ' + positionLabel(p.secondaryPosition) : ''
+                    }}{{
+                      p.fixed ? (p.guestGoalkeeper ? ' · Goleiro fixo' : ' · Capitão fixo') : ''
+                    }}</small
+                  >
+                </div>
+                <span>{{
+                  p.skillLevel === null ? 'Sem classificação' : 'Nível ' + p.skillLevel
+                }}</span>
+              </li>
+            }
+          </ul>
+          @if (team.reservedPlaces) {
+            <p class="reserved-note">1 vaga reservada para goleiro convidado.</p>
+          }
+        </section>
+      }
+    </div>
+  </section>
+}
+<div class="draw-actions">
+  <button class="button secondary" [disabled]="busy()" (click)="cancelled.emit()">Voltar</button>
+  <button class="button secondary" [disabled]="busy()" (click)="generate()">
+    {{ busy() ? 'Aguarde…' : preview() ? 'Gerar outra combinação' : 'Gerar prévia' }}
+  </button>
+  @if (preview()) {
+    <button class="button primary" [disabled]="busy()" (click)="apply()">Aplicar times</button>
+  }
+</div>
+<button
+  class="history-toggle"
+  [disabled]="busy()"
+  [attr.aria-expanded]="historyVisible()"
+  (click)="toggleHistory()"
+>
+  Histórico de sorteios aplicados
+</button>
+@if (historyVisible()) {
+  <div class="draw-history">
+    @for (item of history(); track item.preview.id) {
+      <details>
+        <summary>
+          {{ formatDate(item.appliedAt) }} ·
+          {{ item.preview.mode === 'BALANCED' ? 'Equilibrado' : 'Aleatório' }}
+        </summary>
+        @for (team of item.preview.teams; track team.teamId) {
+          <h4>{{ team.name }}</h4>
+          <ul>
+            @for (p of team.players; track p.playerId) {
+              <li>
+                {{ p.name }} ·
+                {{ p.skillLevel === null ? 'Sem classificação' : 'Nível ' + p.skillLevel }}
+              </li>
+            }
+          </ul>
+        }
+      </details>
+    } @empty {
+      <p>Nenhum sorteio aplicado por este fluxo ainda.</p>
+    }
+  </div>
+}

@@ -172,6 +172,8 @@ pnpm test:e2e
 
 Os testes de navegador criam contas e grupos fictícios. Execute-os em uma instância de desenvolvimento. A integração contínua usa bancos separados para regras e testes de navegador.
 
+O sorteio equilibrado fica disponível na aba **Jogadores** do grupo e no botão **Sortear times** da pelada. O organizador pode classificar posição e nível de cada membro, gerar uma prévia equilibrada ou aleatória e aplicar o resultado somente depois de conferi-lo. A prévia expira em 15 minutos e é invalidada quando presença, capitão, escalação ou classificação muda. Sorteios aplicados ficam registrados no histórico; jogadores sem classificação usam nível estimado 3 apenas para o cálculo e aparecem identificados na prévia.
+
 As verificações da integração contínua compilam o frontend, executam os testes Java com PostgreSQL
 e rodam os cenários Playwright em desktop e celular. Consulte [o relatório de validação](docs/VALIDACAO.md).
 

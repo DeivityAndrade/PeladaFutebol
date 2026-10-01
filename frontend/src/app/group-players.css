@@ -1,0 +1,79 @@
+:host {
+  display: block;
+}
+h2 {
+  margin: 8px 0;
+}
+p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.search-label {
+  max-width: 380px;
+  margin: 24px 0 16px;
+}
+.classification-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.classification-list li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.player-description {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.player-description span,
+.level-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.level-label {
+  white-space: nowrap;
+}
+.classification-editor {
+  margin: 20px 0;
+  padding: 24px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-inner);
+}
+.editor-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.saved {
+  color: var(--action);
+}
+@media (max-width: 650px) {
+  .editor-fields {
+    grid-template-columns: 1fr;
+  }
+  .classification-editor {
+    padding: 16px;
+  }
+  .classification-list li {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .player-description {
+    flex-basis: calc(100% - 90px);
+  }
+  .classification-list .button {
+    margin-left: auto;
+  }
+}

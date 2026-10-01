@@ -668,7 +668,7 @@ public class Games {
     return detail(game);
   }
 
-  private Game editable(UUID user, UUID id, boolean teamChange) {
+  Game editable(UUID user, UUID id, boolean teamChange) {
     return editable(user, id, teamChange, false);
   }
 

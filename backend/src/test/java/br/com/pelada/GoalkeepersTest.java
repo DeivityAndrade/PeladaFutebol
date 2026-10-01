@@ -37,6 +37,9 @@ class GoalkeepersTest {
   Goalkeepers goalkeepers;
 
   @Autowired
+  br.com.pelada.games.Draws draws;
+
+  @Autowired
   Games games;
 
   @Autowired
@@ -345,7 +348,8 @@ class GoalkeepersTest {
     assertThat(full.game().confirmed()).isEqualTo(9);
     assertThat(status(full, members.get(9))).isEqualTo("WAITING");
 
-    games.draw(organizer, game);
+    var preview = draws.preview(organizer, game, new DrawInput("BALANCED"));
+    draws.apply(organizer, game, preview.id());
     GameDetail drawn = games.get(organizer, game);
     assertThat(
       drawn
@@ -429,7 +433,8 @@ class GoalkeepersTest {
       409
     );
     for (int i = 1; i < 4; i++) games.attend(members.get(i), paid);
-    games.draw(organizer, paid);
+    var preview = draws.preview(organizer, paid, new DrawInput("BALANCED"));
+    draws.apply(organizer, paid, preview.id());
     Attendee afterDraw = games
       .get(organizer, paid)
       .attendees()

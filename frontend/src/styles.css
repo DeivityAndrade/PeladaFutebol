@@ -5161,3 +5161,9 @@ input[type='checkbox'] {
     scroll-behavior: auto !important;
   }
 }
+
+/* Team draw needs room for comparing rosters without squeezing names. */
+.modal.draw-modal {
+  width: min(900px, calc(100vw - 32px));
+  max-width: 900px;
+}

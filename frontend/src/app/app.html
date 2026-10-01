@@ -433,6 +433,7 @@
                   <button
                     class="button primary full-width"
                     [disabled]="busy() || !confirmed().length"
+                    id="open-team-draw"
                     (click)="open('draw')"
                   >
                     <app-icon name="shuffle" />Sortear times
@@ -883,8 +884,18 @@
           >
             Financeiro
           </button>
+          <button
+            role="tab"
+            [attr.aria-selected]="groupTab() === 'players'"
+            [class.active]="groupTab() === 'players'"
+            (click)="selectGroupTab('players')"
+          >
+            Jogadores
+          </button>
         </div>
-        @if (groupTab() === 'games') {
+        @if (groupTab() === 'players') {
+          <app-group-players [clubId]="club()!.id" [canManage]="groupOwner()" />
+        } @else if (groupTab() === 'games') {
           @if (friendlies().length) {
             <section class="social-schedule-section" aria-labelledby="friendlies-heading">
               <div class="social-schedule-heading">
@@ -1480,6 +1491,7 @@
   >
     <section
       class="modal"
+      [class.draw-modal]="modal() === 'draw'"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -1936,18 +1948,15 @@
           </div>
         }
         @case ('draw') {
-          <h2 id="modal-title">Hora de misturar os times?</h2>
-          <p>
-            Os {{ confirmed().length }} confirmados serão distribuídos. Capitães ficam nos seus
-            times; titulares e posições serão limpos. Você pode sortear de novo até a partida
-            começar.
-          </p>
-          <div class="form-actions">
-            <button class="button secondary" (click)="closeModal()">Voltar</button>
-            <button class="button primary" [disabled]="busy()" (click)="drawTeams()">
-              Sortear agora
-            </button>
-          </div>
+          <app-team-draw
+            [gameId]="detail()!.game.id"
+            [clubId]="detail()!.club.id"
+            [confirmed]="confirmed().length"
+            (applied)="acceptDraw($event)"
+            (processing)="busy.set($event)"
+            (cancelled)="closeModal()"
+            (classify)="groupTab.set('players')"
+          />
         }
         @case ('barbecue-series') {
           <h2 id="modal-title">Vamos marcar o primeiro churrasco.</h2>
