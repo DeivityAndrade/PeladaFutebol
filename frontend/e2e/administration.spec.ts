@@ -72,6 +72,10 @@ for (const mobile of [false, true])
       await navigation.getByRole('link', { name: 'Administração', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Administração.' })).toBeVisible();
       await expect(page.locator('.registration-history tbody tr')).toHaveCount(6);
+      await expect(page.getByTestId('admin-visits-total')).toBeVisible();
+      await page.getByRole('button', { name: 'Visitas', exact: true }).press('Enter');
+      await expect(page.getByRole('heading', { name: 'Visitas por mês.' })).toBeVisible();
+      await page.getByRole('button', { name: 'Cadastros', exact: true }).click();
       const before = await (await admin.get('/api/admin/summary')).json();
       await expect(page.getByTestId('admin-total')).toHaveText(
         new Intl.NumberFormat('pt-BR').format(before.totalAccounts),
@@ -87,6 +91,8 @@ for (const mobile of [false, true])
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       ).toBeTruthy();
       await expect(page.locator('html')).toHaveAttribute('data-theme', dark ? 'dark' : 'light');
+      // Reset scrolling introduced by keyboard checks before capturing fixed navigation.
+      await page.getByRole('button', { name: 'Atualizar', exact: true }).press('Control+Home');
       await page.screenshot({
         path: path.resolve(
           '..',
@@ -146,6 +152,42 @@ test('participante não vê o menu nem consulta totais; acesso anônimo exige lo
   await expect(login.getByRole('dialog')).toBeVisible();
   await expect(login.locator('app-admin-page')).toHaveCount(0);
   await anonymous.close();
+});
+
+test('visita anônima é contada uma vez após recarga e navegação; privacidade impede contagem', async ({
+  browser,
+}) => {
+  const before = (await (await admin.get('/api/admin/summary')).json()).visits.total;
+  const context = await browser.newContext({ baseURL });
+  const page = await context.newPage();
+  const recorded = page.waitForResponse(
+    (response) => response.url().endsWith('/api/visits') && response.request().method() === 'POST',
+  );
+  await page.goto('/#demo');
+  expect((await recorded).status()).toBe(204);
+  const cookies = await context.cookies();
+  expect(cookies.find((cookie) => cookie.name === 'pelada_visit')).toMatchObject({
+    httpOnly: true,
+    sameSite: 'Lax',
+  });
+  expect((await (await admin.get('/api/admin/summary')).json()).visits.total).toBe(before + 1);
+  const reloadVisit = page.waitForResponse((response) => response.url().endsWith('/api/visits'));
+  await page.reload();
+  expect((await reloadVisit).status()).toBe(204);
+  await page.goto('/#inicio');
+  await expect(page.locator('app-home-page')).toBeVisible();
+  expect((await (await admin.get('/api/admin/summary')).json()).visits.total).toBe(before + 1);
+  await context.close();
+  const privateContext = await browser.newContext({ baseURL, extraHTTPHeaders: { DNT: '1' } });
+  const privatePage = await privateContext.newPage();
+  const skipped = privatePage.waitForResponse((response) => response.url().endsWith('/api/visits'));
+  await privatePage.goto('/#demo');
+  expect((await skipped).status()).toBe(204);
+  expect(
+    (await privateContext.cookies()).find((cookie) => cookie.name === 'pelada_visit'),
+  ).toBeUndefined();
+  expect((await (await admin.get('/api/admin/summary')).json()).visits.total).toBe(before + 1);
+  await privateContext.close();
 });
 
 test('falha de consulta mostra tentativa novamente e não mantém números antigos', async ({

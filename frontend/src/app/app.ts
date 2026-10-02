@@ -300,6 +300,8 @@ export class App implements OnInit, OnDestroy {
   );
 
   async ngOnInit() {
+    // Analytics never blocks navigation or displays an error to the player.
+    void this.api.request('/visits', 'POST').catch(() => undefined);
     try {
       this.user.set(await this.api.request<User>('/auth/me'));
     } catch (e) {

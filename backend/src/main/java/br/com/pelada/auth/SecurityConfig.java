@@ -53,6 +53,7 @@ public class SecurityConfig {
           .permitAll()
           .requestMatchers(
             HttpMethod.POST,
+            "/api/visits",
             "/api/auth/login",
             "/api/auth/register",
             "/api/auth/password-reset/request",

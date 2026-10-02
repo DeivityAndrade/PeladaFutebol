@@ -36,6 +36,9 @@ class AdministrationTest {
   Administration administration;
 
   @Autowired
+  SiteVisits visits;
+
+  @Autowired
   JdbcTemplate jdbc;
 
   @Autowired
@@ -49,6 +52,7 @@ class AdministrationTest {
   @BeforeEach
   void setup() {
     jdbc.execute("TRUNCATE players CASCADE");
+    jdbc.execute("TRUNCATE site_visit_days, site_visit_windows");
     when(clock.instant()).thenReturn(NOW);
     when(clock.getZone()).thenReturn(ZoneOffset.UTC);
     accounts.register(
@@ -213,6 +217,108 @@ class AdministrationTest {
         java.util.List.of()
       )
     );
+  }
+
+  @Test
+  void anonymousVisitRequiresCsrfAndRespectsPrivacySignals() throws Exception {
+    mvc.perform(post("/api/visits")).andExpect(status().isForbidden());
+    for (String header : java.util.List.of("DNT", "Sec-GPC")) {
+      mvc
+        .perform(post("/api/visits").with(csrf()).header(header, "1"))
+        .andExpect(status().isNoContent())
+        .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+    assertThat(summary().visits().total()).isZero();
+    assertThat(summary().visits().startedAt()).isNull();
+    var response = mvc
+      .perform(
+        post("/api/visits")
+          .with(csrf())
+          .cookie(new jakarta.servlet.http.Cookie("pelada_visit", "invalid"))
+      )
+      .andExpect(status().isNoContent())
+      .andExpect(header().string("Cache-Control", "no-store"))
+      .andReturn()
+      .getResponse();
+    assertThat(response.getHeader("Set-Cookie")).contains(
+      "HttpOnly",
+      "SameSite=Lax",
+      "Max-Age=1800"
+    );
+    String token = response.getHeader("Set-Cookie").split("[=;]")[1];
+    mvc
+      .perform(
+        post("/api/visits")
+          .with(csrf())
+          .cookie(new jakarta.servlet.http.Cookie("pelada_visit", token))
+      )
+      .andExpect(status().isNoContent());
+    assertThat(summary().visits().total()).isEqualTo(1);
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT token_hash FROM site_visit_windows",
+        String.class
+      )
+    )
+      .hasSize(64)
+      .doesNotContain(token);
+  }
+
+  @Test
+  void deduplicatesConcurrentVisitsAndRemovesExpiredIdentifiers()
+    throws Exception {
+    UUID token = UUID.randomUUID();
+    try (var executor = java.util.concurrent.Executors.newFixedThreadPool(8)) {
+      var tasks = java.util.stream.IntStream.range(0, 8)
+        .mapToObj(
+          i ->
+            (java.util.concurrent.Callable<Void>) () -> {
+              visits.record(token);
+              return null;
+            }
+        )
+        .toList();
+      for (var result : executor.invokeAll(tasks)) result.get();
+    }
+    assertThat(summary().visits().total()).isEqualTo(1);
+    when(clock.instant()).thenReturn(NOW.plusSeconds(1799));
+    visits.record(token);
+    assertThat(summary().visits().total()).isEqualTo(1);
+    when(clock.instant()).thenReturn(NOW.plusSeconds(1800));
+    visits.record(token);
+    assertThat(summary().visits().total()).isEqualTo(2);
+    when(clock.instant()).thenReturn(NOW.plusSeconds(3600));
+    visits.record(UUID.randomUUID());
+    assertThat(
+      jdbc.queryForObject("SELECT count(*) FROM site_visit_windows", Long.class)
+    ).isEqualTo(1);
+  }
+
+  @Test
+  void visitCalendarUsesBrasiliaAndZeroFilledMonthlyHistory() {
+    visits.record(UUID.randomUUID()); // 23:30 in Brasília on September 30
+    when(clock.instant()).thenReturn(Instant.parse("2026-10-01T03:00:00Z"));
+    visits.record(UUID.randomUUID()); // midnight begins October
+    jdbc.update(
+      "INSERT INTO site_visit_days (day,visits,first_recorded_at) VALUES ('2026-09-25',3,?), ('2026-09-24',5,?)",
+      Timestamp.from(NOW.minus(Duration.ofDays(5))),
+      Timestamp.from(NOW.minus(Duration.ofDays(6)))
+    );
+    var summary = summary();
+    assertThat(summary.visits().total()).isEqualTo(10);
+    assertThat(summary.visits().today()).isEqualTo(1);
+    assertThat(summary.visits().last7Days()).isEqualTo(5);
+    assertThat(summary.visits().thisMonth()).isEqualTo(1);
+    assertThat(summary.months().getLast().visits()).isEqualTo(1);
+    assertThat(summary.months().get(10).visits()).isEqualTo(9);
+    assertThat(summary.months().getFirst().visits()).isZero();
+  }
+
+  @Test
+  void collectionCanBeDisabledWithoutRemovingHistoricalCounts() {
+    visits.record(UUID.randomUUID());
+    new SiteVisits(jdbc, clock, false).record(UUID.randomUUID());
+    assertThat(summary().visits().total()).isEqualTo(1);
   }
 
   private UUID legacy(String email, String password, Instant createdAt) {

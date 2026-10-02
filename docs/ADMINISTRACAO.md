@@ -6,6 +6,34 @@ Uma conta é contada uma vez, independentemente do número de grupos a que perte
 O endpoint `GET /api/admin/summary` retorna apenas agregados e não permite cache.
 Não lista nomes, e-mails, senhas, comprovantes ou dados financeiros.
 
+## Visitas ao site
+
+O painel mostra visitas totais, hoje, hoje e os seis dias anteriores, mês corrente e histórico
+mensal. Use **Visitas** no histórico para trocar a métrica; **Cadastros** continua disponível.
+Os dias usam `America/Sao_Paulo`. A contagem começa no primeiro acesso após a publicação da V11;
+não recupera visitas anteriores nem transforma cadastros em visitas.
+
+O Angular envia `POST /api/visits` ao carregar a aplicação, sem bloquear os fluxos se houver erro.
+A rota aceita acesso anônimo, exige o CSRF da mesma origem e não retorna estatísticas públicas.
+Navegação entre abas e atualizações automáticas não registram uma nova visita.
+Um cookie próprio `pelada_visit`, aleatório, HttpOnly, SameSite=Lax, com Secure conforme a configuração
+existente, evita duplicar recargas na mesma janela de 30 minutos. O servidor é a autoridade dessa
+janela; requisições simultâneas com o mesmo identificador contam uma vez. Depois dos 30 minutos,
+o próximo carregamento registra outra visita. É uma janela fixa, não um contador de tempo ativo.
+
+No banco ficam somente totais por dia e o hash do identificador anônimo de curta duração.
+Hashes vencidos são apagados na próxima coleta; não são relacionados a contas ou sessões de login.
+Não são armazenados IP, URL, referência de origem, agente do navegador ou localização.
+Solicitações com `DNT: 1` ou `Sec-GPC: 1` são ignoradas, sem emitir cookie de visitas.
+`VISIT_STATS_ENABLED=false` desativa a coleta sem remover os totais já registrados.
+
+São números aproximados de visitas, **não pessoas únicas**: incluem demonstração, administração
+e possíveis robôs; cookies bloqueados/apagados, outros navegadores ou duas primeiras abas abertas
+simultaneamente sem cookie podem produzir novas visitas. Falhas de rede ou controles de privacidade
+podem reduzir a contagem. Não se trata de uma medida de audiência auditada.
+
+Não há serviços externos, novas dependências ou configuração paga para essa funcionalidade.
+
 ## Liberar acesso
 
 O acesso depende da sessão autenticada e de `ADMIN_EMAILS`, configurada **no servidor**.
@@ -55,8 +83,8 @@ Validação local concluída em 01/10/2026, com bancos separados para testes Jav
 | Comando | Resultado |
 | --- | --- |
 | `pnpm build` (frontend) | Build de produção aprovada |
-| `mvn -B -ntp -f backend/pom.xml verify` | 59 testes aprovados; pacote executável gerado |
-| `BASE_URL=http://127.0.0.1:8083 pnpm test:e2e` (frontend) | 35 testes aprovados, incluindo os 7 novos cenários |
+| `mvn -B -ntp -f backend/pom.xml verify` | 63 testes aprovados; pacote executável gerado |
+| `BASE_URL=http://127.0.0.1:8083 pnpm test:e2e` (frontend) | 36 testes aprovados, incluindo os 8 cenários de administração e visitas |
 | `pnpm format:check` (frontend) | Formatação aprovada |
 | `git diff --check` | Sem erros de espaços ou conflitos |
 

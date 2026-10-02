@@ -10,7 +10,15 @@ interface AdminSummary {
   newLast7Days: number;
   newThisMonth: number;
   undatedAccounts: number;
-  months: { period: string; registrations: number }[];
+  visits: {
+    enabled: boolean;
+    startedAt: string | null;
+    total: number;
+    today: number;
+    last7Days: number;
+    thisMonth: number;
+  };
+  months: { period: string; registrations: number; visits: number }[];
 }
 
 @Component({
@@ -28,9 +36,17 @@ export class AdminPage implements OnInit, OnDestroy {
   error = signal('');
   denied = signal(false);
   range = signal(6);
+  metric = signal<'registrations' | 'visits'>('registrations');
   months = computed(() => this.data()?.months.slice(-this.range()) || []);
-  max = computed(() => Math.max(1, ...this.months().map((month) => month.registrations)));
-  periodCount = computed(() => this.months().reduce((sum, month) => sum + month.registrations, 0));
+  max = computed(() => Math.max(1, ...this.months().map((month) => month[this.metric()])));
+  periodCount = computed(() => this.months().reduce((sum, month) => sum + month[this.metric()], 0));
+
+  dateLabel(iso: string) {
+    return new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'short',
+      timeZone: 'America/Sao_Paulo',
+    }).format(new Date(iso));
+  }
 
   ngOnInit() {
     void this.load();

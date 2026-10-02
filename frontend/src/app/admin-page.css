@@ -60,6 +60,23 @@
 .admin-history {
   padding: 28px;
 }
+.visits-heading {
+  margin: 0 0 16px;
+}
+.visits-heading h2 {
+  margin: 0 0 6px;
+}
+.visits-heading p {
+  color: var(--muted);
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.history-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .history-heading {
   display: flex;
   align-items: center;
