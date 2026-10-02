@@ -254,7 +254,7 @@ public final class Contracts {
 
   public record SaveRating(@NotNull UUID playerId, @Min(1) @Max(5) int stars) {}
 
-  public record UserView(UUID id, String name, String email) {}
+  public record UserView(UUID id, String name, String email, boolean admin) {}
 
   public record Person(UUID id, String name) {}
 

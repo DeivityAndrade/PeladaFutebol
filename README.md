@@ -186,6 +186,7 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 ```
 
 - [Arquitetura e regras de concorrência](docs/ARQUITETURA.md)
+- [Administração: totais de contas e configuração de acesso](docs/ADMINISTRACAO.md)
 - [Recuperação de senha e peladas semanais](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md)
 - [Publicar no Render com Neon](docs/PUBLICACAO.md)
 - [Documentação interativa da API, quando executando](http://localhost:8080/api/docs)

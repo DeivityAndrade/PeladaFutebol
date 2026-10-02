@@ -1,0 +1,122 @@
+<section class="admin-page" aria-labelledby="admin-title">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Acompanhamento do site</p>
+      <h1 id="admin-title">Administração.</h1>
+      <p>Contas cadastradas e grupos, sem os dados da demonstração.</p>
+    </div>
+    @if (!denied()) {
+      <button class="button secondary" type="button" (click)="load()" [disabled]="loading()">
+        <app-icon name="refresh" />{{ loading() ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+    }
+  </div>
+  @if (loading() && !data()) {
+    <div class="panel admin-state" role="status">
+      <span class="spinner"></span>
+      <p>Consultando os cadastros…</p>
+    </div>
+  } @else if (denied()) {
+    <div class="panel admin-state">
+      <app-icon name="shield" />
+      <h2>Acesso restrito.</h2>
+      <p>Esta área está disponível somente para a administração do site.</p>
+      <a class="button secondary" href="#groups">Voltar aos meus grupos</a>
+    </div>
+  } @else if (error()) {
+    <div class="alert error" role="alert">
+      <app-icon name="info" /><span>{{ error() }}</span>
+      <button class="text-button" type="button" (click)="load()">Tentar novamente</button>
+    </div>
+  }
+  @if (data(); as summary) {
+    <dl class="admin-metrics" aria-label="Resumo dos cadastros">
+      <div>
+        <dt>Contas cadastradas</dt>
+        <dd data-testid="admin-total">{{ number(summary.totalAccounts) }}</dd>
+        <dd class="metric-description">Total de contas reais</dd>
+      </div>
+      <div>
+        <dt>Grupos criados</dt>
+        <dd>{{ number(summary.totalGroups) }}</dd>
+        <dd class="metric-description">Sem o grupo de demonstração</dd>
+      </div>
+      <div>
+        <dt>Novas nos últimos 7 dias</dt>
+        <dd>{{ number(summary.newLast7Days) }}</dd>
+        <dd class="metric-description">Últimas 168 horas</dd>
+      </div>
+      <div>
+        <dt>Novas neste mês</dt>
+        <dd>{{ number(summary.newThisMonth) }}</dd>
+        <dd class="metric-description">{{ monthLabel(summary.months[11].period) }}</dd>
+      </div>
+    </dl>
+    <section class="panel admin-history" aria-labelledby="history-title">
+      <div class="history-heading">
+        <div>
+          <h2 id="history-title">Novos cadastros.</h2>
+          <p>{{ number(periodCount()) }} com data registrada no período</p>
+        </div>
+        <div class="history-range" role="group" aria-label="Período do histórico">
+          <button type="button" [attr.aria-pressed]="range() === 6" (click)="range.set(6)">
+            6 meses
+          </button>
+          <button type="button" [attr.aria-pressed]="range() === 12" (click)="range.set(12)">
+            12 meses
+          </button>
+        </div>
+      </div>
+      <table class="registration-history">
+        <caption class="sr-only">
+          Novos cadastros por mês. Meses sem cadastros aparecem com zero.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col" class="bar-heading">Distribuição</th>
+            <th scope="col">Cadastros</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (month of months(); track month.period) {
+            <tr>
+              <th scope="row">{{ monthLabel(month.period) }}</th>
+              <td class="bar-cell" aria-hidden="true">
+                <span class="bar-track"
+                  ><span
+                    class="bar-fill"
+                    [style.width.%]="(month.registrations / max()) * 100"
+                  ></span
+                ></span>
+              </td>
+              <td>{{ number(month.registrations) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (periodCount() === 0) {
+        <p class="history-empty">Ainda não há novos cadastros com data registrada neste período.</p>
+      }
+    </section>
+    <aside class="admin-note" aria-label="Como os números são calculados">
+      <app-icon name="info" />
+      <div>
+        <strong>Sobre estes números</strong>
+        <p>
+          Cada conta é contada uma vez, mesmo participando de vários grupos. Jogadores fictícios não
+          entram no resumo.
+        </p>
+        @if (summary.undatedAccounts > 0) {
+          <p>
+            {{ number(summary.undatedAccounts) }} conta(s) antiga(s) sem data de cadastro: entram no
+            total, mas não no histórico. O registro das datas começou nesta atualização.
+          </p>
+        }
+      </div>
+    </aside>
+    <p class="admin-updated">
+      Atualizado em {{ updatedAt() }} · horário de Brasília. Use Atualizar para consultar novamente.
+    </p>
+  }
+</section>
