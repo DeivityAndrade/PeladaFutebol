@@ -29,6 +29,7 @@ const paths: Record<string, string> = {
   copy: 'M9 9h12v12H9z M15 9V3H3v12h6',
   edit: 'M16 3l5 5-12 12H4v-5z M13 6l5 5',
   shuffle: 'M16 3h5v5 M4 20 21 3 M21 16v5h-5 M15 15l6 6 M4 4l5 5',
+  refresh: 'M20 7v5h-5 M4 17v-5h5 M5.5 7a8 8 0 0 1 13-2L20 8 M4 16l1.5 3a8 8 0 0 0 13-2',
   lock: 'M5 10h14v11H5z M8 10V6a4 4 0 0 1 8 0v4',
   menu: 'M4 6h16 M4 12h16 M4 18h16',
   panel: 'M3 4h18v16H3z M9 4v16',

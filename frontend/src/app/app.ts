@@ -32,6 +32,7 @@ import { HomePage } from './home-page';
 import { AgendaPage } from './agenda-page';
 import { GroupPlayers } from './group-players';
 import { TeamDraw } from './team-draw';
+import { AdminPage } from './admin-page';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -106,6 +107,7 @@ function dateTimeForZone(iso: string, timeZone: string) {
     AgendaPage,
     GroupPlayers,
     TeamDraw,
+    AdminPage,
   ],
   templateUrl: './app.html',
 })
@@ -298,6 +300,8 @@ export class App implements OnInit, OnDestroy {
   );
 
   async ngOnInit() {
+    // Analytics never blocks navigation or displays an error to the player.
+    void this.api.request('/visits', 'POST').catch(() => undefined);
     try {
       this.user.set(await this.api.request<User>('/auth/me'));
     } catch (e) {
@@ -352,6 +356,8 @@ export class App implements OnInit, OnDestroy {
         this.resetToken.set(parts[1] || '');
       } else if (!this.user()) {
         this.openAuth();
+      } else if (page === 'admin') {
+        // The page requests the protected summary; the server checks access every time.
       } else if (page === 'groups' || page === 'agenda') {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
       } else if (page === 'social') {

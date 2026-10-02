@@ -1,0 +1,200 @@
+<section class="admin-page" aria-labelledby="admin-title">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Acompanhamento do site</p>
+      <h1 id="admin-title">Administração.</h1>
+      <p>Cadastros, grupos e visitas ao site.</p>
+    </div>
+    @if (!denied()) {
+      <button class="button secondary" type="button" (click)="load()" [disabled]="loading()">
+        <app-icon name="refresh" />{{ loading() ? 'Atualizando…' : 'Atualizar' }}
+      </button>
+    }
+  </div>
+  @if (loading() && !data()) {
+    <div class="panel admin-state" role="status">
+      <span class="spinner"></span>
+      <p>Consultando os cadastros…</p>
+    </div>
+  } @else if (denied()) {
+    <div class="panel admin-state">
+      <app-icon name="shield" />
+      <h2>Acesso restrito.</h2>
+      <p>Esta área está disponível somente para a administração do site.</p>
+      <a class="button secondary" href="#groups">Voltar aos meus grupos</a>
+    </div>
+  } @else if (error()) {
+    <div class="alert error" role="alert">
+      <app-icon name="info" /><span>{{ error() }}</span>
+      <button class="text-button" type="button" (click)="load()">Tentar novamente</button>
+    </div>
+  }
+  @if (data(); as summary) {
+    <dl class="admin-metrics" aria-label="Resumo dos cadastros">
+      <div>
+        <dt>Contas cadastradas</dt>
+        <dd data-testid="admin-total">{{ number(summary.totalAccounts) }}</dd>
+        <dd class="metric-description">Total de contas reais</dd>
+      </div>
+      <div>
+        <dt>Grupos criados</dt>
+        <dd>{{ number(summary.totalGroups) }}</dd>
+        <dd class="metric-description">Sem o grupo de demonstração</dd>
+      </div>
+      <div>
+        <dt>Novas nos últimos 7 dias</dt>
+        <dd>{{ number(summary.newLast7Days) }}</dd>
+        <dd class="metric-description">Últimas 168 horas</dd>
+      </div>
+      <div>
+        <dt>Novas neste mês</dt>
+        <dd>{{ number(summary.newThisMonth) }}</dd>
+        <dd class="metric-description">{{ monthLabel(summary.months[11].period) }}</dd>
+      </div>
+    </dl>
+    <section aria-labelledby="visits-title">
+      <div class="visits-heading">
+        <h2 id="visits-title">Visitas ao site.</h2>
+        <p>Uma visita por navegador a cada 30 minutos, com ou sem conta.</p>
+      </div>
+      @if (!summary.visits.enabled) {
+        <p class="alert" role="status">
+          A contagem de novas visitas está desativada. Os registros existentes continuam
+          disponíveis.
+        </p>
+      }
+      <dl class="admin-metrics" aria-label="Resumo das visitas">
+        <div>
+          <dt>Visitas registradas</dt>
+          <dd data-testid="admin-visits-total">{{ number(summary.visits.total) }}</dd>
+          <dd class="metric-description">Desde o início da contagem</dd>
+        </div>
+        <div>
+          <dt>Hoje</dt>
+          <dd>{{ number(summary.visits.today) }}</dd>
+          <dd class="metric-description">Horário de Brasília</dd>
+        </div>
+        <div>
+          <dt>Últimos 7 dias</dt>
+          <dd>{{ number(summary.visits.last7Days) }}</dd>
+          <dd class="metric-description">Hoje e os 6 dias anteriores</dd>
+        </div>
+        <div>
+          <dt>Neste mês</dt>
+          <dd>{{ number(summary.visits.thisMonth) }}</dd>
+          <dd class="metric-description">{{ monthLabel(summary.months[11].period) }}</dd>
+        </div>
+      </dl>
+    </section>
+    <section class="panel admin-history" aria-labelledby="history-title">
+      <div class="history-heading">
+        <div>
+          <h2 id="history-title">
+            {{ metric() === 'visits' ? 'Visitas por mês.' : 'Novos cadastros.' }}
+          </h2>
+          <p>
+            {{ number(periodCount()) }}
+            {{ metric() === 'visits' ? 'visita(s)' : 'cadastro(s) com data' }} no período
+          </p>
+        </div>
+        <div class="history-controls">
+          <div class="history-range" role="group" aria-label="Dados do histórico">
+            <button
+              type="button"
+              [attr.aria-pressed]="metric() === 'registrations'"
+              (click)="metric.set('registrations')"
+            >
+              Cadastros
+            </button>
+            <button
+              type="button"
+              [attr.aria-pressed]="metric() === 'visits'"
+              (click)="metric.set('visits')"
+            >
+              Visitas
+            </button>
+          </div>
+          <div class="history-range" role="group" aria-label="Período do histórico">
+            <button type="button" [attr.aria-pressed]="range() === 6" (click)="range.set(6)">
+              6 meses
+            </button>
+            <button type="button" [attr.aria-pressed]="range() === 12" (click)="range.set(12)">
+              12 meses
+            </button>
+          </div>
+        </div>
+      </div>
+      <table class="registration-history">
+        <caption class="sr-only">
+          {{
+            metric() === 'visits' ? 'Visitas' : 'Novos cadastros'
+          }}
+          por mês. Meses sem registros aparecem com zero.
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col" class="bar-heading">Distribuição</th>
+            <th scope="col">{{ metric() === 'visits' ? 'Visitas' : 'Cadastros' }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (month of months(); track month.period) {
+            <tr>
+              <th scope="row">{{ monthLabel(month.period) }}</th>
+              <td class="bar-cell" aria-hidden="true">
+                <span class="bar-track"
+                  ><span class="bar-fill" [style.width.%]="(month[metric()] / max()) * 100"></span
+                ></span>
+              </td>
+              <td>{{ number(month[metric()]) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (periodCount() === 0) {
+        <p class="history-empty">
+          {{
+            metric() === 'visits'
+              ? 'Ainda não há visitas registradas neste período.'
+              : 'Ainda não há novos cadastros com data registrada neste período.'
+          }}
+        </p>
+      }
+    </section>
+    <aside class="admin-note" aria-label="Como os números são calculados">
+      <app-icon name="info" />
+      <div>
+        <strong>Sobre estes números</strong>
+        <p>
+          Cada conta é contada uma vez, mesmo participando de vários grupos. Jogadores fictícios não
+          entram no resumo.
+        </p>
+        @if (summary.undatedAccounts > 0) {
+          <p>
+            {{ number(summary.undatedAccounts) }} conta(s) antiga(s) sem data de cadastro: entram no
+            total, mas não no histórico. O registro das datas começou nesta atualização.
+          </p>
+        }
+        <p>
+          As visitas são aproximadas, não representam pessoas únicas e incluem a demonstração e a
+          administração. Outros navegadores, cookies bloqueados ou apagados podem gerar novas
+          visitas; robôs também podem ser contados. Não guardamos IPs, páginas acessadas ou dados da
+          conta nessa contagem. Solicitações com Do Not Track ou controle global de privacidade não
+          são contabilizadas.
+        </p>
+        @if (summary.visits.startedAt) {
+          <p>
+            Visitas registradas desde {{ dateLabel(summary.visits.startedAt) }}. Acessos anteriores
+            à atualização não estão disponíveis.
+          </p>
+        } @else {
+          <p>A contagem começa no primeiro acesso após esta atualização.</p>
+        }
+      </div>
+    </aside>
+    <p class="admin-updated">
+      Atualizado em {{ updatedAt() }} · horário de Brasília. Use Atualizar para consultar novamente.
+    </p>
+  }
+</section>

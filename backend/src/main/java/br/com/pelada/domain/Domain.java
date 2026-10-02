@@ -20,6 +20,7 @@ public final class Domain {
     public String name;
     public String email;
     public String password;
+    public Instant createdAt;
 
     protected Player() {}
 

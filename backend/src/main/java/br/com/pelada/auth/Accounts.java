@@ -1,9 +1,11 @@
 package br.com.pelada.auth;
 
+import br.com.pelada.admin.AdminAccess;
 import br.com.pelada.api.Contracts.*;
 import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.Player;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.util.Locale;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.*;
@@ -16,10 +18,19 @@ public class Accounts implements UserDetailsService {
 
   private final Store store;
   private final PasswordEncoder encoder;
+  private final Clock clock;
+  private final AdminAccess adminAccess;
 
-  public Accounts(Store store, PasswordEncoder encoder) {
+  public Accounts(
+    Store store,
+    PasswordEncoder encoder,
+    Clock clock,
+    AdminAccess adminAccess
+  ) {
     this.store = store;
     this.encoder = encoder;
+    this.clock = clock;
+    this.adminAccess = adminAccess;
   }
 
   public static String normalize(String email) {
@@ -58,9 +69,13 @@ public class Accounts implements UserDetailsService {
     ) throw ApiException.conflict(
       "Não foi possível cadastrar esse e-mail. Tente entrar ou use outro endereço."
     );
-    Player player = store.save(
-      new Player(input.name().strip(), email, encoder.encode(input.password()))
+    Player player = new Player(
+      input.name().strip(),
+      email,
+      encoder.encode(input.password())
     );
+    player.createdAt = clock.instant();
+    store.save(player);
     store.flush();
     return view(player);
   }
@@ -81,7 +96,12 @@ public class Accounts implements UserDetailsService {
       .orElseThrow(ApiException::forbidden);
   }
 
-  public static UserView view(Player player) {
-    return new UserView(player.id, player.name, player.email);
+  public UserView view(Player player) {
+    return new UserView(
+      player.id,
+      player.name,
+      player.email,
+      adminAccess.allowed(player)
+    );
   }
 }

@@ -95,11 +95,11 @@ public class AuthController {
     context.setAuthentication(auth);
     SecurityContextHolder.setContext(context);
     repository.saveContext(context, req, res);
-    return Accounts.view(accounts.current(auth));
+    return accounts.view(accounts.current(auth));
   }
 
   @GetMapping("/me")
   public UserView me(Authentication auth) {
-    return Accounts.view(accounts.current(auth));
+    return accounts.view(accounts.current(auth));
   }
 }

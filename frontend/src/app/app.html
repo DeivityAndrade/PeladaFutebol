@@ -37,6 +37,15 @@
       ><app-icon name="user-plus" /><span class="nav-text">Social</span></a
     >
   }
+  @if (user()?.admin) {
+    <a
+      href="#admin"
+      [class.active]="page() === 'admin'"
+      [attr.aria-current]="page() === 'admin' ? 'page' : null"
+    >
+      <app-icon name="shield" /><span class="nav-text">Administração</span>
+    </a>
+  }
 </ng-template>
 <ng-template #homeLinks>
   <a href="#inicio/funcionalidades" (click)="sameSection($event, 'funcionalidades')"
@@ -50,6 +59,9 @@
   >
   @if (user()) {
     <a href="#groups"><app-icon name="users" /><span class="nav-text">Meus grupos</span></a>
+  }
+  @if (user()?.admin) {
+    <a href="#admin"><app-icon name="shield" /><span class="nav-text">Administração</span></a>
   }
 </ng-template>
 <div class="app-shell">
@@ -146,6 +158,8 @@
           (login)="openAuth()"
           (demo)="openDemo($event)"
         />
+      } @else if (page() === 'admin' && user()) {
+        <app-admin-page />
       } @else if (page() === 'reset-password') {
         <section class="panel auth-reset-page" aria-labelledby="reset-title">
           <app-brand />
