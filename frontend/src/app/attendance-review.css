@@ -1,0 +1,119 @@
+:host {
+  display: block;
+}
+.attendance-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.attendance-heading h2 {
+  margin: 0;
+}
+.attendance-heading h2 span {
+  color: var(--action);
+}
+.attendance-heading p,
+.attendance-help {
+  color: var(--muted);
+}
+.attendance-heading button {
+  flex-shrink: 0;
+}
+.attendance-help {
+  max-width: 700px;
+  line-height: 1.5;
+  margin: 22px 0;
+}
+.attendance-notice {
+  color: var(--action);
+}
+.attendance-batch,
+.attendance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 20px 0;
+}
+.attendance-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 22px;
+}
+.attendance-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.attendance-list li > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.attendance-list strong {
+  overflow-wrap: anywhere;
+}
+.attendance-list li > div span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.attendance-list label {
+  width: 230px;
+  flex-shrink: 0;
+}
+.attendance-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.attendance-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--action);
+}
+.attendance-summary {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--surface-2);
+  border-radius: var(--radius-inner);
+}
+.attendance-summary h3 {
+  margin: 0 0 14px;
+}
+.attendance-summary li {
+  padding: 3px 0;
+}
+.attendance-audit {
+  margin-top: 28px;
+  color: var(--muted);
+}
+.attendance-audit summary {
+  cursor: pointer;
+  min-height: 30px;
+}
+.attendance-audit ul {
+  padding-left: 20px;
+  line-height: 1.7;
+}
+@media (max-width: 640px) {
+  .attendance-heading {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .attendance-list li {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .attendance-list label {
+    width: 100%;
+  }
+  .attendance-batch {
+    gap: 12px;
+    align-items: start;
+    flex-direction: column;
+  }
+}

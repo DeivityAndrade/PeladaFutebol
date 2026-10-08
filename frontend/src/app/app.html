@@ -31,6 +31,12 @@
   }
   @if (socialAccess()) {
     <a
+      href="#career"
+      [class.active]="page() === 'career'"
+      [attr.aria-current]="page() === 'career' ? 'page' : null"
+      ><app-icon name="person" /><span class="nav-text">Minha carreira</span></a
+    >
+    <a
       href="#social"
       [class.active]="page() === 'social'"
       [attr.aria-current]="page() === 'social' ? 'page' : null"
@@ -120,9 +126,22 @@
           <app-icon [name]="theme() === 'dark' ? 'sun' : 'moon'" />
         </button>
         @if (user()) {
-          <span class="account-name">{{ user()!.name.split(' ')[0] }}</span
-          ><span class="avatar account-avatar" aria-hidden="true">{{ initials(user()!.name) }}</span
-          ><button class="icon-button" type="button" aria-label="Sair da conta" (click)="logout()">
+          <a
+            class="account-profile"
+            href="#career"
+            aria-label="Abrir minha carreira e perfil"
+            [attr.aria-current]="page() === 'career' ? 'page' : null"
+          >
+            <span class="account-name">{{ user()!.name.split(' ')[0] }}</span>
+            <span class="avatar account-avatar" aria-hidden="true">
+              @if (user()!.photoUrl) {
+                <img [src]="user()!.photoUrl" alt="" />
+              } @else {
+                {{ initials(user()!.name) }}
+              }
+            </span>
+          </a>
+          <button class="icon-button" type="button" aria-label="Sair da conta" (click)="logout()">
             <app-icon name="logout" />
           </button>
         } @else {
@@ -392,6 +411,26 @@
                 (click)="tab.set('ratings')"
               >
                 Notas
+              </button>
+            }
+            @if (!demo()) {
+              @if (owner()) {
+                <button
+                  role="tab"
+                  [attr.aria-selected]="tab() === 'attendance'"
+                  [class.active]="tab() === 'attendance'"
+                  (click)="tab.set('attendance')"
+                >
+                  Presenças
+                </button>
+              }
+              <button
+                role="tab"
+                [attr.aria-selected]="tab() === 'career'"
+                [class.active]="tab() === 'career'"
+                (click)="tab.set('career')"
+              >
+                Minha carreira
               </button>
             }
           </div>
@@ -745,6 +784,13 @@
               }
             }
           </section>
+        } @else if (tab() === 'attendance' && owner()) {
+          <app-attendance-review
+            [gameId]="detail()!.game.id"
+            [timeZone]="detail()!.club.timeZone"
+          />
+        } @else if (tab() === 'career' && !demo()) {
+          <app-career-page [clubId]="detail()!.club.id" />
         } @else {
           <section class="panel people-panel">
             <div class="panel-heading">
@@ -851,6 +897,8 @@
         />
       } @else if (page() === 'social' && user()) {
         <app-social-page />
+      } @else if (page() === 'career' && user()) {
+        <app-account-page [user]="user()!" (updated)="user.set($event)" />
       } @else if (page() === 'group' && club()) {
         <div class="page-heading">
           <div>
@@ -906,8 +954,18 @@
           >
             Jogadores
           </button>
+          <button
+            role="tab"
+            [attr.aria-selected]="groupTab() === 'career'"
+            [class.active]="groupTab() === 'career'"
+            (click)="groupTab.set('career')"
+          >
+            Minha carreira
+          </button>
         </div>
-        @if (groupTab() === 'players') {
+        @if (groupTab() === 'career') {
+          <app-career-page [clubId]="club()!.id" />
+        } @else if (groupTab() === 'players') {
           <app-group-players [clubId]="club()!.id" [canManage]="groupOwner()" />
         } @else if (groupTab() === 'games') {
           @if (friendlies().length) {

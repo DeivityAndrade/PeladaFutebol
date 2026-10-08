@@ -77,3 +77,10 @@ p {
     margin-left: auto;
   }
 }
+.shared-figurinha {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}

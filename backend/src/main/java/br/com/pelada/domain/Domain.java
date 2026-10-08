@@ -21,6 +21,7 @@ public final class Domain {
     public String email;
     public String password;
     public Instant createdAt;
+    public UUID photoVersion;
 
     protected Player() {}
 
@@ -28,6 +29,24 @@ public final class Domain {
       this.name = name;
       this.email = email;
       this.password = password;
+    }
+  }
+
+  @Entity(name = "PlayerPhoto")
+  @Table(name = "player_photos")
+  public static class PlayerPhoto {
+
+    @Id
+    public UUID playerId;
+
+    @Column(columnDefinition = "bytea")
+    public byte[] data;
+
+    protected PlayerPhoto() {}
+
+    public PlayerPhoto(UUID playerId, byte[] data) {
+      this.playerId = playerId;
+      this.data = data;
     }
   }
 

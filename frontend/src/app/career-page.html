@@ -1,0 +1,272 @@
+<section class="career" aria-labelledby="career-heading">
+  <div class="career-heading">
+    <div>
+      <h2 id="career-heading">{{ heading() }}<span>.</span></h2>
+      <p>Cada encontro faz parte da sua história com a galera.</p>
+    </div>
+    @if (!clubId() && directory().length) {
+      <label
+        >Escolher grupo<select
+          name="careerGroup"
+          [(ngModel)]="selected"
+          (ngModelChange)="load()"
+          [disabled]="busy()"
+        >
+          @for (group of directory(); track group.clubId) {
+            <option [value]="group.clubId">
+              {{ group.name }}{{ group.member ? '' : ' · Minha coleção' }}
+            </option>
+          }
+        </select></label
+      >
+    }
+  </div>
+  @if (error()) {
+    <div class="alert error" role="alert">
+      {{ error() }}
+      <button class="text-button" (click)="load()" [disabled]="busy()">Tentar novamente</button>
+    </div>
+  }
+  @if (notice()) {
+    <p class="career-notice" role="status">{{ notice() }}</p>
+  }
+  @if (loading()) {
+    <p role="status">Carregando sua história…</p>
+  } @else if (data(); as d) {
+    @if (unseen().length || d.correctionUnseen) {
+      <aside class="career-news" aria-label="Novidades da sua coleção" role="status">
+        @for (achievement of unseen(); track achievement.code) {
+          <p>
+            <app-icon name="check" />Você conquistou <strong>{{ achievement.name }}</strong> por
+            participar de {{ achievement.threshold }}
+            {{ achievement.threshold === 1 ? 'pelada' : 'peladas' }} neste grupo.
+          </p>
+        }
+        @if (d.correctionUnseen) {
+          <p>
+            Uma conferência de presença foi corrigida. Sua coleção e seu progresso foram
+            atualizados.
+          </p>
+        }
+        <button class="text-button" (click)="viewCollection()">Ver conquistas</button
+        ><button class="text-button" (click)="dismiss()" [disabled]="busy()">Fechar aviso</button>
+      </aside>
+    }
+    @if (d.program.canManage) {
+      <section class="panel career-program" aria-label="Conquistas do grupo">
+        <div>
+          <h3>
+            {{
+              d.program.active
+                ? 'Conquistas ativadas no grupo'
+                : d.program.startedAt
+                  ? 'Conquistas pausadas'
+                  : 'Comece a coleção do grupo'
+            }}
+          </h3>
+          <p>
+            {{
+              d.program.active
+                ? 'Depois de cada pelada, confira quem participou na aba Presenças.'
+                : 'Ao ativar, os próximos encontros passam a valer conquistas. A turma participa no próprio ritmo.'
+            }}
+          </p>
+        </div>
+        <button class="button secondary" [disabled]="busy()" (click)="configure(!d.program.active)">
+          {{ d.program.active ? 'Pausar conquistas' : 'Ativar conquistas' }}
+        </button>
+      </section>
+    } @else if (!d.program.active) {
+      <p class="career-state">
+        {{
+          d.program.startedAt
+            ? 'As conquistas estão pausadas. Sua coleção continua aqui.'
+            : 'O organizador ainda não ativou as conquistas deste grupo.'
+        }}
+      </p>
+    }
+    <div class="career-layout">
+      <div class="career-personal">
+        <app-figurinha [card]="preview()!" [clubName]="d.clubName" />
+        <p class="career-privacy">
+          <app-icon [name]="d.card.shared ? 'users' : 'shield'" />{{
+            d.card.shared
+              ? 'Figurinha compartilhada com os membros do grupo.'
+              : 'Sua figurinha está privada.'
+          }}
+        </p>
+        <details class="panel career-editor">
+          <summary>Personalizar figurinha</summary>
+          <form (ngSubmit)="save()">
+            <label
+              >Título<select
+                aria-label="Título"
+                name="cardTitle"
+                [(ngModel)]="title"
+                [disabled]="busy()"
+              >
+                <option value="">Sem título</option>
+                @if (unlocked('FIVE_APPEARANCES')) {
+                  <option value="FIVE_APPEARANCES">Já é de casa</option>
+                }
+                @if (unlocked('TWENTY_FIVE_APPEARANCES')) {
+                  <option value="TWENTY_FIVE_APPEARANCES">Parte da história</option>
+                }
+              </select></label
+            >
+            <label
+              >Moldura<select
+                aria-label="Moldura"
+                name="cardFrame"
+                [(ngModel)]="frame"
+                [disabled]="busy()"
+              >
+                <option value="">Original</option>
+                @if (unlocked('TEN_APPEARANCES')) {
+                  <option value="TEN_APPEARANCES">Figurinha carimbada</option>
+                }
+              </select></label
+            >
+            <fieldset>
+              <legend>Selos escolhidos</legend>
+              @for (code of ['FIRST_APPEARANCE', 'TWENTY_FIVE_APPEARANCES']; track code) {
+                <label class="career-check"
+                  ><input
+                    type="checkbox"
+                    [name]="code"
+                    [ngModel]="badges.includes(code)"
+                    (ngModelChange)="toggleBadge(code, $event)"
+                    [disabled]="busy() || !unlocked(code)"
+                  />{{ names[code] }}{{ unlocked(code) ? '' : ' · Ainda não conquistado' }}</label
+                >
+              }
+            </fieldset>
+            <label class="career-check"
+              ><input
+                type="checkbox"
+                name="shareCard"
+                [(ngModel)]="shared"
+                [disabled]="busy() || !d.canShare"
+              />Mostrar minha figurinha aos membros do grupo</label
+            >
+            <p class="small muted">Seu contador, progresso e histórico continuam privados.</p>
+            @if (!d.canShare) {
+              <p class="small muted">
+                Sua coleção pessoal continua disponível. Para compartilhar a figurinha, você precisa
+                ser membro do grupo.
+              </p>
+            }
+            <button class="button primary" [disabled]="busy()">
+              {{ busy() ? 'Salvando…' : 'Salvar figurinha' }}
+            </button>
+          </form>
+        </details>
+      </div>
+      <div class="career-story">
+        <section class="panel career-progress" aria-labelledby="progress-heading">
+          <h3 id="progress-heading">Seu próximo encontro conta.</h3>
+          <p class="career-count">
+            <strong>{{ d.appearances }}</strong>
+            <span
+              >{{
+                d.appearances === 1
+                  ? 'pelada com presença conferida'
+                  : 'peladas com presença conferida'
+              }}
+              neste grupo.</span
+            >
+          </p>
+          @if (next(); as achievement) {
+            <label for="career-progress"
+              >{{ achievement.name }} · {{ d.appearances }} de {{ achievement.threshold }}</label
+            >
+            <progress
+              id="career-progress"
+              [value]="d.appearances"
+              [max]="achievement.threshold"
+            ></progress>
+            <p class="small muted">
+              {{
+                achievement.threshold - d.appearances === 1
+                  ? 'Falta um encontro.'
+                  : 'Faltam ' + (achievement.threshold - d.appearances) + ' encontros.'
+              }}
+              Sem prazo: participe no seu ritmo.
+            </p>
+          } @else {
+            <p>
+              Você completou todas as conquistas da coleção. A história continua nos próximos
+              encontros.
+            </p>
+          }
+        </section>
+        <section
+          class="panel career-collection"
+          id="career-collection"
+          tabindex="-1"
+          aria-labelledby="collection-heading"
+        >
+          <h3 id="collection-heading">Sua coleção</h3>
+          <ul>
+            @for (achievement of d.achievements; track achievement.code) {
+              <li [class.earned]="achievement.awardedAt">
+                <span class="achievement-icon"
+                  ><app-icon [name]="achievement.awardedAt ? 'check' : 'clock'"
+                /></span>
+                <div>
+                  <h4>{{ achievement.name }}</h4>
+                  <p>
+                    {{ achievement.threshold }}
+                    {{ achievement.threshold === 1 ? 'participação' : 'participações' }} ·
+                    {{ achievement.reward }}
+                  </p>
+                  <span>{{
+                    achievement.awardedAt
+                      ? 'Conquistado em ' + date(achievement.awardedAt)
+                      : 'Ainda não conquistado'
+                  }}</span>
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+        @if (d.pending.length) {
+          <section class="panel career-history" aria-labelledby="pending-heading">
+            <h3 id="pending-heading">Aguardando conferência</h3>
+            <p>O organizador ainda precisa conferir quem participou.</p>
+            <ul>
+              @for (game of d.pending; track game.gameId) {
+                <li>
+                  <span>{{ game.title }}</span
+                  ><time [attr.datetime]="game.startsAt">{{ date(game.startsAt) }}</time>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+        <section class="panel career-history" aria-labelledby="history-heading">
+          <h3 id="history-heading">Encontros que fazem parte da história</h3>
+          @if (d.history.length) {
+            <ul>
+              @for (game of d.history; track game.gameId) {
+                <li>
+                  <span>{{ game.title }}</span
+                  ><time [attr.datetime]="game.startsAt">{{ date(game.startsAt) }}</time>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p>Sua primeira presença conferida inaugura a coleção.</p>
+          }
+        </section>
+      </div>
+    </div>
+  } @else if (!error()) {
+    <div class="panel empty-state">
+      <app-icon name="users" />
+      <h3>Sua história começa com a galera.</h3>
+      <p>Entre em um grupo ou participe como goleiro convidado para começar sua coleção.</p>
+      <a class="button primary" href="#groups">Ver meus grupos</a>
+    </div>
+  }
+</section>

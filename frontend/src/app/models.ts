@@ -1,4 +1,5 @@
 export interface User {
+  photoUrl?: string | null;
   id: string;
   name: string;
   email: string;

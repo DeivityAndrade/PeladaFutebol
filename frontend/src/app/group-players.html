@@ -11,6 +11,19 @@
   @if (notice()) {
     <p class="saved" role="status">{{ notice() }}</p>
   }
+  @if (figurinhaError()) {
+    <p role="status">{{ figurinhaError() }}</p>
+  }
+  @if (figurinhaLoading()) {
+    <p role="status">Carregando figurinha…</p>
+  }
+  @if (sharedFigurinha(); as card) {
+    <section class="shared-figurinha" aria-labelledby="shared-figurinha-heading">
+      <h3 id="shared-figurinha-heading" tabindex="-1">Figurinha de {{ card.name }}</h3>
+      <app-figurinha [card]="card" />
+      <button class="button secondary" (click)="closeFigurinha()">Fechar figurinha</button>
+    </section>
+  }
   @if (loading()) {
     <p role="status">Carregando jogadores…</p>
   } @else {
@@ -105,6 +118,15 @@
               {{ p.skillLevel === null ? 'Classificar' : 'Editar' }}
             </button>
           }
+          <button
+            class="text-button"
+            [id]="'figurinha-' + p.playerId"
+            [attr.aria-label]="'Ver figurinha de ' + p.name"
+            (click)="showFigurinha(p)"
+            [disabled]="figurinhaLoading()"
+          >
+            Figurinha
+          </button>
         </li>
       } @empty {
         <li>Nenhum jogador encontrado.</li>

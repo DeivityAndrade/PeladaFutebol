@@ -101,7 +101,8 @@ public class Accounts implements UserDetailsService {
       player.id,
       player.name,
       player.email,
-      adminAccess.allowed(player)
+      adminAccess.allowed(player),
+      AccountProfile.photoUrl(player)
     );
   }
 }

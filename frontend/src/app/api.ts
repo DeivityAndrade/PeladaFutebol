@@ -68,7 +68,7 @@ export class Api {
       if (response.status === 403) this.csrf = '';
       throw new ApiError(
         response.status,
-        data.message || 'Não foi possível enviar o comprovante. Tente novamente.',
+        data.message || 'Não foi possível enviar o arquivo. Tente novamente.',
       );
     }
     return response.json();

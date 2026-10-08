@@ -1,0 +1,84 @@
+<section class="account-page" aria-labelledby="account-heading">
+  <header class="account-heading">
+    <h1 id="account-heading">Minha carreira<span>.</span></h1>
+    <p>Seu perfil e sua história com a galera, em um só lugar.</p>
+  </header>
+  <section class="panel account-editor" aria-labelledby="profile-heading">
+    <div class="account-photo-editor">
+      <div class="profile-portrait" aria-label="Foto do perfil">
+        @if (preview() || user().photoUrl) {
+          <img [src]="preview() || user().photoUrl" alt="Sua foto de perfil" />
+        } @else {
+          <span aria-hidden="true">{{ initials() }}</span>
+        }
+      </div>
+      <input
+        #photoInput
+        type="file"
+        accept="image/jpeg,image/png"
+        aria-label="Escolher foto de perfil"
+        class="photo-input"
+        (change)="choose($event)"
+        [disabled]="busy()"
+      />
+      <button
+        class="button secondary"
+        type="button"
+        (click)="photoInput.click()"
+        [disabled]="busy()"
+      >
+        {{ user().photoUrl ? 'Trocar foto' : 'Escolher foto' }}
+      </button>
+      <p class="photo-help">JPG ou PNG, até 2 MB.<br />A foto será recortada no centro.</p>
+      @if (file()) {
+        <button class="button primary" type="button" (click)="savePhoto()" [disabled]="busy()">
+          Salvar foto
+        </button>
+        <button class="text-button" type="button" (click)="cancelPhoto()" [disabled]="busy()">
+          Cancelar escolha
+        </button>
+      } @else if (user().photoUrl) {
+        <button class="text-button" type="button" (click)="removePhoto()" [disabled]="busy()">
+          Remover foto
+        </button>
+      }
+    </div>
+    <div class="account-details">
+      <h2 id="profile-heading">Meu perfil</h2>
+      <p>Este nome e esta foto acompanham você nas figurinhas dos seus grupos.</p>
+      <form (ngSubmit)="saveName()">
+        <label for="profile-name">Nome</label>
+        <input
+          id="profile-name"
+          name="profileName"
+          autocomplete="name"
+          maxlength="80"
+          required
+          [(ngModel)]="name"
+          [disabled]="busy()"
+        />
+        <div class="account-email">
+          <span>E-mail da conta</span>
+          <p>{{ user().email }}</p>
+        </div>
+        <button
+          class="button primary"
+          type="submit"
+          [disabled]="busy() || name.trim() === user().name || !name.trim()"
+        >
+          Salvar nome
+        </button>
+      </form>
+      @if (busy()) {
+        <p role="status">Salvando alteração…</p>
+      }
+      @if (error()) {
+        <p class="alert error" role="alert">{{ error() }}</p>
+      }
+      @if (notice()) {
+        <p class="account-notice" role="status">{{ notice() }}</p>
+      }
+    </div>
+  </section>
+  <app-career-page heading="Suas coleções" [account]="user()" />
+</section>

@@ -30,7 +30,7 @@ public class Errors {
 
   @ExceptionHandler(MaxUploadSizeExceededException.class)
   ResponseEntity<?> uploadTooLarge(MaxUploadSizeExceededException ex) {
-    return response(413, "O comprovante deve ter no máximo 2 MB.");
+    return response(413, "O arquivo deve ter no máximo 2 MB.");
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)
