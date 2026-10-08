@@ -41,6 +41,12 @@ springdoc:
   api-docs:
     path: /api/openapi
 app:
+  whatsapp:
+    enabled: ${WHATSAPP_ENABLED:false}
+    business-number: ${WHATSAPP_BUSINESS_NUMBER:}
+    phone-id: ${WHATSAPP_PHONE_ID:}
+    app-secret: ${WHATSAPP_APP_SECRET:}
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:}
   assistant:
     enabled: ${ASSISTANT_ENABLED:false}
     api-key: ${ASSISTANT_API_KEY:}

@@ -7,6 +7,16 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     envVars:
+      - key: WHATSAPP_ENABLED
+        sync: false
+      - key: WHATSAPP_BUSINESS_NUMBER
+        sync: false
+      - key: WHATSAPP_PHONE_ID
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
       - key: JDBC_DATABASE_URL
         sync: false
       - key: DB_USER

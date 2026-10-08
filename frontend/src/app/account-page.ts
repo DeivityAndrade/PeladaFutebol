@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { Api } from './api';
 import { User } from './models';
 import { CareerPage } from './career-page';
+import { WhatsAppSettings } from './whatsapp-settings';
 
 @Component({
   selector: 'app-account-page',
   standalone: true,
-  imports: [FormsModule, CareerPage],
+  imports: [FormsModule, CareerPage, WhatsAppSettings],
   templateUrl: './account-page.html',
   styleUrl: './account-page.css',
 })
