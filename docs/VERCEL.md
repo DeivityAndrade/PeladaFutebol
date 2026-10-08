@@ -50,6 +50,13 @@ Consulte [ADMINISTRACAO.md](ADMINISTRACAO.md) para configuração e limites das 
 
 ## Publicar as próximas entregas
 
+### Assistente de criação
+
+O organizador pode usar **Marcar com assistente** na agenda do grupo. A interpretação
+prepara uma proposta; a revisão e a confirmação são etapas separadas. A chave da
+OpenAI é configurada somente no Render. Publicar a interface não instala as rotas
+do servidor nem a migração V14. Consulte [ASSISTENTE.md](ASSISTENTE.md).
+
 A primeira publicação foi feita diretamente pela CLI autenticada. O vínculo automático
 com o GitHub não foi concluído porque a conta da Vercel precisa de uma conexão de login
 com o GitHub. **Por enquanto, novos commits não publicam automaticamente este projeto.**

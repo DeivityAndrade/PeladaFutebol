@@ -1,0 +1,221 @@
+<h2 id="modal-title">Marcar com assistente.</h2>
+<p class="assistant-context">{{ club().name }} · Horário de {{ club().timeZone }}</p>
+@if (error()) {
+  <div id="assistant-error" class="alert error" role="alert" tabindex="-1">{{ error() }}</div>
+}
+@if (available() === null) {
+  <p role="status">Conferindo disponibilidade…</p>
+} @else if (!available()) {
+  <p>
+    O assistente ainda não está disponível neste site. Você pode marcar sua pelada pelo formulário.
+  </p>
+  <button class="button primary full-width" type="button" (click)="manual.emit()">
+    Usar formulário
+  </button>
+} @else if (reviewed() && proposal(); as p) {
+  <h3 id="assistant-summary" tabindex="-1">Confira antes de criar</h3>
+  <dl class="assistant-summary">
+    <div>
+      <dt>Pelada</dt>
+      <dd>{{ p.draft.title }}</dd>
+    </div>
+    <div>
+      <dt>Local</dt>
+      <dd>{{ p.draft.location }}</dd>
+    </div>
+    <div>
+      <dt>Data e horário</dt>
+      <dd>
+        {{ p.draft.date + 'T12:00:00' | date: 'dd/MM/yyyy' }} às {{ p.draft.time?.slice(0, 5) }}
+      </dd>
+    </div>
+    <div>
+      <dt>Vagas</dt>
+      <dd>
+        {{ p.draft.teamCount }} times × {{ p.draft.teamSize }} jogadores =
+        {{ (p.draft.teamCount || 0) * (p.draft.teamSize || 0) }} vagas
+      </dd>
+    </div>
+    <div>
+      <dt>Repetição</dt>
+      <dd>
+        @if (p.draft.recurring) {
+          Toda semana
+          @if (p.draft.recurrenceEndsOn) {
+            até {{ p.draft.recurrenceEndsOn + 'T12:00:00' | date: 'dd/MM/yyyy' }}
+          } @else {
+            sem data de término
+          }
+        } @else {
+          Jogo avulso
+        }
+      </dd>
+    </div>
+    <div>
+      <dt>Cobrança avulsa</dt>
+      <dd>
+        @if (p.draft.chargeOccasional) {
+          {{ (p.draft.occasionalAmountCents || 0) / 100 | currency: 'BRL' }} por jogador avulso, no
+          início da pelada
+        } @else {
+          Sem cobrança avulsa
+        }
+      </dd>
+    </div>
+  </dl>
+  <p class="assistant-note">
+    O jogo será criado neste grupo. Criar a pelada não envia mensagens pelo WhatsApp.
+  </p>
+  <div class="assistant-actions">
+    <button class="button secondary" type="button" [disabled]="busy()" (click)="edit()">
+      Editar detalhes
+    </button>
+    <button class="button primary" type="button" [disabled]="busy()" (click)="confirm()">
+      {{ busy() ? 'Criando…' : 'Criar jogo' }}
+    </button>
+  </div>
+} @else {
+  @if (proposal(); as p) {
+    <h3 id="assistant-details" tabindex="-1">Revise os detalhes</h3>
+    @if (p.questions.length) {
+      <div id="assistant-questions" class="assistant-questions" role="status" tabindex="-1">
+        <p>Precisamos completar alguns detalhes:</p>
+        <ul>
+          @for (question of p.questions; track $index) {
+            <li>{{ question }}</li>
+          }
+        </ul>
+      </div>
+    }
+    @if (draft; as d) {
+      <form (ngSubmit)="review()">
+        <fieldset [disabled]="busy()">
+          <legend class="sr-only">Detalhes da proposta</legend>
+          <label
+            >Nome da pelada<input
+              name="assistantTitle"
+              [(ngModel)]="d.title"
+              maxlength="100"
+              required
+          /></label>
+          <label
+            >Local e quadra<input
+              name="assistantLocation"
+              [(ngModel)]="d.location"
+              maxlength="160"
+              required
+          /></label>
+          <div class="form-row">
+            <label
+              >Data<input type="date" name="assistantDate" [(ngModel)]="d.date" required
+            /></label>
+            <label
+              >Horário<input type="time" name="assistantTime" [(ngModel)]="d.time" required
+            /></label>
+          </div>
+          <div class="form-row">
+            <label
+              >Quantidade de times<input
+                type="number"
+                name="assistantTeams"
+                [(ngModel)]="d.teamCount"
+                min="2"
+                max="6"
+                required
+            /></label>
+            <label
+              >Jogadores por time<input
+                type="number"
+                name="assistantSize"
+                [(ngModel)]="d.teamSize"
+                min="5"
+                max="12"
+                required
+            /></label>
+          </div>
+          <p class="assistant-note">
+            {{ (d.teamCount || 0) * (d.teamSize || 0) }} vagas · 5 titulares por time
+          </p>
+          <label class="check-label"
+            ><input type="checkbox" name="assistantRecurring" [(ngModel)]="d.recurring" />Repetir
+            toda semana</label
+          >
+          @if (d.recurring) {
+            <label
+              >Última data (opcional)<input
+                type="date"
+                name="assistantEnds"
+                [(ngModel)]="d.recurrenceEndsOn"
+                [min]="d.date || ''"
+            /></label>
+            <p class="assistant-note">Sem término, o site prepara as próximas oito ocorrências.</p>
+          }
+          <label class="check-label"
+            ><input type="checkbox" name="assistantCharge" [(ngModel)]="d.chargeOccasional" />Gerar
+            cobrança para jogadores avulsos</label
+          >
+          @if (d.chargeOccasional) {
+            <label
+              >Valor por jogador avulso (R$)<input
+                name="assistantAmount"
+                inputmode="decimal"
+                [(ngModel)]="amount"
+                maxlength="10"
+                required
+            /></label>
+            <p class="assistant-note">
+              A cobrança é gerada no início da pelada, conforme as regras do grupo.
+            </p>
+          }
+        </fieldset>
+        <button class="button primary full-width" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Revisando…' : 'Revisar detalhes' }}
+        </button>
+      </form>
+    }
+  } @else {
+    <p>Conte quando e onde quer jogar. Depois você confere todos os detalhes antes de criar.</p>
+    <p class="assistant-example">
+      Exemplo: “Pelada sábado às 19h na Arena da Vila, com 2 times de 7 jogadores.”
+    </p>
+  }
+  <form class="assistant-request" (ngSubmit)="interpret()">
+    <label for="assistant-request">{{
+      proposal() ? 'Complementar o pedido' : 'Como será a pelada?'
+    }}</label>
+    <textarea
+      id="assistant-request"
+      name="assistantRequest"
+      [(ngModel)]="message"
+      maxlength="1200"
+      rows="3"
+      [disabled]="busy()"
+      required
+      aria-describedby="assistant-request-note"
+    ></textarea>
+    <small id="assistant-request-note"
+      >{{ message.length }}/1200 · Envie apenas os detalhes do jogo.</small
+    >
+    <p class="assistant-note">
+      Ao preparar o jogo, seu pedido, o nome e o fuso do grupo serão enviados à OpenAI para
+      interpretar os detalhes. A lista de membros, cobranças e comprovantes não são enviados.
+    </p>
+    <button
+      class="button secondary full-width"
+      type="submit"
+      [disabled]="busy() || !message.trim()"
+    >
+      {{ busy() ? 'Preparando…' : proposal() ? 'Atualizar pedido' : 'Preparar jogo' }}
+    </button>
+  </form>
+  <div class="assistant-links">
+    <button class="text-button" type="button" [disabled]="busy()" (click)="manual.emit()">
+      Usar formulário
+    </button>
+    @if (proposal()) {
+      <button class="text-button" type="button" [disabled]="busy()" (click)="restart()">
+        Novo pedido
+      </button>
+    }
+  </div>
+}

@@ -1,0 +1,85 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.assistant-context {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+h3 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  margin: 22px 0 14px;
+}
+.assistant-example,
+.assistant-questions {
+  background: var(--surface-2);
+  padding: 14px 16px;
+  border-radius: var(--radius-field);
+  color: var(--ink-2);
+}
+.assistant-questions p {
+  margin: 0 0 8px;
+}
+.assistant-questions ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.assistant-note,
+small {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+.assistant-request {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.assistant-summary {
+  margin: 0;
+}
+.assistant-summary > div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+dt {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.assistant-actions,
+.assistant-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.assistant-actions > button {
+  flex: 1;
+}
+.assistant-links {
+  justify-content: space-between;
+}
+@media (max-width: 480px) {
+  .assistant-actions {
+    flex-direction: column-reverse;
+  }
+}

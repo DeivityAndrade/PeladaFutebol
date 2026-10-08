@@ -36,6 +36,7 @@ import { AdminPage } from './admin-page';
 import { CareerPage } from './career-page';
 import { AttendanceReviewPage } from './attendance-review';
 import { AccountPage } from './account-page';
+import { GameAssistant } from './game-assistant';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -114,6 +115,7 @@ function dateTimeForZone(iso: string, timeZone: string) {
     CareerPage,
     AttendanceReviewPage,
     AccountPage,
+    GameAssistant,
   ],
   templateUrl: './app.html',
 })
@@ -667,7 +669,10 @@ export class App implements OnInit, OnDestroy {
   closeModal() {
     if (this.busy()) return;
     const wasAuth = this.modal() === 'auth';
+    const wasAssistant = this.modal() === 'assistant';
     this.modal.set('');
+    if (wasAssistant)
+      requestAnimationFrame(() => document.getElementById('open-game-assistant')?.focus());
     if (wasAuth && !this.user() && !this.demo() && !this.home()) this.navigate('inicio');
   }
   rememberModalPointer(event: PointerEvent) {
@@ -809,6 +814,12 @@ export class App implements OnInit, OnDestroy {
       this.navigate('game/' + d.game.id);
       this.notify('Pelada marcada!');
     });
+  }
+  assistantCreated(detail: Detail) {
+    this.setDetail(detail);
+    this.modal.set('');
+    this.navigate('game/' + detail.game.id);
+    this.notify('Pelada marcada!');
   }
   saveGame() {
     void this.action(async () => {

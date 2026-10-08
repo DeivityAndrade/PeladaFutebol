@@ -19,6 +19,14 @@ services:
         sync: false
       - key: PUBLIC_APP_URL
         sync: false
+      - key: ASSISTANT_ENABLED
+        sync: false
+      - key: ASSISTANT_API_KEY
+        sync: false
+      - key: ASSISTANT_MODEL
+        sync: false
+      - key: ASSISTANT_DAILY_LIMIT
+        sync: false
       - key: COOKIE_SECURE
         value: "true"
       - key: DEMO_ENABLED
