@@ -7,6 +7,20 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     envVars:
+      - key: WHATSAPP_AUTOMATION_ENABLED
+        sync: false
+      - key: WHATSAPP_SEND_ENABLED
+        sync: false
+      - key: WHATSAPP_INTEGRATION_TOKEN
+        sync: false
+      - key: WHATSAPP_PILOT_NUMBERS
+        sync: false
+      - key: WHATSAPP_INVITATION_TEMPLATE
+        sync: false
+      - key: WHATSAPP_REMINDER_TEMPLATE
+        sync: false
+      - key: WHATSAPP_DAILY_SEND_LIMIT
+        sync: false
       - key: WHATSAPP_ENABLED
         sync: false
       - key: WHATSAPP_BUSINESS_NUMBER

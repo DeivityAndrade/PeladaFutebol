@@ -118,7 +118,8 @@
       <h3>Autorizações por grupo</h3>
       <p>
         Vincular o número não autoriza mensagens. Marque os avisos que deseja receber e salve em
-        cada grupo. Os envios automáticos ainda estão em preparação.
+        cada grupo. Os envios dependem da ativação do grupo pelo organizador. No piloto, apenas os
+        números de teste cadastrados recebem mensagens.
       </p>
       @for (group of state.groups; track group.clubId) {
         <form (ngSubmit)="save(group)">
@@ -156,15 +157,19 @@
       os avisos que você autorizar. Ele não aparece na lista de participantes.
     </p>
     <p>
-      A Meta recebe as mensagens de vinculação e dos futuros avisos. Os dados ficam no servidor e
-      banco do Tô Dentro (Render e Neon). A automação de envios com n8n será configurada em uma
-      próxima etapa.
+      A Meta processa as mensagens. Os dados ficam no servidor e banco do Tô Dentro (Render e Neon).
+      Nos grupos com agente ativado, o n8n processa comandos e pode enviar o texto à OpenAI para
+      interpretar seu pedido. A presença respeita as vagas e a fila; criar uma partida exige que o
+      organizador revise e confirme o resumo. Você também pode continuar usando o site.
     </p>
     <p>
       O vínculo fica salvo até você desconectar; as preferências também são removidas ao sair do
       grupo. O histórico de autorizações tem prazo de 90 dias e os identificadores de mensagens
-      recebidas, de 30 dias. A limpeza ocorre na próxima execução do servidor. Não guardamos o texto
-      das mensagens recebidas. Os códigos expiram em dez minutos.
+      recebidas, de 30 dias. No piloto, o texto de um comando fica temporariamente na fila, por até
+      dez minutos de processamento, e é apagado quando concluído ou expirado. O resultado do
+      atendimento fica por sete dias, e o registro de envios, por 30 dias. A limpeza ocorre durante
+      a operação do servidor. Os códigos expiram em dez minutos. Consulte a política de privacidade
+      para os detalhes.
     </p>
   </details>
 </section>

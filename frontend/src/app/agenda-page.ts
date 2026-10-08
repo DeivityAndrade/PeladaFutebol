@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { Api } from './api';
 import { Club, Game, SocialSchedule } from './models';
 import { Icon } from './icon';
+import { WhatsAppOperations } from './whatsapp-operations';
 
 interface CalendarEvent {
   key: string;
@@ -52,7 +53,7 @@ function keyForCalendarDate(date: Date) {
 @Component({
   selector: 'app-agenda-page',
   standalone: true,
-  imports: [FormsModule, Icon],
+  imports: [FormsModule, Icon, WhatsAppOperations],
   templateUrl: './agenda-page.html',
   styleUrl: './agenda-page.css',
 })

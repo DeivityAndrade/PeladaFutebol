@@ -177,6 +177,14 @@ public class Assistant {
 
   private record Prepared(Context context, long previousVersion) {}
 
+  public Proposal inspect(UUID user, UUID id) {
+    return tx.execute(status -> {
+      var proposal = owned(user, id);
+      usable(proposal);
+      return view(proposal);
+    });
+  }
+
   private void take(String bucket, int maximum, Instant expiry) {
     var counts = jdbc.queryForList(
       "INSERT INTO assistant_request_limits(bucket,requests,expires_at) VALUES (?,1,?) ON CONFLICT (bucket) DO UPDATE SET requests=assistant_request_limits.requests+1 WHERE assistant_request_limits.requests < ? RETURNING requests",

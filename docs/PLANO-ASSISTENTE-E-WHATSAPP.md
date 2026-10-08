@@ -1,11 +1,14 @@
 # Plano de implementação — assistente e WhatsApp
 
-Data: 08/10/2026. Estado: proposta de implementação; nenhuma integração ativada.
+Data: 08/10/2026. Estado: assistente do site e vínculo WhatsApp implementados;
+agente e envios preparados para piloto local, desativados por padrão.
 
 Atualização de 08/10/2026: a primeira etapa (assistente dentro do site) foi implementada
 com integração configurável de IA, revisão e confirmação. Consulte
-[ASSISTENTE.md](ASSISTENTE.md) para ativação e limites. WhatsApp e n8n permanecem
-nas próximas etapas; nenhuma mensagem real foi ativada.
+[ASSISTENTE.md](ASSISTENTE.md) para ativação e limites. Consulte [WHATSAPP.md](WHATSAPP.md)
+para vinculação e [WHATSAPP-AGENTE.md](WHATSAPP-AGENTE.md) para presença, criação por
+conversa, filas, lembretes e execução local do n8n. A ativação de envios reais do
+piloto depende de credenciais, modelos e lista de destinatários.
 
 ## Objetivo e primeira versão
 
@@ -20,7 +23,10 @@ Primeira versão:
 - Lembrete configurável antes do jogo; proposta inicial: duas horas antes, para confirmados.
 - Consulta do estado dos envios e opção de desligar as automações.
 
-Os jogadores confirmam presença no site nesta versão. Comandos e presença pelo WhatsApp entram depois do piloto. Áudio, cobranças, edição/cancelamento pela IA, montagem de times e operações financeiras ficam para outra etapa. Jogos criados pelo formulário também podem usar as notificações.
+O piloto preparado também permite presença e criação de partidas pelo WhatsApp.
+Áudio, cobranças, edição/cancelamento pela IA, montagem de times e operações
+financeiras ficam para outra etapa. Jogos criados pelo formulário usam a mesma fila
+quando o organizador ativa a automação do grupo.
 
 ## Base existente e decisões de arquitetura
 
@@ -46,7 +52,11 @@ flowchart LR
     H -->|Link e login| A
 ```
 
-O backend é a fonte dos jogos, destinatários e permissões. O n8n não acessa tabelas de domínio, não recebe senha de administrador e não decide quem pode criar jogos. No MVP, a interpretação de IA fica no backend; o n8n organiza os envios. Isso também permite trocar o n8n por outro executor sem alterar as regras do produto.
+O backend é a fonte dos jogos, destinatários e permissões. O n8n não acessa tabelas
+de domínio, não recebe senha de administrador e não decide quem pode criar jogos.
+No piloto atual, o agente n8n interpreta intenções e chama ferramentas validadas
+do backend. A preparação dos campos de criação reutiliza o assistente do backend.
+O n8n também organiza os envios. As regras do produto permanecem no servidor.
 
 ## Etapa 0 — configuração e decisões externas
 

@@ -27,6 +27,9 @@
     </div>
   </div>
 
+  @if (createClub(); as club) {
+    <app-whatsapp-operations [clubId]="club.id" [clubName]="club.name" />
+  }
   @if (!clubs().length) {
     <div class="panel empty-state">
       <app-icon name="calendar" />

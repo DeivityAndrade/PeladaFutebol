@@ -24,6 +24,7 @@ public class WhatsApp {
   private final boolean enabled;
   private final String businessNumber, phoneId, appSecret, verifyToken;
   private final int maxCodesPerHour;
+  private final WhatsAppInbox inbox;
   private final SecureRandom random = new SecureRandom();
 
   public WhatsApp(
@@ -34,7 +35,8 @@ public class WhatsApp {
     @Value("${app.whatsapp.phone-id:}") String phoneId,
     @Value("${app.whatsapp.app-secret:}") String appSecret,
     @Value("${app.whatsapp.verify-token:}") String verifyToken,
-    @Value("${app.whatsapp.max-codes-per-hour:3}") int maxCodesPerHour
+    @Value("${app.whatsapp.max-codes-per-hour:3}") int maxCodesPerHour,
+    WhatsAppInbox inbox
   ) {
     this.jdbc = jdbc;
     this.clock = clock;
@@ -44,6 +46,7 @@ public class WhatsApp {
     this.appSecret = appSecret;
     this.verifyToken = verifyToken;
     this.maxCodesPerHour = Math.max(1, maxCodesPerHour);
+    this.inbox = inbox;
   }
 
   public record Preference(
@@ -310,6 +313,17 @@ public class WhatsApp {
   }
 
   private void revoke(UUID user, String reason) {
+    jdbc.update(
+      "UPDATE whatsapp_outbox SET state='CANCELLED',body=NULL,error_code='REVOKED',updated_at=? WHERE player_id=? AND state IN ('PENDING','CLAIMED')",
+      time(clock.instant()),
+      user
+    );
+    jdbc.update(
+      "UPDATE whatsapp_inbox SET state='EXPIRED',text=NULL,button=NULL,reply_to=NULL,result=NULL WHERE player_id=? AND state IN ('PENDING','PROCESSING')",
+      user
+    );
+    jdbc.update("DELETE FROM whatsapp_conversations WHERE player_id=?", user);
+    jdbc.update("DELETE FROM whatsapp_actions WHERE player_id=?", user);
     jdbc
       .query(
         """
@@ -370,7 +384,18 @@ public class WhatsApp {
     }
   }
 
-  public record Incoming(String id, String from, String text, long timestamp) {}
+  public record Incoming(
+    String id,
+    String from,
+    String text,
+    long timestamp,
+    String button,
+    String replyTo
+  ) {
+    public Incoming(String id, String from, String text, long timestamp) {
+      this(id, from, text, timestamp, null, null);
+    }
+  }
 
   public void receive(List<Incoming> messages) {
     lock();
@@ -391,7 +416,10 @@ public class WhatsApp {
           time(clock.instant())
         ) == 0
       ) continue;
-      String text = message.text().strip().toUpperCase(Locale.ROOT);
+      String text =
+        message.text() == null
+          ? ""
+          : message.text().strip().toUpperCase(Locale.ROOT);
       if (text.equals("SAIR")) {
         for (var row : jdbc.queryForList(
           "SELECT player_id FROM whatsapp_contacts WHERE (phone=? AND verified_at<=?) OR (pending_phone=? AND issued_at<=?)",
@@ -420,6 +448,8 @@ public class WhatsApp {
           time(clock.instant()),
           time(Instant.ofEpochSecond(message.timestamp()).plusSeconds(5))
         );
+      } else {
+        inbox.accept(message);
       }
     }
   }
