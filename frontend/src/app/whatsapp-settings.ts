@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
-import { Api } from './api';
+import { Api, ApiError } from './api';
 
 interface Preference {
   clubId: string;
@@ -56,7 +56,22 @@ export class WhatsAppSettings implements OnInit {
     try {
       await action();
     } catch (e) {
-      this.error.set((e as Error).message);
+      if (e instanceof ApiError && e.status === 401) {
+        this.status.set({
+          available: false,
+          phone: null,
+          verified: false,
+          stopped: false,
+          challengeId: null,
+          pendingPhone: null,
+          expiresAt: null,
+          textVersion: 'whatsapp-v1',
+          groups: [],
+        });
+        this.error.set('');
+      } else {
+        this.error.set((e as Error).message);
+      }
     } finally {
       this.busy.set(false);
     }
