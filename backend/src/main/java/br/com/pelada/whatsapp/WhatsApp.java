@@ -23,6 +23,7 @@ public class WhatsApp {
   private final Clock clock;
   private final boolean enabled;
   private final String businessNumber, phoneId, appSecret, verifyToken;
+  private final int maxCodesPerHour;
   private final SecureRandom random = new SecureRandom();
 
   public WhatsApp(
@@ -32,7 +33,8 @@ public class WhatsApp {
     @Value("${app.whatsapp.business-number:}") String businessNumber,
     @Value("${app.whatsapp.phone-id:}") String phoneId,
     @Value("${app.whatsapp.app-secret:}") String appSecret,
-    @Value("${app.whatsapp.verify-token:}") String verifyToken
+    @Value("${app.whatsapp.verify-token:}") String verifyToken,
+    @Value("${app.whatsapp.max-codes-per-hour:3}") int maxCodesPerHour
   ) {
     this.jdbc = jdbc;
     this.clock = clock;
@@ -41,6 +43,7 @@ public class WhatsApp {
     this.phoneId = phoneId;
     this.appSecret = appSecret;
     this.verifyToken = verifyToken;
+    this.maxCodesPerHour = Math.max(1, maxCodesPerHour);
   }
 
   public record Preference(
@@ -171,9 +174,9 @@ public class WhatsApp {
       window = now;
       count = 0;
     }
-    if (count >= 3) throw new ApiException(
+    if (count >= maxCodesPerHour) throw new ApiException(
       429,
-      "Você já gerou três códigos nesta hora. Tente mais tarde."
+      "Você já atingiu o limite de códigos nesta hora. Tente mais tarde."
     );
     byte[] bytes = new byte[12];
     random.nextBytes(bytes);
