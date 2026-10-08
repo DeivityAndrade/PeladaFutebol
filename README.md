@@ -2,6 +2,8 @@
 
 **O jogo começa aqui.** Tô Dentro (antes “pelada.”) é uma aplicação full stack para organizar futebol entre amigos, confirmar presenças e montar times em um campo interativo.
 
+**Endereço principal:** [Tô Dentro na Vercel](https://todentro-vercel-teste.vercel.app). As próximas publicações da interface usam esse projeto. O servidor e o banco atuais continuam atendendo a API durante esta transição; consulte [o guia da Vercel](docs/VERCEL.md).
+
 ![Tela de escalação](docs/screenshots/desktop.png)
 
 ## O que você pode fazer
@@ -84,7 +86,7 @@ de peladas e amistosos, com no máximo quatro requisições simultâneas.
 | Frontend | Angular 21.2 LTS, TypeScript, componentes standalone e signals |
 | Persistência | PostgreSQL, Flyway, Spring Session JDBC |
 | Verificações | JUnit, AssertJ, Playwright, PostgreSQL real |
-| Publicação | Docker, Render Free e Neon Free |
+| Publicação | Vercel para a interface, Render para a API durante a transição e Neon para os dados |
 
 O frontend de produção é servido pelo próprio Spring Boot. Assim, navegador, sessão e API compartilham a mesma origem. Não são necessários microsserviços, Redis nem uma API de futebol externa.
 
@@ -212,6 +214,7 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 - [Administração: totais de contas e configuração de acesso](docs/ADMINISTRACAO.md)
 - [Recuperação de senha e peladas semanais](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md)
 - [Publicar no Render com Neon](docs/PUBLICACAO.md)
+- [Publicação principal na Vercel](docs/VERCEL.md)
 - [Documentação interativa da API, quando executando](http://localhost:8080/api/docs)
 - [OpenAPI JSON, quando executando](http://localhost:8080/api/openapi)
 - [Tela em celular](docs/screenshots/mobile.png)
@@ -222,7 +225,7 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 ## Estado da entrega
 
 O projeto usa o repositório [DeivityAndrade/PeladaFutebol](https://github.com/DeivityAndrade/PeladaFutebol),
-Render e Neon. A partida ao vivo e as avaliações estão disponíveis para peladas de dois times.
+Vercel, com API temporariamente no Render e dados no Neon. A partida ao vivo e as avaliações estão disponíveis para peladas de dois times.
 Peladas de três ou mais times continuam com agenda e escalações, sem placar ou notas.
 Peladas encerradas antes da migração não recebem avaliações retroativas.
 
