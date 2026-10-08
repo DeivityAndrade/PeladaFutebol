@@ -1,0 +1,133 @@
+<section class="panel attendance" aria-labelledby="attendance-heading">
+  <div class="attendance-heading">
+    <div>
+      <h2 id="attendance-heading">Conferir quem participou<span>.</span></h2>
+      <p>As conquistas começam com os encontros de verdade.</p>
+    </div>
+    <button class="button secondary" (click)="load()" [disabled]="busy() || loading()">
+      Recarregar conferência
+    </button>
+  </div>
+  @if (error()) {
+    <div class="alert error" role="alert">{{ error() }}</div>
+  }
+  @if (notice()) {
+    <p class="attendance-notice" role="status">{{ notice() }}</p>
+  }
+  @if (loading()) {
+    <p role="status">Carregando presenças…</p>
+  } @else if (review(); as r) {
+    @if (!r.canReview) {
+      <p class="attendance-state">{{ r.message }}</p>
+    } @else {
+      <p class="attendance-help">
+        Revise cada nome. A confirmação de vaga não significa que a pessoa compareceu. Esta
+        conferência fica restrita ao organizador.
+      </p>
+      @if (r.reviewedAt) {
+        <p class="small muted">
+          Última conferência: {{ date(r.reviewedAt) }}. Você pode corrigir as presenças abaixo.
+        </p>
+      }
+      @if (confirming()) {
+        <section
+          class="attendance-summary"
+          id="attendance-summary"
+          tabindex="-1"
+          aria-labelledby="attendance-summary-heading"
+        >
+          <h3 id="attendance-summary-heading">Revisar antes de salvar</h3>
+          <p>
+            <strong>{{ present().length }}</strong>
+            {{ present().length === 1 ? 'pessoa receberá' : 'pessoas receberão' }} crédito por esta
+            pelada.
+          </p>
+          <ul>
+            @for (p of present(); track p.playerId) {
+              <li>{{ p.name }}</li>
+            } @empty {
+              <li>Nenhuma presença será registrada como participação.</li>
+            }
+          </ul>
+          <p class="small muted">
+            Se esta é uma correção, os créditos e as conquistas serão recalculados.
+          </p>
+          <div class="attendance-actions">
+            <button class="button primary" (click)="save()" [disabled]="busy()">
+              {{ busy() ? 'Salvando…' : r.reviewedAt ? 'Salvar correção' : 'Salvar presenças' }}
+            </button>
+            <button class="button secondary" (click)="confirming.set(false)" [disabled]="busy()">
+              Voltar à conferência
+            </button>
+          </div>
+        </section>
+      } @else {
+        <div class="attendance-batch">
+          <button class="text-button" (click)="markAll(true)" [disabled]="busy()">
+            Marcar todos como participantes</button
+          ><button class="text-button" (click)="markAll(false)" [disabled]="busy()">
+            Marcar todos como não participantes
+          </button>
+        </div>
+        <form (ngSubmit)="preview()">
+          <ul class="attendance-list">
+            @for (p of r.players; track p.playerId) {
+              <li>
+                <div>
+                  <strong>{{ p.name }}</strong>
+                  @if (p.guestGoalkeeper) {
+                    <span>Goleiro convidado</span>
+                  }
+                </div>
+                <label
+                  ><span class="sr-only">Presença de {{ p.name }}</span
+                  ><select
+                    [name]="'attendance-' + p.playerId"
+                    [ngModel]="answers()[p.playerId]"
+                    (ngModelChange)="answer(p.playerId, $event)"
+                    [disabled]="busy()"
+                  >
+                    <option [ngValue]="null">Ainda não conferido</option>
+                    <option [ngValue]="true">Participou</option>
+                    <option [ngValue]="false">Não participou</option>
+                  </select></label
+                >
+              </li>
+            }
+          </ul>
+          <label class="attendance-check"
+            ><input
+              type="checkbox"
+              name="gameHappened"
+              [(ngModel)]="happened"
+              [disabled]="busy()"
+            />Esta pelada aconteceu</label
+          >
+          <p class="small muted">
+            {{
+              complete()
+                ? 'Todos os nomes foram conferidos.'
+                : 'Confira todos os nomes para continuar.'
+            }}
+          </p>
+          <button class="button primary" [disabled]="!complete() || !happened || busy()">
+            Revisar resumo
+          </button>
+        </form>
+      }
+    }
+    @if (r.history.length) {
+      <details class="attendance-audit">
+        <summary>Histórico de conferências</summary>
+        <ul>
+          @for (entry of r.history; track entry.version) {
+            <li>
+              Conferência {{ entry.version }} · {{ entry.organizerName }} ·
+              {{ date(entry.reviewedAt) }}
+            </li>
+          }
+        </ul>
+      </details>
+    }
+  }
+</section>

@@ -33,6 +33,9 @@ import { AgendaPage } from './agenda-page';
 import { GroupPlayers } from './group-players';
 import { TeamDraw } from './team-draw';
 import { AdminPage } from './admin-page';
+import { CareerPage } from './career-page';
+import { AttendanceReviewPage } from './attendance-review';
+import { AccountPage } from './account-page';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -108,6 +111,9 @@ function dateTimeForZone(iso: string, timeZone: string) {
     GroupPlayers,
     TeamDraw,
     AdminPage,
+    CareerPage,
+    AttendanceReviewPage,
+    AccountPage,
   ],
   templateUrl: './app.html',
 })
@@ -358,6 +364,8 @@ export class App implements OnInit, OnDestroy {
         this.openAuth();
       } else if (page === 'admin') {
         // The page requests the protected summary; the server checks access every time.
+      } else if (page === 'career') {
+        // Private progress is loaded by the career component, including past guest appearances.
       } else if (page === 'groups' || page === 'agenda') {
         this.clubs.set(await this.api.request<Club[]>('/groups'));
       } else if (page === 'social') {

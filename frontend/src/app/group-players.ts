@@ -1,6 +1,8 @@
 import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from './api';
+import { Figurinha } from './figurinha';
+import { FigurinhaData } from './career-models';
 
 export interface GroupPlayer {
   playerId: string;
@@ -37,7 +39,7 @@ export function positionLabel(value: string | null) {
 @Component({
   selector: 'app-group-players',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, Figurinha],
   templateUrl: './group-players.html',
   styleUrl: './group-players.css',
 })
@@ -51,6 +53,33 @@ export class GroupPlayers implements OnInit {
   error = signal('');
   notice = signal('');
   editing = signal<GroupPlayer | null>(null);
+  sharedFigurinha = signal<FigurinhaData | null>(null);
+  figurinhaError = signal('');
+  figurinhaLoading = signal(false);
+  private figurinhaTrigger = '';
+  async showFigurinha(p: GroupPlayer) {
+    if (this.figurinhaLoading()) return;
+    this.figurinhaTrigger = p.playerId;
+    this.sharedFigurinha.set(null);
+    this.figurinhaError.set('');
+    this.figurinhaLoading.set(true);
+    try {
+      this.sharedFigurinha.set(
+        await this.api.request<FigurinhaData>(
+          `/groups/${this.clubId()}/career/cards/${p.playerId}`,
+        ),
+      );
+      setTimeout(() => document.getElementById('shared-figurinha-heading')?.focus());
+    } catch (e) {
+      this.figurinhaError.set((e as Error).message);
+    } finally {
+      this.figurinhaLoading.set(false);
+    }
+  }
+  closeFigurinha() {
+    this.sharedFigurinha.set(null);
+    setTimeout(() => document.getElementById('figurinha-' + this.figurinhaTrigger)?.focus());
+  }
   search = '';
   primary = 'VERSATILE';
   secondary = '';

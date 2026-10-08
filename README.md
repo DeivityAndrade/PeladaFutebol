@@ -7,6 +7,7 @@
 ## O que você pode fazer
 
 - Criar uma conta e grupos privados, compartilhando convites por link.
+- Abrir **Minha carreira** pelo nome ou avatar no topo para editar o nome, escolher ou remover uma foto e consultar as coleções de todos os seus grupos.
 - Recuperar a senha por um link de uso único enviado por e-mail, quando o Brevo estiver configurado.
 - Publicar voluntariamente o perfil do grupo na área **Social**, procurar equipes próximas por cidade,
   distância, nível e horários, e convidar outro organizador para um amistoso.
@@ -27,6 +28,9 @@
   registrar gols (inclusive contra) e consultar a linha do tempo.
 - Encerrar a partida e avaliar colegas do próprio time com 1 a 5 estrelas durante 24 horas.
   Depois desse prazo, consultar médias anônimas por partida e a média geral no perfil.
+- Ativar conquistas de participação por grupo, conferir quem compareceu e corrigir presenças com histórico de revisão.
+- Colecionar quatro conquistas por comparecimento e personalizar uma figurinha com títulos, moldura e selos.
+  O progresso é privado; membros podem compartilhar voluntariamente a figurinha com o grupo. Gols e notas não geram recompensas.
 - Organizar churrascos avulsos ou recorrentes por mês, a cada dois meses ou a cada três meses.
   Cada edição tem local, horário, confirmação independente do futebol e convite próprio para convidados.
 - Controlar mensalidades e cobranças avulsas por pelada, classificar mensalistas, receber comprovantes
@@ -36,6 +40,25 @@
 - Alternar entre visual claro e noturno. Sem escolha salva, o app segue o tema do sistema; a preferência fica salva no navegador.
 
 Reservas já têm vaga na pelada e pertencem a um time. A lista de espera é para quem ainda não tem vaga no evento.
+
+## Conquistas de participação
+
+Na aba **Minha carreira** do grupo, o organizador pode **Ativar conquistas**. Depois do horário de cada
+pelada, abre a aba **Presenças**, confere todos os nomes, confirma que o encontro aconteceu e revisa o
+resumo antes de salvar. A confirmação de vaga sozinha não conta. A conferência funciona com qualquer
+quantidade de times, inclusive quando o grupo não usa o placar ao vivo.
+
+Os marcos são 1, 5, 10 e 25 presenças verificadas no mesmo grupo. Cada jogador escolhe os elementos
+desbloqueados em **Personalizar figurinha**. Contador, progresso e histórico continuam privados;
+somente a figurinha escolhida pode ser compartilhada com os membros. Convidados têm coleção própria
+e privada, também acessível pelo menu **Minha carreira**. Ausências não zeram o progresso. Peladas
+canceladas ou realizadas antes da ativação/durante uma pausa não geram conquistas.
+
+O recurso usa a migração `V12__participation_career.sql`, aplicada pelo Flyway ao iniciar o backend.
+Consulte [as regras e a implementação](docs/GAMIFICACAO.md). As imagens de validação usam contas e
+encontros fictícios: [desktop](docs/screenshots/carreira-desktop-claro.png),
+[celular noturno](docs/screenshots/carreira-celular-noturno.png) e
+[conferência de presenças](docs/screenshots/presencas-celular.png).
 
 ## Agenda mensal
 

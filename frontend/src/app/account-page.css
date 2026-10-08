@@ -1,0 +1,100 @@
+:host {
+  display: block;
+}
+.account-heading {
+  margin-bottom: 24px;
+}
+.account-heading h1 {
+  margin: 0;
+  font: 700 48px/1.1 var(--font-display);
+}
+.account-heading h1 span {
+  color: var(--action);
+}
+.account-heading p,
+.account-details > p {
+  color: var(--muted);
+  margin: 8px 0 0;
+}
+.account-editor {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 40px;
+  margin-bottom: 36px;
+  padding: 28px;
+}
+.account-photo-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.profile-portrait {
+  width: 128px;
+  height: 128px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--night);
+  color: var(--accent);
+  font: 700 48px var(--font-display);
+}
+.profile-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.photo-help {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.photo-input {
+  display: none;
+}
+.account-details {
+  max-width: 580px;
+  min-width: 0;
+}
+.account-details h2 {
+  font: 700 28px/1.2 var(--font-display);
+  margin: 0;
+}
+.account-details form {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.account-details form > button {
+  justify-self: start;
+  margin-top: 8px;
+}
+.account-email {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.account-email > span {
+  font-weight: 600;
+}
+.account-email p {
+  color: var(--muted);
+  margin: 4px 0 8px;
+}
+.account-notice {
+  color: var(--action);
+}
+@media (max-width: 640px) {
+  .account-heading h1 {
+    font-size: 38px;
+  }
+  .account-editor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 20px;
+  }
+  .account-details form > button {
+    width: 100%;
+  }
+}
