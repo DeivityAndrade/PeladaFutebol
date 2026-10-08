@@ -64,6 +64,12 @@ encontros fictícios: [desktop](docs/screenshots/carreira-desktop-claro.png),
 
 ## Agenda mensal
 
+O organizador também pode usar **Marcar com assistente** na agenda do grupo para
+preparar uma pelada por texto, editar os campos e confirmar a criação. A função
+precisa de configuração de IA no backend; sem ela, o formulário continua disponível.
+Esta primeira etapa não envia mensagens de WhatsApp. Consulte
+[configuração, limites e testes do assistente](docs/ASSISTENTE.md).
+
 Abra **Agenda de jogos** no menu após entrar na conta. Use **Hoje**, as setas de mês ou o destaque
 **Próximo jogo** para navegar. No calendário, as setas do teclado escolhem dias; `Home` e `End`
 levam ao início e ao fim da semana; `Page Up` e `Page Down` trocam de mês. No celular, o marcador

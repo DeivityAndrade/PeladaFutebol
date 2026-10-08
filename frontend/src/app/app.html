@@ -914,6 +914,13 @@
                 </button>
               }
               @if (club()!.ownerId === user()?.id) {
+                <button
+                  id="open-game-assistant"
+                  class="button secondary"
+                  (click)="open('assistant')"
+                >
+                  Marcar com assistente
+                </button>
                 <button class="button primary" (click)="open('game')">
                   <app-icon name="plus" />Marcar pelada
                 </button>
@@ -1577,6 +1584,16 @@
         <div class="alert error" role="alert">{{ error() }}</div>
       }
       @switch (modal()) {
+        @case ('assistant') {
+          @if (club() && groupOwner()) {
+            <app-game-assistant
+              [club]="club()!"
+              (created)="assistantCreated($event)"
+              (manual)="open('game')"
+              (processing)="busy.set($event)"
+            />
+          }
+        }
         @case ('auth') {
           <h2 id="modal-title">
             {{

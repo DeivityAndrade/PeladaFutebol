@@ -41,6 +41,12 @@ springdoc:
   api-docs:
     path: /api/openapi
 app:
+  assistant:
+    enabled: ${ASSISTANT_ENABLED:false}
+    api-key: ${ASSISTANT_API_KEY:}
+    model: ${ASSISTANT_MODEL:}
+    base-url: ${ASSISTANT_BASE_URL:https://api.openai.com/v1}
+    daily-limit: ${ASSISTANT_DAILY_LIMIT:20}
   visit-stats-enabled: ${VISIT_STATS_ENABLED:true}
   admin-emails: ${ADMIN_EMAILS:}
   demo-enabled: ${DEMO_ENABLED:true}
