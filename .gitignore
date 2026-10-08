@@ -10,6 +10,7 @@ target/
 .vscode/
 playwright-report/
 test-results/
+.vercel/
 data/
 /pelada-projeto.zip
 /tmp/career-verification/
