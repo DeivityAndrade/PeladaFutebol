@@ -1,0 +1,108 @@
+:host {
+  display: block;
+  margin-bottom: 36px;
+}
+.whatsapp-settings {
+  padding: 28px;
+}
+h2 {
+  margin: 0;
+  font: 700 28px/1.2 var(--font-display);
+}
+h3 {
+  margin: 0 0 8px;
+  font: 700 22px/1.2 var(--font-display);
+}
+p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.notice {
+  color: var(--action);
+}
+.preparing,
+.verification,
+.disconnect {
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius-inner);
+  margin: 16px 0;
+}
+.verification p:first-of-type {
+  margin-top: 0;
+}
+.code {
+  font-family: monospace;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  user-select: all;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.whatsapp-settings > button {
+  margin: 8px 12px 8px 0;
+}
+.preferences {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 24px;
+}
+fieldset {
+  border: 0;
+  padding: 12px 0 20px;
+  margin: 0;
+  min-width: 0;
+}
+form + form {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 16px;
+}
+legend {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.choice {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+  cursor: pointer;
+  line-height: 1.5;
+  min-height: 44px;
+}
+.choice input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin: 2px 0 0;
+}
+fieldset:disabled .choice {
+  cursor: default;
+  color: var(--muted);
+}
+.privacy {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .whatsapp-settings {
+    padding: 20px;
+  }
+  .actions {
+    flex-direction: column;
+  }
+  .actions .button,
+  fieldset .button {
+    width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+}

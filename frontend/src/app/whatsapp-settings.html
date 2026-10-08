@@ -1,0 +1,170 @@
+<section class="panel whatsapp-settings" aria-labelledby="whatsapp-heading">
+  <h2 id="whatsapp-heading">Avisos no WhatsApp</h2>
+  <p>
+    Escolha como acompanhar os jogos dos seus grupos. Você pode cancelar os avisos aqui ou enviar
+    <strong>SAIR</strong> pelo WhatsApp.
+  </p>
+  @if (error()) {
+    <p class="alert error" role="alert">{{ error() }}</p>
+  }
+  @if (notice()) {
+    <p class="notice" role="status">{{ notice() }}</p>
+  }
+  @if (status(); as state) {
+    @if (!state.available) {
+      <p class="preparing">
+        Estamos preparando a conexão com o WhatsApp. A vinculação estará disponível após a
+        configuração do número oficial.
+      </p>
+    }
+    @if (state.verified) {
+      <p><strong>Número vinculado:</strong> {{ state.phone }}</p>
+      @if (state.stopped) {
+        <p>
+          Você cancelou os avisos com SAIR. Confirme novamente seu número para autorizar novos
+          avisos.
+        </p>
+      }
+    } @else {
+      <p>Nenhum número vinculado.</p>
+    }
+    @if (state.pendingPhone && state.challengeId) {
+      <div class="verification" aria-live="polite">
+        <h3>Confira seu número</h3>
+        <p>
+          Recebemos o código de <strong>{{ state.pendingPhone }}</strong
+          >. Se este é seu WhatsApp, confirme o vínculo.
+        </p>
+        <p>
+          Confirmar o vínculo cancela as autorizações anteriores. Depois, escolha os avisos
+          novamente.
+        </p>
+        <button type="button" class="button primary" (click)="confirm()" [disabled]="busy()">
+          Confirmar este número
+        </button>
+      </div>
+    } @else if (challenge(); as code) {
+      <div class="verification">
+        <h3>Envie o código pelo seu WhatsApp</h3>
+        <p>
+          Abra a conversa e envie a mensagem preenchida. O código é pessoal e vale até
+          {{ code.expiresAt | date: 'HH:mm' }}.
+        </p>
+        <p class="code">VINCULAR {{ code.code }}</p>
+        <div class="actions">
+          <a class="button primary" [href]="code.url" target="_blank" rel="noopener noreferrer"
+            >Abrir conversa no WhatsApp</a
+          >
+          <button type="button" class="button secondary" (click)="refresh()" [disabled]="busy()">
+            Já enviei, conferir
+          </button>
+        </div>
+      </div>
+    } @else if (state.challengeId) {
+      <p>
+        Você já iniciou uma vinculação. Envie o código pela conversa aberta ou gere outro código
+        para recomeçar.
+      </p>
+      <button type="button" class="button secondary" (click)="refresh()" [disabled]="busy()">
+        Conferir mensagem recebida
+      </button>
+    }
+    @if (state.available) {
+      <button type="button" class="button secondary" (click)="begin()" [disabled]="busy()">
+        {{
+          state.challengeId
+            ? 'Gerar outro código'
+            : state.verified
+              ? 'Confirmar ou trocar número'
+              : 'Vincular meu WhatsApp'
+        }}
+      </button>
+    }
+    @if (state.verified || state.challengeId) {
+      @if (disconnecting()) {
+        <div class="disconnect" role="group" aria-label="Confirmar desconexão">
+          <p>Desconectar o WhatsApp cancela todos os avisos e a vinculação pendente.</p>
+          <div class="actions">
+            <button
+              type="button"
+              class="button secondary"
+              (click)="disconnect()"
+              [disabled]="busy()"
+            >
+              Sim, desconectar
+            </button>
+            <button
+              type="button"
+              class="text-button"
+              (click)="disconnecting.set(false)"
+              [disabled]="busy()"
+            >
+              Manter vínculo
+            </button>
+          </div>
+        </div>
+      } @else {
+        <button
+          type="button"
+          class="text-button"
+          (click)="disconnecting.set(true)"
+          [disabled]="busy()"
+        >
+          Desconectar WhatsApp
+        </button>
+      }
+    }
+    <div class="preferences">
+      <h3>Autorizações por grupo</h3>
+      <p>
+        Vincular o número não autoriza mensagens. Marque os avisos que deseja receber e salve em
+        cada grupo. Os envios automáticos ainda estão em preparação.
+      </p>
+      @for (group of state.groups; track group.clubId) {
+        <form (ngSubmit)="save(group)">
+          <fieldset [disabled]="busy() || !state.verified || state.stopped">
+            <legend>{{ group.name }}</legend>
+            <label class="choice"
+              ><input type="checkbox" name="invitations" [(ngModel)]="group.invitations" />Autorizo
+              convites para novos jogos deste grupo.</label
+            >
+            <label class="choice"
+              ><input type="checkbox" name="reminders" [(ngModel)]="group.reminders" />Autorizo
+              lembretes de jogos deste grupo.</label
+            >
+            <button class="button secondary" type="submit">
+              Salvar avisos de {{ group.name }}
+            </button>
+          </fieldset>
+        </form>
+      } @empty {
+        <p>Entre em um grupo para escolher seus avisos.</p>
+      }
+    </div>
+  } @else if (busy()) {
+    <p role="status">Buscando suas preferências…</p>
+  }
+  @if (error() && !status()) {
+    <button type="button" class="button secondary" (click)="ngOnInit()" [disabled]="busy()">
+      Tentar novamente
+    </button>
+  }
+  <details class="privacy">
+    <summary>Como usamos seu número e suas autorizações</summary>
+    <p>
+      Seu número serve para vincular esta conta e, quando os envios forem ativados, receber somente
+      os avisos que você autorizar. Ele não aparece na lista de participantes.
+    </p>
+    <p>
+      A Meta recebe as mensagens de vinculação e dos futuros avisos. Os dados ficam no servidor e
+      banco do Tô Dentro (Render e Neon). A automação de envios com n8n será configurada em uma
+      próxima etapa.
+    </p>
+    <p>
+      O vínculo fica salvo até você desconectar; as preferências também são removidas ao sair do
+      grupo. O histórico de autorizações tem prazo de 90 dias e os identificadores de mensagens
+      recebidas, de 30 dias. A limpeza ocorre na próxima execução do servidor. Não guardamos o texto
+      das mensagens recebidas. Os códigos expiram em dez minutos.
+    </p>
+  </details>
+</section>

@@ -221,6 +221,7 @@ docs/        Arquitetura, publicação e imagens reais da aplicação
 - [Recuperação de senha e peladas semanais](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md)
 - [Publicar no Render com Neon](docs/PUBLICACAO.md)
 - [Publicação principal na Vercel](docs/VERCEL.md)
+- [WhatsApp: vinculação, autorizações e configuração de teste](docs/WHATSAPP.md)
 - [Documentação interativa da API, quando executando](http://localhost:8080/api/docs)
 - [OpenAPI JSON, quando executando](http://localhost:8080/api/openapi)
 - [Tela em celular](docs/screenshots/mobile.png)
@@ -238,7 +239,8 @@ Peladas encerradas antes da migração não recebem avaliações retroativas.
 O aplicativo registra cobranças e pagamentos feitos externamente; não processa Pix, valida transações
 bancárias nem aprova comprovantes automaticamente. O envio de lembretes pelo WhatsApp é manual: o
 Tô Dentro apenas prepara a mensagem para o organizador compartilhar. Não há controle de despesas nem
-notificações externas. Os convites são compartilhados copiando o link. A configuração de recuperação
+notificações automáticas. O perfil já oferece a preparação de vínculo e autorizações do WhatsApp,
+com envio automático previsto para a próxima etapa. Os convites são compartilhados copiando o link. A configuração de recuperação
 de senha e recorrência semanal está em [seu guia](docs/RECUPERACAO-E-PELADAS-RECORRENTES.md).
 
 ## Licença
