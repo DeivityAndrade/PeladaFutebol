@@ -14,19 +14,22 @@ public class WhatsAppWorkerController {
   private final WhatsAppOutbox outbox;
   private final WhatsAppAgent agent;
   private final WhatsApp whatsapp;
+  private final WhatsAppDiagnostics diagnostics;
 
   public WhatsAppWorkerController(
     WhatsAppIntegration config,
     WhatsAppInbox inbox,
     WhatsAppOutbox outbox,
     WhatsAppAgent agent,
-    WhatsApp whatsapp
+    WhatsApp whatsapp,
+    WhatsAppDiagnostics diagnostics
   ) {
     this.config = config;
     this.inbox = inbox;
     this.outbox = outbox;
     this.agent = agent;
     this.whatsapp = whatsapp;
+    this.diagnostics = diagnostics;
   }
 
   private void auth(String token) {
@@ -38,6 +41,20 @@ public class WhatsAppWorkerController {
   }
 
   public record Reserve(@NotNull UUID leaseId) {}
+
+  public record Diagnostic(
+    @NotBlank @Pattern(regexp = "[1-9][0-9]{7,14}") String phone,
+    @NotBlank @Size(max = 128) String expectedPhoneId
+  ) {}
+
+  @PostMapping("/diagnostics")
+  public WhatsAppDiagnostics.Status diagnostics(
+    @RequestHeader(name = "Authorization", required = false) String token,
+    @Valid @RequestBody Diagnostic request
+  ) {
+    auth(token);
+    return diagnostics.inspect(request.phone(), request.expectedPhoneId());
+  }
 
   public record Action(
     @NotNull UUID leaseId,

@@ -152,6 +152,16 @@ O teto de tentativas controla volume, não garante um teto financeiro em reais.
 
 ## Limites operacionais e dados
 
+### Diagnóstico do piloto
+
+`POST /api/integrations/whatsapp/diagnostics` exige a credencial do executor e
+um `phone` que já esteja em `WHATSAPP_PILOT_NUMBERS`, além de `expectedPhoneId`.
+Retorna somente flags de envio, igualdade do ID do número da Meta, contagens de
+vínculos/grupos e estados da fila/respostas dos últimos 15 minutos. Não retorna
+telefones, identidades, mensagens ou credenciais, nem reserva ou processa comandos.
+Para números brasileiros, informa separadamente um vínculo antigo sem o nono
+dígito; não altera o vínculo nem amplia a lista do piloto automaticamente.
+
 Textos recebidos têm até 1.200 caracteres, processamento por até dez minutos e
 quota de 30 comandos/hora por jogador do piloto. O executor usa reservas temporárias;
 um processo interrompido pode retomar uma ação ainda não enviada, sem duplicá-la.
