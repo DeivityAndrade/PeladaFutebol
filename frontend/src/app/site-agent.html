@@ -1,0 +1,201 @@
+<h2 id="modal-title">Seu agente.</h2>
+<p class="agent-intro">
+  Fale ou escreva. Eu consulto os jogos, preparo partidas e cuido da sua presença.
+</p>
+@if (available() === null) {
+  <p role="status">Conectando ao agente…</p>
+} @else if (!available()) {
+  <p>O agente não está disponível agora. Você pode continuar pela agenda.</p>
+} @else {
+  @if (clubs().length > 1) {
+    <label class="agent-group"
+      >Grupo da conversa
+      <select [ngModel]="selectedClubId" (ngModelChange)="changeGroup($event)" [disabled]="busy()">
+        <option value="">Dizer no pedido</option>
+        @for (club of clubs(); track club.id; let i = $index) {
+          <option [value]="club.id">{{ groupLabel(club, i) }}</option>
+        }
+      </select>
+    </label>
+  } @else if (clubs().length === 1) {
+    <p class="agent-context">{{ clubs()[0].name }}</p>
+  }
+  <div class="agent-thread" id="agent-thread">
+    <div
+      class="agent-conversation"
+      role="log"
+      aria-label="Conversa com o agente"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
+      @if (!turns().length) {
+        <p class="agent-welcome">O que vamos organizar?</p>
+        <div class="agent-suggestions">
+          <button
+            type="button"
+            class="text-button"
+            [disabled]="busy()"
+            (click)="send('Quais são meus próximos jogos?')"
+          >
+            Consultar meus jogos
+          </button>
+          <button type="button" class="text-button" [disabled]="busy()" (click)="startGame()">
+            Preparar uma partida
+          </button>
+        </div>
+      }
+      @for (turn of turns(); track $index) {
+        <article class="agent-turn" [class.agent-turn-you]="turn.who === 'you'">
+          <span class="agent-author">{{ turn.who === 'you' ? 'Você' : 'Tô Dentro' }}</span>
+          <p>{{ turn.text }}</p>
+          @for (game of turn.games || []; track game.id) {
+            <div class="agent-game">
+              <strong>{{ game.title }}</strong>
+              <span
+                >{{ groupName(game.clubId) }} · {{ localTime(game) }} · {{ game.timeZone }}</span
+              >
+              <span>{{ game.location }}</span>
+              <button
+                class="text-button"
+                type="button"
+                [disabled]="busy()"
+                (click)="chooseGame(game)"
+              >
+                Quero jogar
+              </button>
+            </div>
+          }
+          @if (turn.changedGameId) {
+            <button
+              class="text-button"
+              type="button"
+              [disabled]="busy()"
+              (click)="openGame.emit(turn.changedGameId)"
+            >
+              Abrir partida
+            </button>
+          }
+        </article>
+      }
+    </div>
+    @if (thinking()) {
+      <p class="agent-status" role="status">Cuidando do seu pedido…</p>
+    }
+    @if (action(); as a) {
+      <section class="agent-confirmation" aria-label="Confirmar ação">
+        <h3>Confira antes de confirmar</h3>
+        <p>{{ a.summary }}</p>
+        @if (a.proposal; as p) {
+          <dl>
+            <div>
+              <dt>Partida</dt>
+              <dd>{{ p.draft.title }}</dd>
+            </div>
+            <div>
+              <dt>Local</dt>
+              <dd>{{ p.draft.location }}</dd>
+            </div>
+            <div>
+              <dt>Quando</dt>
+              <dd>
+                {{ p.draft.date + 'T12:00:00' | date: 'dd/MM/yyyy' }} ·
+                {{ p.draft.time.slice(0, 5) }} · {{ p.timeZone }}
+              </dd>
+            </div>
+            <div>
+              <dt>Vagas</dt>
+              <dd>{{ p.draft.teamCount }} times × {{ p.draft.teamSize }} jogadores</dd>
+            </div>
+            <div>
+              <dt>Repetição</dt>
+              <dd>
+                {{ p.draft.recurring ? 'Toda semana' : 'Jogo avulso'
+                }}{{ p.draft.recurrenceEndsOn ? ' até ' + p.draft.recurrenceEndsOn : '' }}
+              </dd>
+            </div>
+            <div>
+              <dt>Cobrança avulsa</dt>
+              <dd>
+                {{
+                  p.draft.chargeOccasional
+                    ? ((p.draft.occasionalAmountCents || 0) / 100 | currency: 'BRL')
+                    : 'Sem cobrança avulsa'
+                }}
+              </dd>
+            </div>
+          </dl>
+        }
+        <button
+          class="button primary full-width"
+          type="button"
+          [disabled]="busy()"
+          (click)="confirm()"
+        >
+          {{ a.label }}
+        </button>
+        <small>Para ajustar, diga o que quer mudar na conversa abaixo.</small>
+      </section>
+    }
+    @if (error()) {
+      <div class="alert error" role="alert">
+        <p>{{ error() }}</p>
+        @if (lastFailedText) {
+          <button
+            class="text-button"
+            type="button"
+            [disabled]="busy()"
+            (click)="send(lastFailedText)"
+          >
+            Tentar pedido novamente
+          </button>
+        }
+        <button class="text-button" type="button" [disabled]="busy()" (click)="restart()">
+          Começar de novo
+        </button>
+      </div>
+    }
+  </div>
+  @if (audioAvailable()) {
+    <app-audio-request
+      endpoint="/assistant/audio"
+      [autoSend]="true"
+      [disabled]="thinking()"
+      (transcript)="send($event, true)"
+      (processing)="audioProcessing($event)"
+      (capture)="capture($event)"
+    />
+  }
+  <form class="agent-composer" (ngSubmit)="send()">
+    <label for="agent-message" class="sr-only">Mensagem para o agente</label>
+    <textarea
+      id="agent-message"
+      name="agentMessage"
+      [(ngModel)]="message"
+      rows="2"
+      maxlength="1200"
+      [disabled]="busy()"
+      placeholder="Marque um jogo sexta às 20h no Gools…"
+      required
+    ></textarea>
+    <button
+      class="button secondary full-width"
+      type="submit"
+      aria-label="Enviar mensagem"
+      [disabled]="busy() || !message.trim()"
+    >
+      Enviar
+    </button>
+  </form>
+  <details class="agent-note">
+    <summary>Sobre a conversa e seus dados</summary>
+    <p>
+      Pedidos são interpretados pela OpenAI. Você confirma antes de criar jogos ou alterar presença.
+      A lista de membros e dados financeiros não são enviados automaticamente.
+    </p>
+  </details>
+  @if (turns().length) {
+    <button class="text-button" type="button" [disabled]="busy()" (click)="restart()">
+      Nova conversa
+    </button>
+  }
+}

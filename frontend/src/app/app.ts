@@ -37,6 +37,7 @@ import { CareerPage } from './career-page';
 import { AttendanceReviewPage } from './attendance-review';
 import { AccountPage } from './account-page';
 import { GameAssistant } from './game-assistant';
+import { SiteAgent } from './site-agent';
 
 function currentBillingPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -116,6 +117,7 @@ function dateTimeForZone(iso: string, timeZone: string) {
     AttendanceReviewPage,
     AccountPage,
     GameAssistant,
+    SiteAgent,
   ],
   templateUrl: './app.html',
 })
@@ -126,6 +128,7 @@ export class App implements OnInit, OnDestroy {
   assistantClubId = signal('');
   private assistantOpenerId = '';
   assistantGroups = computed(() => this.clubs().filter((c) => c.ownerId === this.user()?.id));
+  agentGroups = computed(() => this.clubs().filter((c) => !c.demo));
   assistantClub = computed(
     () => this.assistantGroups().find((c) => c.id === this.assistantClubId()) || null,
   );
@@ -610,7 +613,8 @@ export class App implements OnInit, OnDestroy {
     this.error.set('');
   }
   open(name: string) {
-    if (name === 'assistant') this.assistantOpenerId = document.activeElement?.id || '';
+    if (name === 'assistant' || name === 'agent')
+      this.assistantOpenerId = document.activeElement?.id || '';
     if (name === 'assistant')
       this.assistantClubId.set(
         this.groupOwner() ? this.club()!.id : this.assistantGroups()[0]?.id || '',
@@ -680,7 +684,7 @@ export class App implements OnInit, OnDestroy {
   closeModal() {
     if (this.busy()) return;
     const wasAuth = this.modal() === 'auth';
-    const wasAssistant = this.modal() === 'assistant';
+    const wasAssistant = this.modal() === 'assistant' || this.modal() === 'agent';
     this.modal.set('');
     if (wasAssistant)
       requestAnimationFrame(() =>
@@ -841,6 +845,20 @@ export class App implements OnInit, OnDestroy {
   assistantManual() {
     this.club.set(this.assistantClub());
     this.open('game');
+  }
+  agentOpenGame(id: string) {
+    this.modal.set('');
+    this.navigate('game/' + id);
+  }
+  async agentChanged(id: string) {
+    try {
+      if (this.detail()?.game.id === id)
+        this.setDetail(await this.api.request<Detail>('/games/' + id));
+      const clubId = this.club()?.id;
+      if (clubId) this.games.set(await this.api.request<Game[]>('/groups/' + clubId + '/games'));
+    } catch {
+      // The agent already shows the saved result; the page can refresh when opened.
+    }
   }
   saveGame() {
     void this.action(async () => {

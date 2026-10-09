@@ -12,6 +12,7 @@ import { Icon } from './icon';
 export class AudioRequest implements OnDestroy {
   endpoint = input.required<string>();
   disabled = input(false);
+  autoSend = input(false);
   transcript = output<string>();
   processing = output<boolean>();
   capture = output<boolean>();
@@ -84,7 +85,8 @@ export class AudioRequest implements OnDestroy {
         const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
         this.file = new File([blob], `pedido.${ext}`, { type: blob.type });
         this.preview.set(URL.createObjectURL(blob));
-        this.focus('audio-transcribe');
+        if (this.autoSend()) void this.transcribe();
+        else this.focus('audio-transcribe');
       };
       recorder.onerror = () => {
         this.cancelled = true;

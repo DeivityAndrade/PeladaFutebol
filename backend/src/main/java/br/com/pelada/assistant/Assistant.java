@@ -62,7 +62,55 @@ public class Assistant {
   }
 
   public Proposal propose(UUID user, UUID clubId, Request request) {
-    var prepared = tx.execute(status -> {
+    var prepared = prepare(user, clubId, request, true);
+    Context context = prepared.context();
+    // No database transaction or domain lock stays open while the external model responds.
+    Interpretation result = interpreter.interpret(
+      request.message().strip(),
+      context
+    );
+    return save(user, clubId, request, prepared, result);
+  }
+
+  public Proposal fromAgent(
+    UUID user,
+    UUID clubId,
+    UUID previousId,
+    Interpretation result
+  ) {
+    var request = new Request("Pedido do agente", previousId);
+    return save(
+      user,
+      clubId,
+      request,
+      prepare(user, clubId, request, false),
+      result
+    );
+  }
+
+  public void takeAttempt(UUID user) {
+    tx.executeWithoutResult(status -> {
+      Instant now = clock.instant();
+      take(
+        "user:" + user + ":" + now.getEpochSecond() / 3600,
+        10,
+        now.plusSeconds(7200)
+      );
+      take(
+        "global:" + now.getEpochSecond() / 86400,
+        dailyLimit,
+        now.plusSeconds(172800)
+      );
+    });
+  }
+
+  private Prepared prepare(
+    UUID user,
+    UUID clubId,
+    Request request,
+    boolean chargeQuota
+  ) {
+    return tx.execute(status -> {
       Club club = groups.requireOwner(user, clubId);
       if (!interpreter.available()) throw new ApiException(
         503,
@@ -78,17 +126,7 @@ public class Assistant {
         previousVersion = prior.revision;
       }
       Instant now = clock.instant();
-      // Count attempts before calling the provider; a failure still consumes the quota.
-      take(
-        "user:" + user + ":" + now.getEpochSecond() / 3600,
-        10,
-        now.plusSeconds(7200)
-      );
-      take(
-        "global:" + now.getEpochSecond() / 86400,
-        dailyLimit,
-        now.plusSeconds(172800)
-      );
+      if (chargeQuota) takeAttempt(user);
       jdbc.update(
         "DELETE FROM assistant_request_limits WHERE expires_at < ?",
         java.sql.Timestamp.from(now)
@@ -102,12 +140,16 @@ public class Assistant {
         previousVersion
       );
     });
+  }
+
+  private Proposal save(
+    UUID user,
+    UUID clubId,
+    Request request,
+    Prepared prepared,
+    Interpretation result
+  ) {
     Context context = prepared.context();
-    // No database transaction or domain lock stays open while the external model responds.
-    Interpretation result = interpreter.interpret(
-      request.message().strip(),
-      context
-    );
     return tx.execute(status -> {
       Club club = groups.requireOwner(user, clubId);
       if (!club.timeZone.equals(context.timeZone())) throw new ApiException(
@@ -171,6 +213,7 @@ public class Assistant {
         proposal.question != null && proposal.question.length() > 400
       ) proposal.question = proposal.question.substring(0, 400);
       store.save(proposal);
+      store.flush();
       return view(proposal);
     });
   }

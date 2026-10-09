@@ -6,7 +6,54 @@ Atualizado em **09/10/2026**, fuso de São Paulo.
 ou conversa ao vivo. Substitui a preferência anterior por tempo real.
 Monetização permanece para uma entrega futura.
 
+## Agente conversacional do site — correção da experiência
+
+O pedido do proprietário em 09/10/2026 é que o microfone conduza e execute tarefas,
+sem uma etapa manual de transcrição. O botão flutuante **Agente** abre uma conversa
+para membros autenticados de grupos reais. Ao escolher **Enviar áudio**, ou atingir
+60 segundos, o áudio é transcrito e interpretado automaticamente. Não há botão de
+transcrição nem formulário obrigatório neste fluxo.
+
+- Consulta os próximos jogos; cada horário é mostrado no fuso do respectivo grupo.
+- Resolve grupo citado entre os grupos autorizados. Nomes repetidos exigem escolha
+  explícita. O grupo atual é contexto inicial quando a conversa é aberta na agenda.
+- Prepara partidas para organizadores, pergunta detalhes ausentes e aceita ajustes
+  por novas mensagens/áudios, preservando a proposta anterior no servidor.
+- Confirma ou retira presença após mostrar a partida e obter confirmação pelo botão.
+  Reutiliza regras de vagas, fila de espera, escalação e permissões existentes.
+- Mostra um resumo e **Criar jogo** diretamente na conversa; não exige **Preparar jogo**
+  nem **Revisar detalhes**. Uma mensagem interpretada nunca cria/retira presença sozinha.
+- Executa cada confirmação uma única vez. Alterar o pedido invalida a confirmação
+  anterior; perda de resposta pode ser repetida com a mesma confirmação.
+- Mantém o assistente de formulário existente como alternativa na agenda.
+
+O agente usa a chave/modelo já configurados no Render, sem nova credencial ou fluxo n8n
+para o site. Uma chamada de interpretação por mensagem, incluindo criação. Compartilha
+a quota de 10 tentativas por pessoa/hora e o orçamento diário existente do assistente
+(20 por padrão); transcrição mantém seus limites próprios.
+
+Migração **V18** guarda conversa temporária, reserva de processamento e confirmação.
+Contexto de até oito mensagens, 25 grupos autorizados e oito próximos jogos por grupo;
+consultas retornam até 30 partidas. Dados de contato, lista de membros e valores financeiros
+não são adicionados ao contexto do provedor. Mudança de acesso limpa o contexto anterior.
+A conversa expira em 30 minutos sem interação; limpeza horária remove registros expirados.
+Criação/consulta/presença continuam verificadas pelo servidor depois da interpretação.
+
+Não adiciona cancelamento/edição de partidas existentes, cobrança ou campanhas livres
+de WhatsApp. Convites de jogos criados seguem as regras já existentes de automação e
+opt-in, sem afirmar entrega antes de ela ocorrer. n8n/Meta não mudam nesta correção.
+
+Verificação desta correção: 135 testes Java em verify e dez testes finais do agente
+após o ajuste da consulta entre grupos. Navegador: 62 cenários aprovados no total,
+com três testes condicionais de carreira omitidos; nove cenários precisaram de
+reexecução após habilitar demonstração e administração no servidor de testes local.
+Microfone e OpenAI simulados nesses testes. Evidências visuais do novo fluxo:
+docs/screenshots/agente-conversa-desktop.png e agente-conversa-celular.png.
+
 ## Primeira implementação
+
+Registro da entrega anterior. O fluxo flutuante de revisão abaixo foi substituído
+pelo agente conversacional; continua disponível no assistente de formulário.
 
 - Microfone no canto do site para organizadores autenticados e seleção explícita
   dos grupos que organizam. A fala não troca o grupo silenciosamente.

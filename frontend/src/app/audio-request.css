@@ -25,3 +25,12 @@ audio {
 .button {
   gap: 8px;
 }
+.audio-compact {
+  margin-block: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.audio-compact .audio-note {
+  margin-top: 6px;
+}
