@@ -40,7 +40,7 @@ test('WhatsApp indisponível mantém avisos sem autorização e sem vínculo fic
     settings.getByRole('button', { name: 'Salvar avisos de Turma do sábado' }),
   ).toBeDisabled();
   await settings.getByText('Como usamos seu número e suas autorizações', { exact: true }).click();
-  await expect(settings.getByText(/Não guardamos o texto/)).toBeVisible();
+  await expect(settings.getByText(/texto de um comando fica temporariamente/)).toBeVisible();
   expect((await mutate(request, '/whatsapp/verification', 'POST')).status()).toBe(503);
 });
 

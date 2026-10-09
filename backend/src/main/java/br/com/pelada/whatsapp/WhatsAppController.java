@@ -17,15 +17,18 @@ public class WhatsAppController {
   private final WhatsApp whatsapp;
   private final Accounts accounts;
   private final ObjectMapper mapper;
+  private final WhatsAppOutbox outbox;
 
   public WhatsAppController(
     WhatsApp whatsapp,
     Accounts accounts,
-    ObjectMapper mapper
+    ObjectMapper mapper,
+    WhatsAppOutbox outbox
   ) {
     this.whatsapp = whatsapp;
     this.accounts = accounts;
     this.mapper = mapper;
+    this.outbox = outbox;
   }
 
   @GetMapping
@@ -62,6 +65,23 @@ public class WhatsAppController {
     return whatsapp.choose(accounts.current(auth).id, club, choice);
   }
 
+  @GetMapping("/groups/{club}/automation")
+  public WhatsAppOutbox.Settings automation(
+    Authentication auth,
+    @PathVariable UUID club
+  ) {
+    return outbox.settings(accounts.current(auth).id, club);
+  }
+
+  @PutMapping("/groups/{club}/automation")
+  public WhatsAppOutbox.Settings configure(
+    Authentication auth,
+    @PathVariable UUID club,
+    @RequestBody WhatsAppOutbox.Choice choice
+  ) {
+    return outbox.choose(accounts.current(auth).id, club, choice);
+  }
+
   @GetMapping(value = "/webhook", produces = MediaType.TEXT_PLAIN_VALUE)
   public String challenge(
     @RequestParam(name = "hub.mode", required = false) String mode,
@@ -81,6 +101,7 @@ public class WhatsAppController {
   ) {
     whatsapp.authenticate(body, signature);
     List<WhatsApp.Incoming> messages = new ArrayList<>();
+    List<Delivery> deliveries = new ArrayList<>();
     try {
       var root = mapper.readTree(body);
       if (
@@ -98,18 +119,48 @@ public class WhatsAppController {
               .equals(whatsapp.phoneId())
           ) continue;
           for (var m : value.path("messages")) {
-            if (!m.path("type").asText().equals("text")) continue;
-            String text = m.path("text").path("body").asText();
-            if (text.length() > 256) continue;
+            String type = m.path("type").asText();
+            if (
+              !Set.of("text", "button", "interactive").contains(type)
+            ) continue;
+            String text = type.equals("text")
+              ? m.path("text").path("body").asText()
+              : "";
+            String button = type.equals("button")
+              ? m.path("button").path("payload").asText()
+              : type.equals("interactive")
+                ? m.path("interactive").path("button_reply").path("id").asText()
+                : null;
+            String replyTo = m.path("context").path("id").asText(null);
+            if (
+              text.length() > 1200 ||
+              (button != null && button.length() > 100) ||
+              (replyTo != null && replyTo.length() > 256)
+            ) continue;
             messages.add(
               new WhatsApp.Incoming(
                 m.path("id").asText(),
                 m.path("from").asText(),
                 text,
-                Long.parseLong(m.path("timestamp").asText())
+                Long.parseLong(m.path("timestamp").asText()),
+                button,
+                replyTo
               )
             );
             if (messages.size() > 100) throw new ApiException(
+              413,
+              "Muitos eventos."
+            );
+          }
+          for (var status : value.path("statuses")) {
+            deliveries.add(
+              new Delivery(
+                status.path("id").asText(),
+                status.path("status").asText(),
+                Long.parseLong(status.path("timestamp").asText())
+              )
+            );
+            if (deliveries.size() > 100) throw new ApiException(
               413,
               "Muitos eventos."
             );
@@ -121,6 +172,9 @@ public class WhatsAppController {
       throw new ApiException(400, "Evento inválido.");
     }
     whatsapp.receive(messages);
+    deliveries.forEach(d -> outbox.delivery(d.id(), d.state(), d.timestamp()));
     return ResponseEntity.ok().build();
   }
+
+  private record Delivery(String id, String state, long timestamp) {}
 }

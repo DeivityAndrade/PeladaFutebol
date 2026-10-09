@@ -1,9 +1,10 @@
 # Vinculação e autorizações do WhatsApp
 
-Esta entrega implementa a etapa 2 do [plano](PLANO-ASSISTENTE-E-WHATSAPP.md):
-vinculação com prova de posse, preferências por grupo e tipo, revogação e webhook
-assinado. **Não envia mensagens, não usa OpenAI e não precisa de n8n nesta etapa.**
-Convites, lembretes, fila persistente, status de entrega e automação são a etapa 3.
+Este documento descreve a vinculação com prova de posse, preferências por grupo,
+revogação e webhook assinado. Essa parte funciona independentemente do n8n.
+A implementação posterior de convites, lembretes, status e agente está documentada
+em [WHATSAPP-AGENTE.md](WHATSAPP-AGENTE.md), com execução local e envios desativados
+por padrão. Para comandos e envios, siga os dois documentos.
 
 ## Começar pelo ambiente de teste
 
@@ -61,7 +62,7 @@ lembretes pontuais. A decisão de hospedagem da fila pertence à próxima etapa.
   escolhas, data, versão e motivo, sem guardar número nem mensagem.
 - `SAIR` revoga todos os avisos daquele número e invalida vinculação pendente.
   Para voltar, é preciso provar novamente a posse e escolher as autorizações.
-  Não há resposta automática no WhatsApp nesta etapa; o estado aparece no site.
+  O estado aparece no site. O agente opcional não processa novos comandos após SAIR.
 - Desconectar apaga o telefone e o desafio e cancela autorizações. Preferências
   referenciam o vínculo de participação (`members.id`); excluir a participação as
   remove por FK. Entrar novamente no grupo começa sem autorização.
@@ -72,8 +73,8 @@ lembretes pontuais. A decisão de hospedagem da fila pertence à próxima etapa.
   Só esse endpoint dispensa sessão/CSRF; o restante da API continua protegido.
 - IDs de mensagens são deduplicados por hash em transação antes do HTTP 200.
   Repetições não vinculam de novo nem reaplicam um SAIR já processado. Eventos de
-  status e outras mensagens são ignorados nesta etapa. Não interpretar comandos de
-  presença/criação de jogo antes da etapa 5.
+  entrega são conciliados com a fila. Textos e botões de participantes do piloto
+  seguem para o agente somente quando a automação e um grupo autorizado estão ativados.
 - API só mostra o telefone mascarado à própria conta. Listas de participantes e
   administração não recebem telefone. Não registrar corpo de webhook ou código
   nos logs da aplicação/proxy.
@@ -82,8 +83,9 @@ lembretes pontuais. A decisão de hospedagem da fila pertence à próxima etapa.
   autorizações com 90 dias. Durante suspensão do servidor, a limpeza aguarda a
   próxima execução. Não faz chamadas externas para manter Render acordado.
 - Meta processa a mensagem de vinculação. Render/Neon armazenam vínculo,
-  preferências e metadados com os prazos descritos. n8n só entrará no fluxo de envio
-  da próxima entrega. A chave OpenAI não participa deste fluxo.
+  preferências e metadados com os prazos descritos. A chave OpenAI não participa
+  da vinculação. O agente opcional processa comandos com retenção temporária,
+  descrita na documentação própria e na política de privacidade.
 
 ## Verificação
 

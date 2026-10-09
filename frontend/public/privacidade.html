@@ -121,13 +121,18 @@
           O vínculo é opcional. Para confirmar que o número é seu, você envia um código ao número do
           Tô Dentro pelo WhatsApp e confirma no site. Recebemos pela plataforma da Meta o número do
           remetente, o identificador, a data e o texto da mensagem para verificar o código ou
-          processar o comando <strong>SAIR</strong>. O conteúdo completo da mensagem não é salvo no
-          nosso banco.
+          processar o comando <strong>SAIR</strong>. Nos grupos piloto com o agente ativado, também
+          processamos respostas de presença, consultas de agenda e pedidos de criação de partida. O
+          texto desses comandos fica temporariamente na fila de atendimento; ele é apagado ao
+          concluir ou expirar o processamento. Não armazenamos áudio ou anexos para o agente nesta
+          etapa.
         </p>
         <p>
           Guardamos o número vinculado e as escolhas de avisos por grupo e tipo de mensagem.
           Vincular o número não ativa todas as categorias de avisos. Nesta versão, o vínculo e as
-          preferências estão em teste; o envio automático de avisos ainda está em preparação.
+          preferências estão disponíveis; os avisos e o agente dependem de ativação nos grupos
+          participantes do piloto e de configuração pelo responsável. Criar partidas exige revisão e
+          confirmação explícita do organizador.
         </p>
         <p>
           Você pode desativar as preferências ou desconectar o número no site. Quando a integração
@@ -142,9 +147,13 @@
         <p>
           Usamos Vercel para servir o site, Render para executar o servidor e Neon para o banco de
           dados. Brevo processa os e-mails de recuperação de senha; OpenAI processa os pedidos ao
-          assistente; Meta opera a conexão com o WhatsApp. Esses fornecedores recebem os dados
-          necessários à sua função e podem processá-los fora do Brasil, conforme sua infraestrutura
-          e suas condições de serviço.
+          assistente; Meta opera a conexão com o WhatsApp. O n8n organiza o atendimento e os envios
+          do piloto, com execução local nesta preparação. Para interpretar um comando, recebe o
+          texto, os IDs e nomes dos grupos autorizados, as próximas partidas e sua presença; esses
+          dados também podem ser processados pela OpenAI. O agente não recebe o telefone nem o
+          e-mail do jogador. O fluxo de entrega recebe o telefone necessário para enviar pela Meta.
+          Esses fornecedores recebem os dados necessários à sua função e podem processá-los fora do
+          Brasil, conforme sua infraestrutura e suas condições de serviço.
         </p>
         <p>
           O acesso à aplicação exige autenticação nos recursos privados. A conexão usa HTTPS e o
@@ -165,6 +174,12 @@
           mais de 90 dias. Ela é executada durante a operação do servidor. Propostas de IA expiram
           em 30 minutos; propostas expiradas há mais de 24 horas são removidas na próxima operação
           autorizada do assistente. Jogos confirmados passam a fazer parte do histórico do grupo.
+          Comandos na fila expiram em dez minutos; o texto é apagado na conclusão ou na próxima
+          limpeza após expirar. Resultados de atendimento e eventos de entrega ficam por sete dias;
+          registros de envio, por 30 dias. O contexto de conversa expira após um dia sem mensagem.
+          Respostas de presença permanecem no histórico da partida. O n8n é configurado sem guardar
+          os dados de execuções automáticas ou manuais. Suspensão do servidor pode atrasar a
+          limpeza.
         </p>
       </section>
 

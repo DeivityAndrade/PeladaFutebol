@@ -1,0 +1,86 @@
+<details class="panel wa-operations" (toggle)="toggle($event)">
+  <summary>WhatsApp de {{ clubName() }}</summary>
+  <p>
+    Convites, respostas de presença e lembretes deste grupo. Cada participante escolhe os avisos em
+    Minha carreira.
+  </p>
+  @if (error()) {
+    <p class="alert error" role="alert">{{ error() }}</p>
+  }
+  @if (notice()) {
+    <p role="status">{{ notice() }}</p>
+  }
+  @if (state(); as state) {
+    @if (!state.available) {
+      <p>A integração está em preparação. Configure o agente antes de ativar o grupo piloto.</p>
+    } @else if (!state.deliveryAvailable) {
+      <p>
+        O agente está configurado. Os envios aguardam a ativação do piloto e dos modelos de
+        mensagem.
+      </p>
+    }
+    <form (ngSubmit)="save()">
+      <fieldset [disabled]="busy() || !state.available">
+        <label class="wa-choice"
+          ><input type="checkbox" name="enabled" [(ngModel)]="enabled" />Ativar automação neste
+          grupo</label
+        >
+        <label
+          >Lembrar antes do jogo
+          <select name="reminderMinutes" [(ngModel)]="reminderMinutes">
+            <option [ngValue]="15">15 minutos</option>
+            <option [ngValue]="30">30 minutos</option>
+            <option [ngValue]="60">1 hora</option>
+            <option [ngValue]="120">2 horas</option>
+            <option [ngValue]="1440">1 dia</option>
+          </select>
+        </label>
+        <button class="button secondary" type="submit">
+          {{ busy() ? 'Salvando…' : 'Salvar automação' }}
+        </button>
+      </fieldset>
+    </form>
+    <h3>Envios dos últimos sete dias</h3>
+    @if (counts().length) {
+      <dl class="wa-counts">
+        @for (item of counts(); track item.label) {
+          <div>
+            <dt>{{ item.label }}</dt>
+            <dd>{{ item.count }}</dd>
+          </div>
+        }
+      </dl>
+    } @else {
+      <p>Nenhum envio registrado neste período.</p>
+    }
+    <p>
+      “Aceito pela Meta” ainda não significa entregue. Resultados desconhecidos ficam para
+      conferência, sem reenvio automático.
+    </p>
+    <h3>Respostas pelo WhatsApp</h3>
+    <ul class="wa-responses">
+      @for (response of state.responses; track response.game_id + response.player_id) {
+        <li>
+          <strong>{{ response.name }}</strong> — {{ response.title }}, {{ date(response) }}:
+          {{
+            response.attendance === 'CONFIRMED'
+              ? 'presença confirmada'
+              : response.attendance === 'WAITING'
+                ? 'na fila de espera'
+                : response.response === 'NO'
+                  ? 'não vai jogar'
+                  : 'presença alterada no site'
+          }}.
+        </li>
+      } @empty {
+        <li>Nenhuma resposta registrada para os próximos jogos.</li>
+      }
+    </ul>
+  }
+  @if (busy() && !state()) {
+    <p role="status">Consultando avisos…</p>
+  }
+  <button class="text-button" type="button" (click)="load()" [disabled]="busy()">
+    Atualizar avisos
+  </button>
+</details>

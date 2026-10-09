@@ -48,6 +48,14 @@ app:
     app-secret: ${WHATSAPP_APP_SECRET:}
     verify-token: ${WHATSAPP_VERIFY_TOKEN:}
     max-codes-per-hour: ${WHATSAPP_MAX_CODES_PER_HOUR:3}
+    automation-enabled: ${WHATSAPP_AUTOMATION_ENABLED:false}
+    send-enabled: ${WHATSAPP_SEND_ENABLED:false}
+    integration-token: ${WHATSAPP_INTEGRATION_TOKEN:}
+    pilot-numbers: ${WHATSAPP_PILOT_NUMBERS:}
+    invitation-template: ${WHATSAPP_INVITATION_TEMPLATE:}
+    reminder-template: ${WHATSAPP_REMINDER_TEMPLATE:}
+    graph-version: ${WHATSAPP_GRAPH_VERSION:v26.0}
+    daily-send-limit: ${WHATSAPP_DAILY_SEND_LIMIT:20}
   assistant:
     enabled: ${ASSISTANT_ENABLED:false}
     api-key: ${ASSISTANT_API_KEY:}

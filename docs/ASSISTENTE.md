@@ -93,6 +93,9 @@ excedeu o tempo e não foi usada como evidência de publicação das novas rotas
 
 ## Próximas entregas
 
-Vínculo de telefone e autorização de avisos, fila de notificações, n8n e WhatsApp Business permanecem nas etapas seguintes do plano. Não estão ativados por esta implementação.
+O vínculo de telefone está descrito em [WHATSAPP.md](WHATSAPP.md). O piloto de
+presença e criação pelo WhatsApp, filas, avisos e n8n local está implementado em
+[WHATSAPP-AGENTE.md](WHATSAPP-AGENTE.md). Ele reutiliza as propostas e a confirmação
+do assistente, sem ativar envios reais por padrão.
 
 Referência do contrato do provedor: [Structured Outputs — documentação oficial](https://developers.openai.com/api/docs/guides/structured-outputs).

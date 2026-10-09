@@ -5,6 +5,7 @@ import br.com.pelada.domain.*;
 import br.com.pelada.domain.Domain.*;
 import br.com.pelada.groups.Finance;
 import br.com.pelada.groups.Groups;
+import br.com.pelada.whatsapp.GameChanged;
 import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.Instant;
@@ -15,6 +16,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class Games {
   private final Matches matches;
   private final Finance finance;
   private final GoalkeeperReservations reservations;
+  private final ApplicationEventPublisher events;
 
   public Games(
     Store store,
@@ -37,7 +40,8 @@ public class Games {
     Clock clock,
     Matches matches,
     Finance finance,
-    GoalkeeperReservations reservations
+    GoalkeeperReservations reservations,
+    ApplicationEventPublisher events
   ) {
     this.store = store;
     this.groups = groups;
@@ -45,6 +49,7 @@ public class Games {
     this.matches = matches;
     this.finance = finance;
     this.reservations = reservations;
+    this.events = events;
   }
 
   public GameDetail create(UUID user, UUID clubId, CreateGame input) {
@@ -151,6 +156,8 @@ public class Games {
     for (int i = 0; i < teamCount; i++) store.save(
       new Team(game.id, i, "Time " + (i + 1), colors[i])
     );
+    store.flush();
+    events.publishEvent(new GameChanged(game.id));
     return game;
   }
 
@@ -367,6 +374,10 @@ public class Games {
       cancelOccurrence(game);
       if (game.seriesId != null) game.seriesException = true;
     }
+    store.flush();
+    store
+      .list(Game.class, "from Game where clubId=:club", "club", game.clubId)
+      .forEach(g -> events.publishEvent(new GameChanged(g.id)));
     return detail(game);
   }
 
@@ -398,6 +409,8 @@ public class Games {
       game.startsAt = input.startsAt();
       if (game.seriesId != null) game.seriesException = true;
       reservations.clampDeadlines(game);
+      store.flush();
+      events.publishEvent(new GameChanged(game.id));
       return detail(game);
     }
 
@@ -444,6 +457,8 @@ public class Games {
       occurrence.seriesException = false;
       reservations.clampDeadlines(occurrence);
     }
+    store.flush();
+    future.forEach(g -> events.publishEvent(new GameChanged(g.id)));
     return detail(game);
   }
 
