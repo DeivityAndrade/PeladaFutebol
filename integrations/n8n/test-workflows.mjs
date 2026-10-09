@@ -5,6 +5,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateMedia } from './audio-guards.mjs';
 
 // Executes the real n8n node implementations. All HTTP destinations and keys are fictitious.
 // Run only with a dedicated local n8n test database; never pass production credentials.
@@ -16,17 +17,27 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const temp = await mkdtemp(join(tmpdir(), 'todentro-n8n-test-'));
 const calls = [], receipts = [];
 let mode = 'inbox', modelCalls = 0;
-const jobs = [1, 2, 3, 4].map(n => ({ id: `job${n}`, leaseId: `lease${n}`, text: n === 1 ? 'vou' : n === 4 ? 'modelo indisponível' : `consultar próxima partida ${n}`, groups: [{id: 'club-test', name: 'Turma', owner: true}], games: [], contextGameId: null, proposalPending: false }));
+const jobs = [1, 2, 3, 4, 5, 6, 7].map(n => ({ id: `job${n}`, leaseId: `lease${n}`, text: [3,5,6,7].includes(n) ? null : n === 1 ? 'vou' : n === 4 ? 'modelo indisponível' : `consultar próxima partida ${n}`, mediaUrl: [3,5,6,7].includes(n) ? `https://graph.facebook.com/v26.0/${n}` : null, mediaMime: 'audio/ogg', groups: [{id: 'club-test', name: 'Turma', owner: true}], games: [], contextGameId: null, proposalPending: false }));
 const server = createServer(async (req, res) => {
   let raw = ''; for await (const data of req) raw += data;
-  const body = raw ? JSON.parse(raw) : {};
+  const body = raw.startsWith('{') ? JSON.parse(raw) : {};
   calls.push({url: req.url, body});
   const answer = (json, status = 200) => { res.writeHead(status, {'Content-Type': 'application/json'}); res.end(JSON.stringify(json)); };
   if (req.url === '/api/integrations/whatsapp/inbox/claim') return answer(mode === 'empty' ? [] : jobs);
   if (req.url.endsWith('/action')) return answer({needsAgent: body.action === 'AUTO' && !req.url.includes('job1'), message: 'Resposta criada pelo sistema'});
   if (req.url.endsWith('/finish')) return answer({});
+  if (req.url.startsWith('/media-info/')) {
+    const id=req.url.split('/').at(-1);
+    return answer({ url: id==='5' ? 'https://attacker.invalid/?token=never' : `https://lookaside.fbsbx.com/whatsapp_business/attachments/?id=${id}`, mime_type:'audio/ogg', file_size:id==='7' ? 3000000 : 64 });
+  }
+  if (req.url.startsWith('/audio-file/')) { res.writeHead(200,{'Content-Type':'audio/ogg'}); return res.end(Buffer.from('OggSfixture')); }
+  if (req.url.endsWith('/audio')) {
+    assert(raw.includes('leaseId') && raw.includes('file'));
+    return answer(req.url.includes('job6') ? {message:'Falha simulada de transcrição'} : {text:'consultar próxima partida 3'}, req.url.includes('job6') ? 503 : 200);
+  }
   if (req.url === '/v1/chat/completions') {
     modelCalls++;
+    if (body.messages.some(m => m.role==='user')) assert(!JSON.stringify(body.messages).includes('mediaUrl'));
     if (body.messages.some(m => String(m.content).includes('modelo indisponível'))) return answer({error: {message: 'Falha simulada', type: 'server_error'}}, 503);
     const hasTool = body.messages.some(m => m.role === 'tool');
     const message = hasTool ? {role: 'assistant', content: 'Concluído.'} : {role: 'assistant', content: null, tool_calls: [{ id: `call-${modelCalls}`, type: 'function', function: {name: body.tools[0].function.name, arguments: JSON.stringify({action: 'LIST', clubId: '', gameId: ''})} }]};
@@ -42,6 +53,9 @@ const server = createServer(async (req, res) => {
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
+assert.throws(() => validateMedia({url:'https://lookaside.fbsbx.com.attacker.invalid/whatsapp_business/attachments/?id=x',mime_type:'audio/ogg',file_size:64},'audio/ogg'));
+assert.throws(() => validateMedia({url:'https://user@lookaside.fbsbx.com/whatsapp_business/attachments/?id=x',mime_type:'audio/ogg',file_size:64},'audio/ogg'));
+assert.throws(() => validateMedia({url:'https://lookaside.fbsbx.com/whatsapp_business/attachments/?id=x',mime_type:'audio/ogg',file_size:64},'audio/mp4'));
 async function run(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cli, ...args], {env: {...process.env, N8N_DIAGNOSTICS_ENABLED: 'false', N8N_VERSION_NOTIFICATIONS_ENABLED: 'false', N8N_PERSONALIZATION_ENABLED: 'false', EXECUTIONS_DATA_SAVE_ON_ERROR: 'none', EXECUTIONS_DATA_SAVE_ON_SUCCESS: 'none', N8N_RUNNERS_ENABLED: 'false'}});
@@ -60,6 +74,11 @@ try {
   const workflows = await Promise.all(['agent.json', 'delivery.json'].map(async file => {
     const w = JSON.parse(await readFile(join(dir, file), 'utf8'));
     w.nodes.find(n => n.name === 'Configuração').parameters.assignments.assignments[0].value = origin;
+    if (w.id==='todentro-inbox') {
+      w.nodes.find(n => n.name==='Obter mídia da Meta').parameters.url=`={{ '${origin}/media-info/' + $('Uma mensagem por vez').first(1).json.id.slice(3) }}`;
+      // Validate the real strict allowlist first, then substitute only the binary transport for this isolated fixture.
+      w.nodes.find(n => n.name==='Validar mídia').parameters.jsCode=`${validateMedia.toString()}\nconst result=validateMedia($json,$('Uma mensagem por vez').first(1).json.mediaMime); return {json:{url:'${origin}/audio-file/'+$json.url.split('id=')[1]}};`;
+    }
     return w;
   }));
   await writeFile(join(temp, 'workflows.json'), JSON.stringify(workflows));
@@ -68,10 +87,13 @@ try {
   const inboxOutput = await run(['execute', '--id=todentro-inbox']);
   await writeFile(join(temp, 'inbox-result.json'), inboxOutput);
   console.log('Registro local fictício:', temp);
-  assert.equal(calls.filter(c => c.url.endsWith('/finish')).length, 4);
+  assert.equal(calls.filter(c => c.url.endsWith('/finish')).length, 7);
   assert.deepEqual(calls.filter(c => c.body.action === 'LIST').map(c => c.url), ['/api/integrations/whatsapp/inbox/job2/action', '/api/integrations/whatsapp/inbox/job3/action']);
   assert(calls.some(c => c.url.includes('job4') && c.body.action === 'HELP'));
   assert(modelCalls > 0);
+  assert.equal(calls.filter(c => c.url.endsWith('/audio')).length,2);
+  assert.equal(calls.filter(c => c.url.startsWith('/audio-file/')).length,2);
+  for(const id of [5,6,7]) assert(calls.some(c=>c.url.includes('job'+id) && c.body.action==='HELP'));
   calls.length = 0; mode = 'empty';
   console.log('Executando caixa de entrada vazia…');
   await run(['execute', '--id=todentro-inbox']);

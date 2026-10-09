@@ -18,6 +18,11 @@
         O agente está configurado. Os envios aguardam a ativação do piloto e dos modelos de
         mensagem.
       </p>
+    } @else if (state.repliesOnly) {
+      <p>
+        O piloto envia somente respostas a mensagens recebidas nas últimas 24 horas. Convites e
+        lembretes continuam aguardando liberação.
+      </p>
     }
     <form (ngSubmit)="save()">
       <fieldset [disabled]="busy() || !state.available">

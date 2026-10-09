@@ -1,0 +1,27 @@
+.audio-request {
+  margin-block: 16px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-field);
+  background: var(--surface-2);
+}
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.audio-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+}
+audio {
+  display: block;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.button {
+  gap: 8px;
+}

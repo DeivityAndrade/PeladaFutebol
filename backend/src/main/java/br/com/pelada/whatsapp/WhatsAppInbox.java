@@ -17,17 +17,20 @@ public class WhatsAppInbox {
   private final Clock clock;
   private final WhatsAppIntegration config;
   private final WhatsAppOutbox outbox;
+  private final br.com.pelada.assistant.AudioTranscriber audio;
 
   public WhatsAppInbox(
     JdbcTemplate jdbc,
     Clock clock,
     WhatsAppIntegration config,
-    WhatsAppOutbox outbox
+    WhatsAppOutbox outbox,
+    br.com.pelada.assistant.AudioTranscriber audio
   ) {
     this.jdbc = jdbc;
     this.clock = clock;
     this.config = config;
     this.outbox = outbox;
+    this.audio = audio;
   }
 
   public void accept(WhatsApp.Incoming message) {
@@ -58,16 +61,18 @@ public class WhatsAppInbox {
         .isEmpty()
     ) return;
     jdbc.update(
-      "INSERT INTO whatsapp_inbox(id,event_hash,player_id,verified_at,message_at,text,button,reply_to,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(event_hash) DO NOTHING",
+      "INSERT INTO whatsapp_inbox(id,event_hash,player_id,verified_at,message_at,text,button,reply_to,created_at,media_id,media_mime) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(event_hash) DO NOTHING",
       UUID.randomUUID(),
       WhatsApp.hash(message.id()),
       user,
       contact.get("verified_at"),
       time(Instant.ofEpochSecond(message.timestamp())),
-      message.text(),
+      message.mediaId() == null ? message.text() : null,
       message.button(),
       message.replyTo(),
-      time(clock.instant())
+      time(clock.instant()),
+      message.mediaId(),
+      message.mediaMime()
     );
     jdbc.update(
       """
@@ -94,7 +99,9 @@ public class WhatsAppInbox {
     List<Map<String, Object>> games,
     UUID contextGameId,
     boolean proposalPending,
-    UUID proposalClubId
+    UUID proposalClubId,
+    String mediaUrl,
+    String mediaMime
   ) {}
 
   public List<Job> claim() {
@@ -136,7 +143,16 @@ public class WhatsAppInbox {
           games,
           context,
           c.get("proposal_id") != null,
-          (UUID) c.get("club_id")
+          (UUID) c.get("club_id"),
+          !audio.available() ||
+            row.get("media_id") == null ||
+            row.get("text") != null
+            ? null
+            : "https://graph.facebook.com/" +
+                config.graphVersion +
+                "/" +
+                row.get("media_id"),
+          (String) row.get("media_mime")
         )
       );
     }
@@ -234,6 +250,24 @@ public class WhatsAppInbox {
     return row;
   }
 
+  public Map<String, Object> audioInput(UUID id, UUID lease) {
+    outbox.lock();
+    var row = leased(id, lease);
+    if (
+      row.get("media_id") == null || row.get("result") != null
+    ) throw ApiException.conflict("Esta mensagem não aceita áudio.");
+    return row;
+  }
+
+  public void transcript(UUID id, UUID lease, String text) {
+    var row = audioInput(id, lease);
+    if (row.get("text") == null) jdbc.update(
+      "UPDATE whatsapp_inbox SET text=? WHERE id=?",
+      text,
+      id
+    );
+  }
+
   public void finish(UUID id, UUID lease) {
     outbox.lock();
     if (
@@ -249,14 +283,14 @@ public class WhatsAppInbox {
       "Execute uma ação ou peça esclarecimento antes de concluir."
     );
     jdbc.update(
-      "UPDATE whatsapp_inbox SET state='DONE',text=NULL,button=NULL,reply_to=NULL WHERE id=?",
+      "UPDATE whatsapp_inbox SET state='DONE',text=NULL,button=NULL,reply_to=NULL,media_id=NULL,media_mime=NULL WHERE id=?",
       id
     );
   }
 
   private void abandon(UUID id) {
     jdbc.update(
-      "UPDATE whatsapp_inbox SET state='EXPIRED',text=NULL,button=NULL,reply_to=NULL,result=NULL WHERE id=?",
+      "UPDATE whatsapp_inbox SET state='EXPIRED',text=NULL,button=NULL,reply_to=NULL,result=NULL,media_id=NULL,media_mime=NULL WHERE id=?",
       id
     );
   }
@@ -267,7 +301,7 @@ public class WhatsAppInbox {
       time(clock.instant())
     );
     jdbc.update(
-      "UPDATE whatsapp_inbox SET state='EXPIRED',text=NULL,button=NULL,reply_to=NULL,result=NULL WHERE state IN ('PENDING','PROCESSING') AND (message_at<=? OR (attempts>=3 AND state='PENDING'))",
+      "UPDATE whatsapp_inbox SET state='EXPIRED',text=NULL,button=NULL,reply_to=NULL,result=NULL,media_id=NULL,media_mime=NULL WHERE state IN ('PENDING','PROCESSING') AND (message_at<=? OR (attempts>=3 AND state='PENDING'))",
       time(clock.instant().minusSeconds(600))
     );
     jdbc.update(

@@ -121,7 +121,7 @@ public class WhatsAppController {
           for (var m : value.path("messages")) {
             String type = m.path("type").asText();
             if (
-              !Set.of("text", "button", "interactive").contains(type)
+              !Set.of("text", "button", "interactive", "audio").contains(type)
             ) continue;
             String text = type.equals("text")
               ? m.path("text").path("body").asText()
@@ -132,6 +132,16 @@ public class WhatsAppController {
                 ? m.path("interactive").path("button_reply").path("id").asText()
                 : null;
             String replyTo = m.path("context").path("id").asText(null);
+            String mediaId = type.equals("audio")
+              ? m.path("audio").path("id").asText("")
+              : null;
+            String mediaMime = type.equals("audio")
+              ? m.path("audio").path("mime_type").asText("")
+              : null;
+            if (
+              mediaId != null &&
+              (!mediaId.matches("[0-9]{1,100}") || mediaMime.length() > 80)
+            ) continue;
             if (
               text.length() > 1200 ||
               (button != null && button.length() > 100) ||
@@ -144,7 +154,9 @@ public class WhatsAppController {
                 text,
                 Long.parseLong(m.path("timestamp").asText()),
                 button,
-                replyTo
+                replyTo,
+                mediaId,
+                mediaMime
               )
             );
             if (messages.size() > 100) throw new ApiException(

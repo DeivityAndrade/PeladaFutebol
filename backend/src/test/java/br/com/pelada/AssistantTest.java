@@ -52,6 +52,54 @@ class AssistantTest {
   @MockitoBean
   AiInterpreter interpreter;
 
+  @MockitoBean
+  AudioTranscriber audio;
+
+  @Test
+  void audioRequiresOwnerSessionAndCsrfAndOnlyReturnsText() throws Exception {
+    when(audio.available()).thenReturn(true);
+    when(audio.transcribe(eq(owner), any(), any())).thenReturn(
+      new AudioTranscriber.Transcript("Sábado às 19h na Arena")
+    );
+    var file = new org.springframework.mock.web.MockMultipartFile(
+      "file",
+      "request.webm",
+      "audio/webm",
+      new byte[] { 1, 2, 3 }
+    );
+    String path = "/api/groups/" + club + "/assistant/audio";
+    mvc
+      .perform(multipart(path).file(file).with(csrf()))
+      .andExpect(status().isUnauthorized());
+    mvc
+      .perform(multipart(path).file(file).with(user("owner@assistant.invalid")))
+      .andExpect(status().isForbidden());
+    mvc
+      .perform(
+        multipart(path)
+          .file(file)
+          .with(user("member@assistant.invalid"))
+          .with(csrf())
+      )
+      .andExpect(status().isForbidden());
+    verifyNoInteractions(audio);
+    mvc
+      .perform(
+        multipart(path)
+          .file(file)
+          .with(user("owner@assistant.invalid"))
+          .with(csrf())
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.text").value("Sábado às 19h na Arena"));
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT count(*) FROM assistant_proposals",
+        Integer.class
+      )
+    ).isZero();
+  }
+
   UUID owner, member, club;
   LocalDate tomorrow;
 

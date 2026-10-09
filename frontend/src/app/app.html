@@ -1563,6 +1563,16 @@
 @if (toast()) {
   <div class="toast" role="status"><app-icon name="check" />{{ toast() }}</div>
 }
+@if (user() && assistantGroups().length && !modal() && !demo() && !loading() && !sidebar()) {
+  <button
+    id="floating-assistant"
+    class="assistant-launcher"
+    aria-label="Pedir jogo por áudio ou texto"
+    (click)="open('assistant')"
+  >
+    <app-icon name="mic" /><span>Pedir jogo</span>
+  </button>
+}
 @if (modal()) {
   <div
     class="modal-overlay"
@@ -1586,13 +1596,28 @@
       }
       @switch (modal()) {
         @case ('assistant') {
-          @if (club() && groupOwner()) {
-            <app-game-assistant
-              [club]="club()!"
-              (created)="assistantCreated($event)"
-              (manual)="open('game')"
-              (processing)="busy.set($event)"
-            />
+          @if (assistantGroups().length > 1) {
+            <label class="assistant-group"
+              >Grupo do pedido<select
+                [ngModel]="assistantClubId()"
+                (ngModelChange)="assistantClubId.set($event)"
+                [disabled]="busy()"
+              >
+                @for (c of assistantGroups(); track c.id) {
+                  <option [value]="c.id">{{ c.name }}</option>
+                }
+              </select></label
+            >
+          }
+          @for (c of assistantGroups(); track c.id) {
+            @if (assistantClubId() === c.id) {
+              <app-game-assistant
+                [club]="c"
+                (created)="assistantCreated($event)"
+                (manual)="assistantManual()"
+                (processing)="busy.set($event)"
+              />
+            }
           }
         }
         @case ('auth') {

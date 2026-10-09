@@ -113,6 +113,9 @@
           proposta são salvos. O processamento pela OpenAI segue também as condições e políticas
           desse fornecedor.
         </p>
+        <p>Ao usar a gravação opcional, o microfone só é acessado depois de sua ação. Ao clicar
+          em Transcrever áudio, enviamos a gravação à OpenAI. O texto pode ser corrigido antes
+          de preparar o jogo. A aplicação não salva o áudio no banco; limites de uso são registrados.</p>
       </section>
 
       <section id="whatsapp" aria-labelledby="whatsapp-titulo">
@@ -124,8 +127,9 @@
           processar o comando <strong>SAIR</strong>. Nos grupos piloto com o agente ativado, também
           processamos respostas de presença, consultas de agenda e pedidos de criação de partida. O
           texto desses comandos fica temporariamente na fila de atendimento; ele é apagado ao
-          concluir ou expirar o processamento. Não armazenamos áudio ou anexos para o agente nesta
-          etapa.
+          concluir ou expirar o processamento. Quando o áudio está habilitado, o n8n baixa a gravação
+          da Meta e a encaminha ao servidor para transcrição pela OpenAI. Não salvamos o áudio no
+          banco. O identificador de mídia e a transcrição são apagados ao concluir ou expirar a fila.
         </p>
         <p>
           Guardamos o número vinculado e as escolhas de avisos por grupo e tipo de mensagem.

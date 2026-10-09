@@ -1075,6 +1075,38 @@ main:focus {
   white-space: nowrap;
 }
 
+.assistant-launcher {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-field);
+  background: var(--ink);
+  color: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.assistant-launcher:hover {
+  background: var(--ink-2);
+}
+.assistant-launcher:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+.assistant-group {
+  display: block;
+  margin-block: 12px 24px;
+}
+.page-footer {
+  padding-bottom: 90px;
+}
 .toast {
   position: fixed;
   bottom: 24px;

@@ -1,0 +1,53 @@
+<div class="audio-request">
+  @if (!supported) {
+    <p class="audio-note">Este navegador não permite gravar aqui. Escreva seu pedido abaixo.</p>
+  } @else {
+    @if (recording()) {
+      <div class="audio-controls">
+        <span role="status">Gravando · {{ seconds() }}s / 60s</span>
+        <button id="audio-stop" class="button secondary" type="button" (click)="stop()">
+          Parar gravação
+        </button>
+        <button class="text-button" type="button" (click)="discard(true)">Descartar</button>
+      </div>
+    } @else if (preview()) {
+      <audio controls [src]="preview()" aria-label="Ouvir seu pedido gravado"></audio>
+      <div class="audio-controls">
+        <button
+          id="audio-transcribe"
+          class="button secondary"
+          type="button"
+          [disabled]="busy() || disabled()"
+          (click)="transcribe()"
+        >
+          {{ busy() ? 'Transcrevendo…' : 'Transcrever áudio' }}
+        </button>
+        <button
+          class="text-button"
+          type="button"
+          [disabled]="busy() || disabled()"
+          (click)="discard(true)"
+        >
+          Descartar áudio
+        </button>
+      </div>
+    } @else {
+      <button
+        id="audio-record"
+        class="button secondary"
+        type="button"
+        [disabled]="disabled() || requesting()"
+        (click)="record()"
+      >
+        <app-icon name="mic" />{{ requesting() ? 'Abrindo microfone…' : 'Gravar pedido' }}
+      </button>
+    }
+    <p class="audio-note">
+      Até 60 segundos. Ao transcrever, o áudio será enviado à OpenAI. Confira e corrija o texto
+      antes de preparar o jogo.
+    </p>
+  }
+  @if (error()) {
+    <p class="alert error" role="alert">{{ error() }}</p>
+  }
+</div>

@@ -1,5 +1,18 @@
 # Registro e plano de continuidade — IA e WhatsApp
 
+## Entrega de áudio e texto — 09/10/2026
+
+O proprietário retirou conversa/ligação ao vivo do escopo. Foi implementada a
+primeira versão de gravação e transcrição revisável no site, processamento de
+áudios no n8n e modo opcional somente de respostas. Consulte
+[ASSISTENTE-VOZ.md](ASSISTENTE-VOZ.md) para recursos, limites e ativação.
+
+As novas flags estão desligadas por padrão. O estado remoto registrado abaixo
+permanece até a ativação pelo proprietário. Testes locais não equivalem a áudio
+real na conta OpenAI ou envio real pela Meta. Oferta paga permanece pendente.
+
+O restante deste documento preserva o registro anterior do piloto.
+
 Atualizado em **09/10/2026**, no fuso de São Paulo. Este é o registro de estado
 do piloto; o [plano original](PLANO-ASSISTENTE-E-WHATSAPP.md) preserva o desenho
 da implementação e os guias técnicos detalham a execução.

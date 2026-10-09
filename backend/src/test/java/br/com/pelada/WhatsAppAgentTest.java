@@ -82,6 +82,211 @@ class WhatsAppAgentTest {
   @MockitoBean
   AiInterpreter interpreter;
 
+  @MockitoBean
+  AudioTranscriber audio;
+
+  @Autowired
+  WhatsAppIntegration integration;
+
+  @Test
+  void signedAudioIsDeduplicatedTranscribedOnceAndChangesPresenceOnlyAfterAction()
+    throws Exception {
+    when(audio.available()).thenReturn(true);
+    when(audio.transcribe(eq(member), any(), eq("audio/ogg"))).thenReturn(
+      new AudioTranscriber.Transcript("vou")
+    );
+    UUID game = game(7200);
+    String payload = """
+    {"object":"whatsapp_business_account","entry":[{"changes":[{"field":"messages","value":{
+    "metadata":{"phone_number_id":"test-phone"},"messages":[{"id":"wamid.audio","from":"5511999990001","timestamp":"%s","type":"audio","audio":{"id":"123456789","mime_type":"audio/ogg"}}]
+    }}]}]}
+    """.formatted(now.getEpochSecond());
+    byte[] bytes = payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    var mac = javax.crypto.Mac.getInstance("HmacSHA256");
+    mac.init(
+      new javax.crypto.spec.SecretKeySpec(
+        "test-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+        "HmacSHA256"
+      )
+    );
+    String signature = "sha256=" + HexFormat.of().formatHex(mac.doFinal(bytes));
+    mvc
+      .perform(
+        post("/api/whatsapp/webhook")
+          .contentType("application/json")
+          .content(bytes)
+      )
+      .andExpect(status().isForbidden());
+    for (int i = 0; i < 2; i++) mvc
+      .perform(
+        post("/api/whatsapp/webhook")
+          .header("X-Hub-Signature-256", signature)
+          .contentType("application/json")
+          .content(bytes)
+      )
+      .andExpect(status().isOk());
+    var j = inbox.claim().getFirst();
+    assertThat(j.mediaUrl()).isEqualTo(
+      "https://graph.facebook.com/v26.0/123456789"
+    );
+    assertThat(j.text()).isNull();
+    var file = new org.springframework.mock.web.MockMultipartFile(
+      "file",
+      "audio.ogg",
+      "audio/ogg",
+      new byte[] { 'O', 'g', 'g', 'S' }
+    );
+    String path = "/api/integrations/whatsapp/inbox/" + j.id() + "/audio";
+    mvc
+      .perform(
+        multipart(path).file(file).param("leaseId", j.leaseId().toString())
+      )
+      .andExpect(status().isUnauthorized());
+    mvc
+      .perform(
+        multipart(path)
+          .file(file)
+          .header("Authorization", token)
+          .param("leaseId", UUID.randomUUID().toString())
+      )
+      .andExpect(status().isConflict());
+    for (int i = 0; i < 2; i++) mvc
+      .perform(
+        multipart(path)
+          .file(file)
+          .header("Authorization", token)
+          .param("leaseId", j.leaseId().toString())
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.text").value("vou"));
+    verify(audio, times(1)).transcribe(eq(member), any(), eq("audio/ogg"));
+    assertThat(participation(member, game)).isZero();
+    act(j, "AUTO", null, null);
+    assertThat(participation(member, game)).isEqualTo(1);
+    inbox.finish(j.id(), j.leaseId());
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT media_id FROM whatsapp_inbox WHERE id=?",
+        String.class,
+        j.id()
+      )
+    ).isNull();
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT text FROM whatsapp_inbox WHERE id=?",
+        String.class,
+        j.id()
+      )
+    ).isNull();
+  }
+
+  @Test
+  void unavailableAudioUsesSafeReplyWithoutInterpretingAnEmptyCommand() {
+    UUID game = game(7200);
+    whatsapp.receive(
+      List.of(
+        new WhatsApp.Incoming(
+          "audio-failure",
+          "5511999990001",
+          null,
+          now.getEpochSecond(),
+          null,
+          null,
+          "1234",
+          "audio/ogg"
+        )
+      )
+    );
+    var j = inbox.claim().getFirst();
+    assertThat(j.mediaUrl()).isNull();
+    var result = act(j, "AUTO", null, null);
+    assertThat(result.needsAgent()).isFalse();
+    assertThat(result.message()).contains("transcrever");
+    assertThat(participation(member, game)).isZero();
+    inbox.finish(j.id(), j.leaseId());
+  }
+
+  @Test
+  void aSpokenConfirmationTokenDoesNotCreateThePreparedGame() {
+    receive(
+      "5511999990000",
+      "Cria uma partida amanhã às 19h na Arena",
+      null,
+      null
+    );
+    var prepared = inbox.claim().getFirst();
+    act(prepared, "PREPARE", club, null);
+    inbox.finish(prepared.id(), prepared.leaseId());
+    UUID action = jdbc.queryForObject(
+      "SELECT id FROM whatsapp_actions WHERE action='CREATE'",
+      UUID.class
+    );
+    advance(2);
+    whatsapp.receive(
+      List.of(
+        new WhatsApp.Incoming(
+          "spoken-confirmation",
+          "5511999990000",
+          null,
+          now.getEpochSecond(),
+          null,
+          null,
+          "123456",
+          "audio/ogg"
+        )
+      )
+    );
+    var j = inbox.claim().getFirst();
+    inbox.transcript(j.id(), j.leaseId(), "CONFIRMAR " + action);
+    assertThat(act(j, "AUTO", null, null).message()).contains("Revise");
+    assertThat(
+      jdbc.queryForObject("SELECT count(*) FROM games", Integer.class)
+    ).isZero();
+  }
+
+  @Test
+  void replyOnlyModeDoesNotLeaseOrDestroyInvitationsAndRechecksExistingLeases() {
+    consent(member);
+    game(7200);
+    var templateLease = invitation(member);
+    org.springframework.test.util.ReflectionTestUtils.setField(
+      integration,
+      "repliesOnly",
+      true
+    );
+    try {
+      assertThat(
+        outbox.dispatch(templateLease.id(), templateLease.leaseId()).send()
+      ).isFalse();
+      assertThat(outbox.claim()).isEmpty();
+      assertThat(
+        jdbc.queryForObject(
+          "SELECT state FROM whatsapp_outbox WHERE id=?",
+          String.class,
+          templateLease.id()
+        )
+      ).isEqualTo("PENDING");
+      var j = job("agenda");
+      act(j, "AUTO", null, null);
+      inbox.finish(j.id(), j.leaseId());
+      var reply = outbox.claim().getFirst();
+      assertThat(
+        jdbc.queryForObject(
+          "SELECT kind FROM whatsapp_outbox WHERE id=?",
+          String.class,
+          reply.id()
+        )
+      ).isEqualTo("REPLY");
+      assertThat(outbox.dispatch(reply.id(), reply.leaseId()).send()).isTrue();
+    } finally {
+      org.springframework.test.util.ReflectionTestUtils.setField(
+        integration,
+        "repliesOnly",
+        false
+      );
+    }
+  }
+
   @Value("${spring.datasource.url}")
   String database;
 

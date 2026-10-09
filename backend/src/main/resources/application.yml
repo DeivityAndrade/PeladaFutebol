@@ -50,6 +50,7 @@ app:
     max-codes-per-hour: ${WHATSAPP_MAX_CODES_PER_HOUR:3}
     automation-enabled: ${WHATSAPP_AUTOMATION_ENABLED:false}
     send-enabled: ${WHATSAPP_SEND_ENABLED:false}
+    replies-only: ${WHATSAPP_REPLIES_ONLY:false}
     integration-token: ${WHATSAPP_INTEGRATION_TOKEN:}
     pilot-numbers: ${WHATSAPP_PILOT_NUMBERS:}
     invitation-template: ${WHATSAPP_INVITATION_TEMPLATE:}
@@ -62,6 +63,9 @@ app:
     model: ${ASSISTANT_MODEL:}
     base-url: ${ASSISTANT_BASE_URL:https://api.openai.com/v1}
     daily-limit: ${ASSISTANT_DAILY_LIMIT:20}
+    audio-enabled: ${ASSISTANT_AUDIO_ENABLED:false}
+    transcription-model: ${ASSISTANT_TRANSCRIPTION_MODEL:gpt-4o-mini-transcribe}
+    audio-daily-limit: ${ASSISTANT_AUDIO_DAILY_LIMIT:20}
   visit-stats-enabled: ${VISIT_STATS_ENABLED:true}
   admin-emails: ${ADMIN_EMAILS:}
   demo-enabled: ${DEMO_ENABLED:true}
