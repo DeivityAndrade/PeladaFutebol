@@ -390,8 +390,21 @@ public class WhatsApp {
     String text,
     long timestamp,
     String button,
-    String replyTo
+    String replyTo,
+    String mediaId,
+    String mediaMime
   ) {
+    public Incoming(
+      String id,
+      String from,
+      String text,
+      long timestamp,
+      String button,
+      String replyTo
+    ) {
+      this(id, from, text, timestamp, button, replyTo, null, null);
+    }
+
     public Incoming(String id, String from, String text, long timestamp) {
       this(id, from, text, timestamp, null, null);
     }

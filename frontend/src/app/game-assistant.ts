@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { DatePipe, CurrencyPipe } from '@angular/common';
 import { Api, ApiError } from './api';
 import { Club, Detail } from './models';
+import { AudioRequest } from './audio-request';
 
 interface Draft {
   title: string | null;
@@ -28,7 +29,7 @@ interface Proposal {
 @Component({
   selector: 'app-game-assistant',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe],
+  imports: [FormsModule, DatePipe, CurrencyPipe, AudioRequest],
   templateUrl: './game-assistant.html',
   styleUrl: './game-assistant.css',
 })
@@ -40,6 +41,8 @@ export class GameAssistant implements OnInit, OnDestroy {
   private api = inject(Api);
   private destroyed = false;
   available = signal<boolean | null>(null);
+  audioAvailable = signal(false);
+  recordingAudio = signal(false);
   busy = signal(false);
   error = signal('');
   proposal = signal<Proposal | null>(null);
@@ -59,6 +62,14 @@ export class GameAssistant implements OnInit, OnDestroy {
       if (e instanceof ApiError && e.status !== 404) this.fail(e);
     }
     this.focus('assistant-request');
+    try {
+      const audio = await this.api.request<{ available: boolean }>(
+        `/groups/${this.club().id}/assistant/audio`,
+      );
+      if (!this.destroyed) this.audioAvailable.set(audio.available);
+    } catch {
+      /* Text remains available when audio is disabled or the server is updating. */
+    }
   }
   ngOnDestroy() {
     this.destroyed = true;
@@ -71,6 +82,21 @@ export class GameAssistant implements OnInit, OnDestroy {
   private setBusy(value: boolean) {
     this.busy.set(value);
     this.processing.emit(value);
+  }
+  audioBusy(value: boolean) {
+    this.setBusy(value);
+  }
+  useTranscript(text: string) {
+    const combined = [this.message.trim(), text.trim()].filter(Boolean).join('\n');
+    if (combined.length > 1200) {
+      this.fail(
+        new Error('O texto passou de 1200 caracteres. Reduza o pedido antes de gravar novamente.'),
+      );
+      return;
+    }
+    this.message = combined;
+    this.error.set('');
+    this.focus('assistant-request');
   }
   private fail(e: unknown) {
     this.error.set(e instanceof Error ? e.message : 'Não foi possível concluir. Tente novamente.');
@@ -85,7 +111,7 @@ export class GameAssistant implements OnInit, OnDestroy {
         : (p.draft.occasionalAmountCents / 100).toFixed(2).replace('.', ',');
   }
   async interpret() {
-    if (this.busy() || !this.message.trim()) return;
+    if (this.busy() || this.recordingAudio() || !this.message.trim()) return;
     this.setBusy(true);
     this.error.set('');
     try {

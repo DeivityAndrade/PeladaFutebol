@@ -123,6 +123,12 @@ export class App implements OnInit, OnDestroy {
   private api = inject(Api);
   user = signal<User | null>(null);
   clubs = signal<Club[]>([]);
+  assistantClubId = signal('');
+  private assistantOpenerId = '';
+  assistantGroups = computed(() => this.clubs().filter((c) => c.ownerId === this.user()?.id));
+  assistantClub = computed(
+    () => this.assistantGroups().find((c) => c.id === this.assistantClubId()) || null,
+  );
   games = signal<Game[]>([]);
   friendlies = signal<SocialSchedule[]>([]);
   detail = signal<Detail | null>(null);
@@ -604,6 +610,11 @@ export class App implements OnInit, OnDestroy {
     this.error.set('');
   }
   open(name: string) {
+    if (name === 'assistant') this.assistantOpenerId = document.activeElement?.id || '';
+    if (name === 'assistant')
+      this.assistantClubId.set(
+        this.groupOwner() ? this.club()!.id : this.assistantGroups()[0]?.id || '',
+      );
     this.error.set('');
     this.form = {};
     if (name === 'game')
@@ -672,7 +683,13 @@ export class App implements OnInit, OnDestroy {
     const wasAssistant = this.modal() === 'assistant';
     this.modal.set('');
     if (wasAssistant)
-      requestAnimationFrame(() => document.getElementById('open-game-assistant')?.focus());
+      requestAnimationFrame(() =>
+        (
+          document.getElementById(this.assistantOpenerId) ||
+          document.getElementById('open-game-assistant') ||
+          document.getElementById('floating-assistant')
+        )?.focus(),
+      );
     if (wasAuth && !this.user() && !this.demo() && !this.home()) this.navigate('inicio');
   }
   rememberModalPointer(event: PointerEvent) {
@@ -820,6 +837,10 @@ export class App implements OnInit, OnDestroy {
     this.modal.set('');
     this.navigate('game/' + detail.game.id);
     this.notify('Pelada marcada!');
+  }
+  assistantManual() {
+    this.club.set(this.assistantClub());
+    this.open('game');
   }
   saveGame() {
     void this.action(async () => {

@@ -5,6 +5,7 @@ import { Api } from './api';
 interface Operations {
   available: boolean;
   deliveryAvailable: boolean;
+  repliesOnly?: boolean;
   enabled: boolean;
   reminderMinutes: number;
   states: Record<string, number>;

@@ -82,6 +82,19 @@ public class WhatsAppAgent {
         if (row.get("result") != null) return read(row);
         String button = (String) row.get("button"),
           text = (String) row.get("text");
+        if (row.get("media_id") != null && text == null) return save(
+          row,
+          "Não consegui transcrever esse áudio. Envie uma gravação curta de até 2 MB ou escreva seu pedido.",
+          List.of(),
+          null,
+          null
+        );
+        // Spoken text cannot redeem confirmation tokens; the actual WhatsApp button is required.
+        if (
+          row.get("media_id") != null &&
+          text != null &&
+          text.strip().matches("(?i)CONFIRMAR [0-9a-f-]{36}")
+        ) return proposalAgain(row);
         if (button != null && button.startsWith("TD:")) return useButton(
           row,
           button.substring(3)

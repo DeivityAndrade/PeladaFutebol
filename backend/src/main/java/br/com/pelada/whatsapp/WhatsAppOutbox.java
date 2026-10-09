@@ -51,6 +51,7 @@ public class WhatsAppOutbox {
   public record Settings(
     boolean available,
     boolean deliveryAvailable,
+    boolean repliesOnly,
     boolean enabled,
     int reminderMinutes,
     Map<String, Long> states,
@@ -99,6 +100,7 @@ public class WhatsAppOutbox {
     return new Settings(
       config.available(),
       config.deliveryAvailable(),
+      config.repliesOnly,
       !s.isEmpty() && Boolean.TRUE.equals(s.getFirst().get("enabled")),
       s.isEmpty()
         ? 120
@@ -426,9 +428,10 @@ public class WhatsAppOutbox {
       .forEach(r -> plan((UUID) r.get("id")));
     var leases = new ArrayList<Lease>();
     for (var row : jdbc.queryForList(
-      "SELECT * FROM whatsapp_outbox WHERE state='PENDING' AND send_after<=? AND expires_at>? AND attempts<3 ORDER BY send_after,id LIMIT 3 FOR UPDATE SKIP LOCKED",
+      "SELECT * FROM whatsapp_outbox WHERE state='PENDING' AND send_after<=? AND expires_at>? AND attempts<3 AND (NOT ? OR kind='REPLY') ORDER BY send_after,id LIMIT 3 FOR UPDATE SKIP LOCKED",
       time(clock.instant()),
-      time(clock.instant())
+      time(clock.instant()),
+      config.repliesOnly
     )) {
       UUID id = (UUID) row.get("id");
       if (!eligible(row)) {
@@ -451,6 +454,14 @@ public class WhatsAppOutbox {
   public Dispatch dispatch(UUID id, UUID lease) {
     lock();
     var row = leased(id, lease, "CLAIMED");
+    if (config.repliesOnly && !"REPLY".equals(row.get("kind"))) {
+      jdbc.update(
+        "UPDATE whatsapp_outbox SET state='PENDING',lease_id=NULL,lease_until=NULL,updated_at=? WHERE id=?",
+        time(clock.instant()),
+        id
+      );
+      return new Dispatch(false, null, null);
+    }
     if (!config.deliveryAvailable() || !eligible(row)) {
       cancel(id, "INELIGIBLE");
       return new Dispatch(false, null, null);
