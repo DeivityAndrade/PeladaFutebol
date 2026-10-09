@@ -224,6 +224,103 @@ class WhatsAppAgentTest {
   }
 
   @Test
+  void diagnosticsRequireWorkerCredentialAndAnAllowedPilotNumber()
+    throws Exception {
+    String request =
+      "{\"phone\":\"5511999990001\",\"expectedPhoneId\":\"test-phone\"}";
+    mvc
+      .perform(
+        post("/api/integrations/whatsapp/diagnostics")
+          .contentType("application/json")
+          .content(request)
+      )
+      .andExpect(status().isUnauthorized());
+    mvc
+      .perform(
+        post("/api/integrations/whatsapp/diagnostics")
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(request.replace("5511999990001", "5511888880001"))
+      )
+      .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void diagnosticsDescribeProcessingWithoutExposingContentOrConsumingJobs()
+    throws Exception {
+    receive("5511999990001", "agenda", null, null);
+    String request =
+      "{\"phone\":\"5511999990001\",\"expectedPhoneId\":\"test-phone\"}";
+    var response = mvc
+      .perform(
+        post("/api/integrations/whatsapp/diagnostics")
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(request)
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.phoneIdMatches").value(true))
+      .andExpect(jsonPath("$.exactVerifiedContacts").value(1))
+      .andExpect(jsonPath("$.legacyBrazilianVerifiedContacts").value(0))
+      .andExpect(jsonPath("$.enabledGroups").value(1))
+      .andExpect(jsonPath("$.recentInbox.PENDING").value(1))
+      .andExpect(jsonPath("$.recentReplies").value(0))
+      .andReturn()
+      .getResponse()
+      .getContentAsString();
+    assertThat(response).doesNotContain(
+      "agenda",
+      "5511999990001",
+      "Beto",
+      "member@",
+      token
+    );
+    var job = inbox.claim().getFirst();
+    act(job, "LIST", null, null);
+    inbox.finish(job.id(), job.leaseId());
+    mvc
+      .perform(
+        post("/api/integrations/whatsapp/diagnostics")
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(request)
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.recentInbox.DONE").value(1))
+      .andExpect(jsonPath("$.recentReplies").value(1));
+  }
+
+  @Test
+  void diagnosticsIdentifyLegacyBrazilianNumberWithoutChangingItsIdentity()
+    throws Exception {
+    jdbc.update(
+      "UPDATE whatsapp_contacts SET phone=? WHERE player_id=?",
+      "+551199990001",
+      member
+    );
+    mvc
+      .perform(
+        post("/api/integrations/whatsapp/diagnostics")
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(
+            "{\"phone\":\"5511999990001\",\"expectedPhoneId\":\"other-phone\"}"
+          )
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.phoneIdMatches").value(false))
+      .andExpect(jsonPath("$.exactVerifiedContacts").value(0))
+      .andExpect(jsonPath("$.legacyBrazilianVerifiedContacts").value(1));
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT phone FROM whatsapp_contacts WHERE player_id=?",
+        String.class,
+        member
+      )
+    ).isEqualTo("+551199990001");
+  }
+
+  @Test
   void clearAnswerUpdatesRealAttendanceAndRepeatedToolCallCreatesOneReply() {
     var game = game(18000);
     var job = job("tô dentro");
