@@ -10,19 +10,17 @@ acionou o servidor e gerou uma resposta na fila. **A entrega pelo WhatsApp está
 desligada.** Os modelos de convite e lembrete ainda aguardavam análise da Meta
 na última verificação registrada.
 
-**Bloqueio encontrado na continuação:** a nova consulta à Meta em 09/10/2026
-retornou HTTP `401`, código `190`, subcódigo `463`, indicando expiração da
-credencial usada pelo n8n. Renovar esse token é o próximo passo imediato.
-O estado atual dos modelos não pôde ser consultado; `PENDING` é o último
-resultado bem-sucedido, não uma nova confirmação após a expiração.
+**Autenticação Meta restabelecida em 09/10/2026:** após o proprietário conferir
+e salvar novamente o campo Value, a consulta autenticada retornou HTTP `200`,
+sem erro da Meta. Os dois modelos continuam `PENDING`, agora confirmados por
+essa consulta bem-sucedida. Próxima dependência: aprovação dos modelos e
+conferência final antes de liberar entrega somente para o número do piloto.
 
-Após o proprietário salvar a substituição, a consulta passou a retornar `403 /
-200`, com erro do provedor indicando que não conseguiu resolver o aplicativo
-(`APP_ID_NOT_RESOLVED`). A consulta de permissões também não foi concluída
-(`400 / 2500`). O campo Name foi conferido como `Authorization`, e o n8n mostra
-a credencial salva. Ainda é necessário conferir Value/valor copiado com o
-proprietário e repetir a consulta. Não concluir que o novo token está válido
-nem ampliar permissões com base apenas nesses erros.
+Durante a renovação, foram observados token expirado (`401 / 190 / 463`) e,
+na primeira substituição, erro de contexto/autenticação (`403 / 200`, classificado
+como `APP_ID_NOT_RESOLVED`). A consulta de permissões não foi concluída
+(`400 / 2500`). Não foi necessário ampliar permissões. O segredo não foi lido
+ou registrado; somente o proprietário realizou a substituição.
 
 ## Objetivo e decisões
 
@@ -82,6 +80,9 @@ manter o Render disponível enquanto o site depender dele.
 - **09/10/2026 — após substituição salva:** consulta retornou erro de
   autenticação/contexto do aplicativo (`403 / 200`), sem envio. Conferência
   privada do formato e origem do token solicitada ao proprietário.
+- **09/10/2026 — conferência concluída:** proprietário salvou novamente;
+  consulta autenticada retornou `200`, sem erro. Convite e lembrete continuam
+  `PENDING` em `pt_BR`. Nenhuma mensagem enviada.
 
 ### Correção do identificador do WhatsApp
 
@@ -127,7 +128,7 @@ as evidências acima.
 | `todentro-outbox` | Inativo |
 | Grupo Teste | Automação ativada; preferências de convite/lembrete conferidas |
 | IA do agente | OpenAI, modelo inicial `gpt-4.1-mini` |
-| Credencial Meta do n8n | Substituição salva pelo proprietário; validação ainda falhou. Conferir formato/origem e consultar novamente antes de enviar |
+| Credencial Meta do n8n | Renovada pelo proprietário e validada por consulta HTTP `200`, sem erro |
 | Modelos Meta | Convite e lembrete em análise (`PENDING`) na última consulta |
 | Dados de execução n8n | Fluxos configurados sem guardar resultados manuais, de sucesso ou erro |
 
@@ -157,12 +158,12 @@ a resposta final e valida regras de presença, fila, autorização e criação.
 
 ### 1. Preparação da entrega — prioridade atual
 
-- [ ] No aplicativo Tô Dentro da Meta, gerar novo token com o mesmo escopo do
+- [x] No aplicativo Tô Dentro da Meta, gerar novo token com o mesmo escopo do
   piloto. No n8n, atualizar a credencial existente **Meta — WhatsApp**, mantendo
   Name `Authorization`, Value `Bearer ` seguido do novo token e domínio
   `graph.facebook.com`. O proprietário preenche e salva; não enviar o token
   na conversa nem alterar a chave OpenAI ou o token de integração do Render.
-- [ ] Validar a credencial renovada com consulta sem envio. A renovação no
+- [x] Validar a credencial renovada com consulta sem envio. A renovação no
   n8n não exige mudança de `WHATSAPP_INTEGRATION_TOKEN` no Render.
 - [ ] Consultar análise dos dois modelos e registrar aprovação, idioma e
   categoria informados pela Meta. Se rejeitados, corrigir motivo e submeter.
