@@ -1,7 +1,17 @@
 # Plano de implementação — assistente e WhatsApp
 
-Data: 08/10/2026. Estado: assistente do site e vínculo WhatsApp implementados;
-agente e envios preparados para piloto local, desativados por padrão.
+Plano original: 08/10/2026. Atualização: **09/10/2026**.
+
+**Comece pelo [registro atual e plano de continuidade](WHATSAPP-PILOTO-STATUS.md).**
+Ele consolida entregas, decisões, configurações verificadas, testes e pendências.
+O assistente do site funciona; o agente n8n recebeu uma mensagem real, usou IA e
+acionou o sistema. O recebimento está ativo; a entrega continua desligada e os
+dois modelos aguardavam análise da Meta na última verificação.
+
+As etapas abaixo preservam o desenho original. Algumas já foram implementadas
+e outras foram antecipadas: presença e criação pelo WhatsApp já possuem código
+e testes simulados, mas ainda precisam de validação real de ida e volta. Para
+estado, prioridade e critérios de liberação atuais, use o registro acima.
 
 Atualização de 08/10/2026: a primeira etapa (assistente dentro do site) foi implementada
 com integração configurável de IA, revisão e confirmação. Consulte
@@ -34,10 +44,10 @@ quando o organizador ativa a automação do grupo.
 - Navegador acessa apenas o backend da mesma origem, com sessão e CSRF.
 - `Games.create` já exige organizador, data futura e parâmetros válidos; capacidade é quantidade de times × jogadores por time.
 - Cada grupo tem fuso horário; recorrências preparam uma janela de oito jogos futuros sob demanda.
-- Contas atualmente possuem nome, e-mail e senha, sem telefone.
+- A base original possuía contas sem telefone; o vínculo verificado de WhatsApp foi acrescentado nesta implementação.
 - O lembrete financeiro atual apenas abre `wa.me` com texto preenchido.
 
-Arquitetura proposta:
+Arquitetura do desenho original (o agente de recebimento também foi implementado):
 
 ```mermaid
 flowchart LR
@@ -127,11 +137,11 @@ Entregas no backend:
 
 Entregas n8n:
 
-- Workflow periódico consulta avisos elegíveis, envia pelo nó oficial WhatsApp Business Cloud e registra resultado por item.
+- Workflow periódico consulta avisos elegíveis, envia pela API oficial da Meta e registra resultado por item. A implementação usa HTTP Request com credencial restrita.
 - Tratar erros individuais, limites, tentativas e indisponibilidade sem perder o lote. O banco do aplicativo mantém o estado durável.
 - Exportar workflow sem segredos para o repositório e documentar instalação, credenciais, frequência e recuperação.
 - Credencial de integração revogável, com escopo apenas para reservar notificações e registrar resultados. Não aceitar um `userId` informado pelo workflow como autorização para ações de jogador ou admin.
-- Receber webhooks da Meta no backend, validar assinatura sobre corpo original, persistir e deduplicar eventos antes de responder. Processar verificação de número, “SAIR” e estados de entrega. As demais mensagens recebem orientação para o site nesta versão.
+- Receber webhooks da Meta no backend, validar assinatura sobre corpo original, persistir e deduplicar eventos antes de responder. Processar verificação de número, “SAIR” e estados de entrega. Consultas, presença e preparação de partidas seguem para o agente conforme permissões e grupo piloto.
 - Manter sessão/CSRF nas APIs do navegador; separar autenticação das rotas de integração e dos webhooks, sem liberar toda a API nem desativar CSRF globalmente.
 
 Critério de conclusão: jogo criado pelo assistente ou formulário pode gerar convite e lembrete; execução ou webhook repetido não gera nova intenção; jogo cancelado e consentimento revogado são respeitados; reinício preserva pendências; falhas ficam visíveis.
@@ -153,7 +163,7 @@ Critério de liberação: fluxos principais funcionam no piloto, falhas são rec
 
 ## Etapa 5 — comandos e presença pelo WhatsApp
 
-Após o piloto:
+Implementada em conjunto com as filas; a validação real completa ainda faz parte do piloto:
 
 - Admin verificado pode solicitar criação por conversa, usando a mesma proposta e confirmação. Resolver grupo explicitamente quando houver mais de um.
 - Jogador verificado pode consultar o próximo jogo e confirmar/desistir da própria presença. Havendo mais de um jogo possível, pedir escolha antes de alterar.
@@ -182,7 +192,9 @@ Nomes e rotas são propostas. Criar migrações com o próximo número disponív
 
 Componentes de custo: backend contínuo, banco, n8n (serviço hospedado ou infraestrutura própria), chamadas ao modelo e mensagens da Meta. Nem toda mensagem do WhatsApp é cobrada; o valor depende de categoria, destino e regras vigentes. Medir no piloto e definir limites por grupo e globais; não estimar valor mensal sem volume e tarifas definidos.
 
-Decisões para configuração: número remetente, conta Meta responsável, provedor de IA, hospedagem do n8n, infraestrutura contínua, teto de gasto e grupo piloto. Até lá, desenvolver com adaptadores simulados e variáveis de ambiente, sem bloquear a implementação local.
+Número de teste, aplicativo Meta, OpenAI, n8n local e grupo Teste já foram
+configurados. Infraestrutura contínua, orçamento mensal e expansão permanecem
+pendentes. Consulte o [estado e checklist atual](WHATSAPP-PILOTO-STATUS.md).
 
 ## Fontes oficiais consultadas em 08/10/2026
 

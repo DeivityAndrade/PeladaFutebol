@@ -3,6 +3,11 @@
 Implementação de 08/10/2026. Código e fluxos disponíveis; esta entrega não ativa envios
 reais por padrão. Não é necessário contratar n8n Cloud para os testes locais.
 
+O [registro atualizado e plano de continuidade](WHATSAPP-PILOTO-STATUS.md)
+separa implementação, teste simulado e piloto real. Em 09/10/2026, o recebimento
+com IA foi validado; a entrega ainda está desligada e os modelos aguardam análise.
+As instruções abaixo descrevem a instalação inicial e o contrato de operação.
+
 ## O que o piloto faz
 
 - Convida membros com número verificado e autorização de convites naquele grupo.

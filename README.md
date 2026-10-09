@@ -70,6 +70,10 @@ precisa de configuração de IA no backend; sem ela, o formulário continua disp
 Esta primeira etapa não envia mensagens de WhatsApp. Consulte
 [configuração, limites e testes do assistente](docs/ASSISTENTE.md).
 
+O [registro e plano do piloto WhatsApp](docs/WHATSAPP-PILOTO-STATUS.md) reúne
+entregas, evidências e próximos passos. O agente n8n já recebeu e processou uma
+mensagem real com IA; os envios ainda estão desligados.
+
 Abra **Agenda de jogos** no menu após entrar na conta. Use **Hoje**, as setas de mês ou o destaque
 **Próximo jogo** para navegar. No calendário, as setas do teclado escolhem dias; `Home` e `End`
 levam ao início e ao fim da semana; `Page Up` e `Page Down` trocam de mês. No celular, o marcador
