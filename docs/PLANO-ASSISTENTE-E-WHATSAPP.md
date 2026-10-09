@@ -13,6 +13,9 @@ e outras foram antecipadas: presença e criação pelo WhatsApp já possuem cód
 e testes simulados, mas ainda precisam de validação real de ida e volta. Para
 estado, prioridade e critérios de liberação atuais, use o registro acima.
 
+Nova direção em 09/10/2026: [assistente por voz em tempo real no site](ASSISTENTE-VOZ.md),
+mensagens de áudio no WhatsApp e futura oferta paga. Planejada, ainda não implementada.
+
 Atualização de 08/10/2026: a primeira etapa (assistente dentro do site) foi implementada
 com integração configurável de IA, revisão e confirmação. Consulte
 [ASSISTENTE.md](ASSISTENTE.md) para ativação e limites. Consulte [WHATSAPP.md](WHATSAPP.md)

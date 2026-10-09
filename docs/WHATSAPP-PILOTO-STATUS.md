@@ -260,7 +260,12 @@ e presença pelo site continuam disponíveis.
 
 ## Evoluções posteriores
 
-- Áudio/transcrição, com autorização e limites próprios.
+- **Assistente por voz no site:** proprietário prefere conversa em tempo real,
+  iniciada por microfone no canto da tela. Planejado, ainda não implementado.
+  Prever áudio no WhatsApp e futura oferta paga com limites. Consulte
+  [direção e plano de voz](ASSISTENTE-VOZ.md).
+- Áudio/transcrição no WhatsApp, com autorização e limites próprios; mensagens
+  de áudio e ligação em tempo real são escopos diferentes.
 - Edição/cancelamento pela conversa, com revisão e confirmação.
 - Modelos para avisar alterações/cancelamentos a quem já recebeu convite.
 - Oferta de vagas liberadas respeitando fila e preferências.
