@@ -1,5 +1,19 @@
 # Registro e plano de continuidade — IA e WhatsApp
 
+## Correção do microfone para agente — 09/10/2026
+
+O proprietário confirmou que o gravador funcionou, mas pediu que o agente
+conduzisse tarefas, em vez de exigir transcrição manual. O botão flutuante passa
+a abrir conversa por áudio/mensagem com consulta, proposta de criação e presença.
+Respostas complementam o contexto; operações usam confirmação no próprio chat.
+O site reutiliza a OpenAI do Render e ferramentas do backend, sem depender de
+n8n para esta conversa. n8n continua responsável pelo canal WhatsApp.
+Detalhes, limites e retenção: [ASSISTENTE-VOZ.md](ASSISTENTE-VOZ.md).
+
+O novo código não habilita envios Meta nem campanhas e não adiciona assinatura.
+Teste com áudio real da primeira entrega foi confirmado pelo proprietário;
+validação do novo fluxo conversacional com o provedor real será feita após publicar.
+
 ## Entrega de áudio e texto — 09/10/2026
 
 O proprietário retirou conversa/ligação ao vivo do escopo. Foi implementada a

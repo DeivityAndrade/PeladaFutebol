@@ -1,4 +1,4 @@
-<div class="audio-request">
+<div class="audio-request" [class.audio-compact]="autoSend()">
   @if (!supported) {
     <p class="audio-note">Este navegador não permite gravar aqui. Escreva seu pedido abaixo.</p>
   } @else {
@@ -6,7 +6,7 @@
       <div class="audio-controls">
         <span role="status">Gravando · {{ seconds() }}s / 60s</span>
         <button id="audio-stop" class="button secondary" type="button" (click)="stop()">
-          Parar gravação
+          {{ autoSend() ? 'Enviar áudio' : 'Parar gravação' }}
         </button>
         <button class="text-button" type="button" (click)="discard(true)">Descartar</button>
       </div>
@@ -20,7 +20,15 @@
           [disabled]="busy() || disabled()"
           (click)="transcribe()"
         >
-          {{ busy() ? 'Transcrevendo…' : 'Transcrever áudio' }}
+          {{
+            busy()
+              ? autoSend()
+                ? 'Entendendo áudio…'
+                : 'Transcrevendo…'
+              : autoSend()
+                ? 'Enviar áudio novamente'
+                : 'Transcrever áudio'
+          }}
         </button>
         <button
           class="text-button"
@@ -43,8 +51,12 @@
       </button>
     }
     <p class="audio-note">
-      Até 60 segundos. Ao transcrever, o áudio será enviado à OpenAI. Confira e corrija o texto
-      antes de preparar o jogo.
+      @if (autoSend()) {
+        Até 60 segundos. Enviado à OpenAI ao finalizar ou atingir o limite.
+      } @else {
+        Até 60 segundos. Ao transcrever, o áudio será enviado à OpenAI. Confira e corrija o texto
+        antes de preparar o jogo.
+      }
     </p>
   }
   @if (error()) {

@@ -2800,6 +2800,20 @@ input[type='checkbox'] {
   right: 14px;
 }
 
+.modal.agent-modal {
+  max-width: 640px;
+  height: min(920px, calc(100dvh - 40px));
+  display: flex;
+  flex-direction: column;
+}
+.agent-modal .modal-brand {
+  margin-bottom: 12px;
+}
+.agent-modal app-site-agent {
+  flex: 1;
+  min-height: 0;
+}
+
 .modal-brand {
   --brand-size: 26px;
   margin-bottom: 20px;

@@ -37,7 +37,7 @@ async function setup(page: Page, available = true) {
       : r.fulfill({ json: { text: 'Sexta às 19h30 no Gools, 2 times de 7.' } }),
   );
   await page.goto(`/#group/${club.id}`);
-  await page.getByRole('button', { name: 'Pedir jogo por áudio ou texto' }).click();
+  await page.getByRole('button', { name: 'Marcar com assistente', exact: true }).click();
 }
 for (const mobile of [false, true])
   test(`gravação é revisada antes de preparar ou criar — ${mobile ? 'celular' : 'desktop'}`, async ({

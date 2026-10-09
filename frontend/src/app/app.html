@@ -1563,14 +1563,14 @@
 @if (toast()) {
   <div class="toast" role="status"><app-icon name="check" />{{ toast() }}</div>
 }
-@if (user() && assistantGroups().length && !modal() && !demo() && !loading() && !sidebar()) {
+@if (user() && agentGroups().length && !modal() && !demo() && !loading() && !sidebar()) {
   <button
     id="floating-assistant"
     class="assistant-launcher"
-    aria-label="Pedir jogo por áudio ou texto"
-    (click)="open('assistant')"
+    aria-label="Abrir agente por áudio ou mensagem"
+    (click)="open('agent')"
   >
-    <app-icon name="mic" /><span>Pedir jogo</span>
+    <app-icon name="mic" /><span>Agente</span>
   </button>
 }
 @if (modal()) {
@@ -1582,6 +1582,7 @@
     <section
       class="modal"
       [class.draw-modal]="modal() === 'draw'"
+      [class.agent-modal]="modal() === 'agent'"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -1595,6 +1596,15 @@
         <div class="alert error" role="alert">{{ error() }}</div>
       }
       @switch (modal()) {
+        @case ('agent') {
+          <app-site-agent
+            [clubs]="agentGroups()"
+            [initialClubId]="club()?.id || ''"
+            (processing)="busy.set($event)"
+            (changed)="agentChanged($event)"
+            (openGame)="agentOpenGame($event)"
+          />
+        }
         @case ('assistant') {
           @if (assistantGroups().length > 1) {
             <label class="assistant-group"
