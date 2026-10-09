@@ -118,7 +118,7 @@ public class SiteAgent {
       String scope = json.writeValueAsString(
         clubs
           .stream()
-          .map(c -> c.id().toString())
+          .map(c -> c.id().toString() + ":" + c.ownerId().equals(user))
           .sorted()
           .toList()
       );
@@ -184,8 +184,9 @@ public class SiteAgent {
       }
       assistant.takeAttempt(user);
       jdbc.update(
-        "UPDATE assistant_conversations SET scope=? WHERE id=?",
+        "UPDATE assistant_conversations SET scope=?,proposal_id=? WHERE id=?",
         scope,
+        prior,
         id
       );
       UUID lease = UUID.randomUUID();

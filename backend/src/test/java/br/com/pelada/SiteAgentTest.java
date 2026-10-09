@@ -255,6 +255,21 @@ class SiteAgentTest {
     rejected(403, () ->
       agent.confirm(owner, first.conversationId(), first.action().id())
     );
+    when(interpreter.decide(anyString(), any())).thenAnswer(i -> {
+      Context context = i.getArgument(1);
+      assertThat(context.previous()).isNull();
+      assertThat(context.history()).isEmpty();
+      assertThat(context.groups().getFirst().organizer()).isFalse();
+      return decision("LIST", null, null);
+    });
+    agent.message(owner, message("Consultar jogos", first));
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT proposal_id FROM assistant_conversations WHERE id=?",
+        UUID.class,
+        first.conversationId()
+      )
+    ).isNull();
     assertThat(
       jdbc.queryForObject("SELECT count(*) FROM games", Integer.class)
     ).isZero();

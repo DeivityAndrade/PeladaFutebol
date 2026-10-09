@@ -5,7 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18-alpine
+        # Docker's official mirror avoids Docker Hub authentication outages in runners.
+        image: public.ecr.aws/docker/library/postgres:18-alpine
         env:
           POSTGRES_DB: pelada_test
           POSTGRES_USER: pelada

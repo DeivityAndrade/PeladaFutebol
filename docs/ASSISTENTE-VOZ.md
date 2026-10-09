@@ -50,6 +50,11 @@ reexecução após habilitar demonstração e administração no servidor de tes
 Microfone e OpenAI simulados nesses testes. Evidências visuais do novo fluxo:
 docs/screenshots/agente-conversa-desktop.png e agente-conversa-celular.png.
 
+O CI usa a imagem oficial PostgreSQL 18 Alpine pelo espelho Docker no ECR público.
+Isso evita o erro de autenticação/download do Docker Hub observado antes dos testes.
+O manifesto foi conferido com o mesmo digest do espelho do Google; não muda o banco
+do site. Referência: [Docker Official Images no ECR](https://aws.amazon.com/blogs/containers/docker-official-images-now-available-on-amazon-elastic-container-registry-public/).
+
 ## Primeira implementação
 
 Registro da entrega anterior. O fluxo flutuante de revisão abaixo foi substituído
