@@ -16,6 +16,14 @@ credencial usada pelo n8n. Renovar esse token é o próximo passo imediato.
 O estado atual dos modelos não pôde ser consultado; `PENDING` é o último
 resultado bem-sucedido, não uma nova confirmação após a expiração.
 
+Após o proprietário salvar a substituição, a consulta passou a retornar `403 /
+200`, com erro do provedor indicando que não conseguiu resolver o aplicativo
+(`APP_ID_NOT_RESOLVED`). A consulta de permissões também não foi concluída
+(`400 / 2500`). O campo Name foi conferido como `Authorization`, e o n8n mostra
+a credencial salva. Ainda é necessário conferir Value/valor copiado com o
+proprietário e repetir a consulta. Não concluir que o novo token está válido
+nem ampliar permissões com base apenas nesses erros.
+
 ## Objetivo e decisões
 
 O jogador recebe uma pergunta sobre a partida, responde pelo WhatsApp e sua
@@ -71,6 +79,9 @@ manter o Render disponível enquanto o site depender dele.
   recebida e processada pela IA, mantendo entrega desligada.
 - **09/10/2026 — continuação:** consulta de modelos encontrou token Meta
   expirado (`401 / 190 / 463`); renovação pendente, sem tentativa de envio.
+- **09/10/2026 — após substituição salva:** consulta retornou erro de
+  autenticação/contexto do aplicativo (`403 / 200`), sem envio. Conferência
+  privada do formato e origem do token solicitada ao proprietário.
 
 ### Correção do identificador do WhatsApp
 
@@ -116,7 +127,7 @@ as evidências acima.
 | `todentro-outbox` | Inativo |
 | Grupo Teste | Automação ativada; preferências de convite/lembrete conferidas |
 | IA do agente | OpenAI, modelo inicial `gpt-4.1-mini` |
-| Credencial Meta do n8n | Configurada, mas a consulta mais recente indicou expiração; renovar antes de consultar/enviar |
+| Credencial Meta do n8n | Substituição salva pelo proprietário; validação ainda falhou. Conferir formato/origem e consultar novamente antes de enviar |
 | Modelos Meta | Convite e lembrete em análise (`PENDING`) na última consulta |
 | Dados de execução n8n | Fluxos configurados sem guardar resultados manuais, de sucesso ou erro |
 
