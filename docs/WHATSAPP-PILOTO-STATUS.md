@@ -1,5 +1,29 @@
 # Registro e plano de continuidade — IA e WhatsApp
 
+## Token duradouro e retorno final da Meta — 10/10/2026
+
+O proprietário criou e salvou pessoalmente um token de usuário do sistema,
+com expiração **Nunca**, após aprovar os acessos ao app Tô Dentro e à conta
+WhatsApp de teste. A consulta autenticada de modelos retornou HTTP 200;
+convite e lembrete estão aprovados em pt_BR. O token continua sujeito a revogação.
+
+O destinatário de teste foi verificado na Meta com a mesma identidade WhatsApp
+vinculada ao site. As falhas anteriores foram destinatário fora da lista (131030)
+e token temporário expirado (190/463). Depois da troca, uma consulta nova foi
+processada, mas o proprietário ainda não recebeu a resposta. **Entrega real
+continua pendente.**
+
+O retorno final de falha pelo webhook agora conserva somente o código numérico
+da Meta. Esse código aparece no diagnóstico privado do piloto, mesmo se o evento
+chegar antes do resultado HTTP do envio. Descrições e conteúdo do webhook não
+são armazenados. Resultados aceitos não ficam marcados com `INVALID_RESPONSE`;
+entrega/leitura confirmadas limpam erros e não são rebaixadas por falhas tardias.
+A alteração não reenvia falhas antigas nem libera convites ou lembretes.
+
+Próximo passo: publicar esta correção, fazer uma consulta nova e verificar o
+código final ou a entrega. Depois testar áudio, presença e criação com confirmação,
+pausa/revogação e hospedagem contínua. Os registros abaixo são históricos.
+
 ## Piloto de respostas e diagnóstico de entrega — 10/10/2026
 
 O proprietário renovou a credencial da Meta e permitiu os domínios de API e

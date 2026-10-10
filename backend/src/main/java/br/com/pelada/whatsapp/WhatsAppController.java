@@ -169,7 +169,8 @@ public class WhatsAppController {
               new Delivery(
                 status.path("id").asText(),
                 status.path("status").asText(),
-                Long.parseLong(status.path("timestamp").asText())
+                Long.parseLong(status.path("timestamp").asText()),
+                status.path("errors").path(0).path("code").asText(null)
               )
             );
             if (deliveries.size() > 100) throw new ApiException(
@@ -184,9 +185,16 @@ public class WhatsAppController {
       throw new ApiException(400, "Evento inválido.");
     }
     whatsapp.receive(messages);
-    deliveries.forEach(d -> outbox.delivery(d.id(), d.state(), d.timestamp()));
+    deliveries.forEach(d ->
+      outbox.delivery(d.id(), d.state(), d.timestamp(), d.errorCode())
+    );
     return ResponseEntity.ok().build();
   }
 
-  private record Delivery(String id, String state, long timestamp) {}
+  private record Delivery(
+    String id,
+    String state,
+    long timestamp,
+    String errorCode
+  ) {}
 }
