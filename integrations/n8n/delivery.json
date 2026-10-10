@@ -210,7 +210,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { leaseId: $('Um envio por vez').first(1).json.leaseId, state: $json.statusCode >= 200 && $json.statusCode < 300 && $json.body?.messages?.[0]?.id ? 'ACCEPTED' : $json.body?.error?.code ? 'FAILED' : 'UNKNOWN', providerId: $json.body?.messages?.[0]?.id || null, errorCode: $json.body?.error?.code ? String($json.body.error.code) : 'INVALID_RESPONSE' } }}",
+        "jsonBody": "={{ { leaseId: $('Um envio por vez').first(1).json.leaseId, state: $json.statusCode >= 200 && $json.statusCode < 300 && $json.body?.messages?.[0]?.id ? 'ACCEPTED' : $json.body?.error?.code ? 'FAILED' : 'UNKNOWN', providerId: $json.body?.messages?.[0]?.id || null, errorCode: $json.statusCode >= 200 && $json.statusCode < 300 && $json.body?.messages?.[0]?.id ? null : $json.body?.error?.code ? String($json.body.error.code) : 'INVALID_RESPONSE' } }}",
         "options": {
           "timeout": 60000
         }

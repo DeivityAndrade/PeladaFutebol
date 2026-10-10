@@ -825,7 +825,7 @@ class WhatsAppAgentTest {
     game(18000);
     var lease = invitation(member);
     outbox.dispatch(lease.id(), lease.leaseId());
-    outbox.delivery("wamid.test", "delivered", now.getEpochSecond());
+    outbox.delivery("wamid.test", "delivered", now.getEpochSecond(), null);
     outbox.receipt(
       lease.id(),
       lease.leaseId(),
@@ -838,8 +838,8 @@ class WhatsAppAgentTest {
         lease.id()
       )
     ).isEqualTo("DELIVERED");
-    outbox.delivery("wamid.test", "read", now.getEpochSecond());
-    outbox.delivery("wamid.test", "failed", now.getEpochSecond());
+    outbox.delivery("wamid.test", "read", now.getEpochSecond(), null);
+    outbox.delivery("wamid.test", "failed", now.getEpochSecond(), "131026");
     assertThat(
       jdbc.queryForObject(
         "SELECT state FROM whatsapp_outbox WHERE id=?",
@@ -847,6 +847,138 @@ class WhatsAppAgentTest {
         lease.id()
       )
     ).isEqualTo("READ");
+  }
+
+  @Test
+  void signedDeliveryFailureKeepsOnlyNumericCodeAndReconcilesBeforeReceipt()
+    throws Exception {
+    consent(member);
+    game(18000);
+    var lease = invitation(member);
+    outbox.dispatch(lease.id(), lease.leaseId());
+    String payload = """
+    {"object":"whatsapp_business_account","entry":[{"changes":[{"field":"messages","value":{
+    "metadata":{"phone_number_id":"test-phone"},"statuses":[{"id":"wamid.failure","status":"failed","timestamp":"%s",
+    "errors":[{"code":131026,"title":"private-description-canary","error_data":{"details":"private-payload-canary"}}]}]
+    }}]}]}
+    """.formatted(now.getEpochSecond());
+    byte[] bytes = payload.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    var mac = javax.crypto.Mac.getInstance("HmacSHA256");
+    mac.init(
+      new javax.crypto.spec.SecretKeySpec(
+        "test-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+        "HmacSHA256"
+      )
+    );
+    String signature = "sha256=" + HexFormat.of().formatHex(mac.doFinal(bytes));
+    for (int attempt = 0; attempt < 2; attempt++) {
+      mvc
+        .perform(
+          post("/api/whatsapp/webhook")
+            .contentType("application/json")
+            .content(bytes)
+            .header("X-Hub-Signature-256", signature)
+        )
+        .andExpect(status().isOk());
+    }
+    outbox.receipt(
+      lease.id(),
+      lease.leaseId(),
+      new WhatsAppOutbox.Receipt(
+        "ACCEPTED",
+        "wamid.failure",
+        "INVALID_RESPONSE"
+      )
+    );
+    assertThat(
+      jdbc.queryForMap(
+        "SELECT state,error_code FROM whatsapp_outbox WHERE id=?",
+        lease.id()
+      )
+    )
+      .containsEntry("state", "FAILED")
+      .containsEntry("error_code", "131026");
+    var events = jdbc.queryForList(
+      "SELECT * FROM whatsapp_delivery_events WHERE provider_id='wamid.failure'"
+    );
+    assertThat(events).hasSize(1);
+    assertThat(events.toString()).doesNotContain(
+      "private-description-canary",
+      "private-payload-canary"
+    );
+    assertThat(outbox.claim()).isEmpty();
+    outbox.delivery(
+      "wamid.failure",
+      "delivered",
+      now.getEpochSecond(),
+      "131026"
+    );
+    assertThat(
+      jdbc.queryForMap(
+        "SELECT state,error_code FROM whatsapp_outbox WHERE id=?",
+        lease.id()
+      )
+    )
+      .containsEntry("state", "DELIVERED")
+      .containsEntry("error_code", null);
+    outbox.delivery("wamid.failure", "failed", now.getEpochSecond(), "190");
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT state FROM whatsapp_outbox WHERE id=?",
+        String.class,
+        lease.id()
+      )
+    ).isEqualTo("DELIVERED");
+  }
+
+  @Test
+  void acceptedClearsFallbackErrorAndDeliveryRejectsNonNumericCodes() {
+    consent(member);
+    game(18000);
+    var lease = invitation(member);
+    outbox.dispatch(lease.id(), lease.leaseId());
+    outbox.receipt(
+      lease.id(),
+      lease.leaseId(),
+      new WhatsAppOutbox.Receipt(
+        "ACCEPTED",
+        "wamid.invalid",
+        "INVALID_RESPONSE"
+      )
+    );
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT error_code FROM whatsapp_outbox WHERE id=?",
+        String.class,
+        lease.id()
+      )
+    ).isNull();
+    outbox.delivery(
+      "wamid.invalid",
+      "failed",
+      now.getEpochSecond(),
+      "private-canary"
+    );
+    outbox.delivery(
+      "wamid.invalid",
+      "failed",
+      now.getEpochSecond(),
+      "123456789"
+    );
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT error_code FROM whatsapp_delivery_events WHERE provider_id='wamid.invalid'",
+        String.class
+      )
+    ).isNull();
+    outbox.delivery("wamid.invalid", "failed", now.getEpochSecond(), "131026");
+    assertThat(
+      jdbc.queryForObject(
+        "SELECT error_code FROM whatsapp_outbox WHERE id=?",
+        String.class,
+        lease.id()
+      )
+    ).isEqualTo("131026");
   }
 
   @Test

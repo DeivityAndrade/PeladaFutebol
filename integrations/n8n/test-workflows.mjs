@@ -103,6 +103,7 @@ try {
   await run(['execute', '--id=todentro-outbox']);
   assert.deepEqual(receipts.map(r => r.state), ['ACCEPTED', 'FAILED', 'UNKNOWN']);
   assert.equal(receipts[0].providerId, 'wamid.fixture');
+  assert.equal(receipts[0].errorCode, null);
   assert.equal(receipts[1].errorCode, '131026');
   assert.equal(calls.filter(c => c.url.startsWith('/meta/')).length, 3);
   console.log('Fluxos n8n aprovados: contexto individual correto e nenhum reenvio após falha de transporte.');

@@ -35,6 +35,9 @@ e códigos de falha agrupados. Inclui respostas gerais sem grupo associado.
 Erros arbitrários aparecem como `OTHER`; não retorna texto, contatos ou segredos
 e não altera a fila. `ACCEPTED` significa aceite pela Meta; `DELIVERED` ou `READ`
 dependem dos eventos de entrega. `UNKNOWN` exige investigação antes de reenviar.
+Eventos de falha conservam apenas o código numérico da Meta, inclusive quando
+chegam antes do aceite HTTP; descrições e payloads não são armazenados.
+Um aceite não é erro; confirmação de entrega/leitura limpa a falha anterior.
 
 ## Como funciona
 
@@ -173,7 +176,7 @@ O teto de tentativas controla volume, não garante um teto financeiro em reais.
 `POST /api/integrations/whatsapp/diagnostics` exige a credencial do executor e
 um `phone` que já esteja em `WHATSAPP_PILOT_NUMBERS`, além de `expectedPhoneId`.
 Retorna somente flags de envio, igualdade do ID do número da Meta, contagens de
-vínculos/grupos e estados da fila/respostas dos últimos 15 minutos. Não retorna
+vínculos/grupos e estados da fila/respostas das últimas 24 horas. Não retorna
 telefones, identidades, mensagens ou credenciais, nem reserva ou processa comandos.
 Para números brasileiros, informa separadamente um vínculo antigo sem o nono
 dígito; não altera o vínculo nem amplia a lista do piloto automaticamente.

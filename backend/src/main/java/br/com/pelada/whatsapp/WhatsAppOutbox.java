@@ -699,6 +699,7 @@ public class WhatsAppOutbox {
         !receipt.providerId().matches("[A-Za-z0-9_.:+=/-]{1,256}"))
     ) throw new ApiException(400, "Identificador do provedor inválido.");
     String error =
+      !receipt.state().equals("ACCEPTED") &&
       receipt.errorCode() != null &&
       receipt.errorCode().matches("[A-Z0-9_]{1,60}")
         ? receipt.errorCode()
@@ -727,7 +728,12 @@ public class WhatsAppOutbox {
     if (state.equals("ACCEPTED")) applyDelivery(receipt.providerId());
   }
 
-  public void delivery(String id, String state, long timestamp) {
+  public void delivery(
+    String id,
+    String state,
+    long timestamp,
+    String errorCode
+  ) {
     if (
       id == null ||
       id.length() > 256 ||
@@ -735,28 +741,40 @@ public class WhatsAppOutbox {
       timestamp <= 0 ||
       timestamp > clock.instant().getEpochSecond() + 5
     ) return;
+    String error =
+      state.equals("failed") &&
+      errorCode != null &&
+      errorCode.matches("[0-9]{1,8}")
+        ? errorCode
+        : null;
     jdbc.update(
-      "INSERT INTO whatsapp_delivery_events VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING",
+      """
+      INSERT INTO whatsapp_delivery_events(event_hash,provider_id,state,message_at,received_at,error_code)
+      VALUES(?,?,?,?,?,?) ON CONFLICT(event_hash) DO UPDATE
+      SET error_code=coalesce(whatsapp_delivery_events.error_code,EXCLUDED.error_code)
+      """,
       WhatsApp.hash(id + state + timestamp),
       id,
       state.toUpperCase(Locale.ROOT),
       time(Instant.ofEpochSecond(timestamp)),
-      time(clock.instant())
+      time(clock.instant()),
+      error
     );
     applyDelivery(id);
   }
 
   private void applyDelivery(String id) {
     var states = jdbc.queryForList(
-      "SELECT state FROM whatsapp_delivery_events WHERE provider_id=? ORDER BY CASE state WHEN 'READ' THEN 4 WHEN 'DELIVERED' THEN 3 WHEN 'FAILED' THEN 2 ELSE 1 END DESC,message_at DESC LIMIT 1",
+      "SELECT state,error_code FROM whatsapp_delivery_events WHERE provider_id=? ORDER BY CASE state WHEN 'READ' THEN 4 WHEN 'DELIVERED' THEN 3 WHEN 'FAILED' THEN 2 ELSE 1 END DESC,message_at DESC LIMIT 1",
       id
     );
     if (states.isEmpty()) return;
     String state = (String) states.getFirst().get("state");
     if (state.equals("SENT")) return;
     jdbc.update(
-      "UPDATE whatsapp_outbox SET state=?,updated_at=? WHERE provider_id=? AND state NOT IN ('READ','CANCELLED') AND (state<>'DELIVERED' OR ?='READ')",
+      "UPDATE whatsapp_outbox SET state=?,error_code=?,updated_at=? WHERE provider_id=? AND state NOT IN ('READ','CANCELLED') AND (state<>'DELIVERED' OR ?='READ')",
       state,
+      state.equals("FAILED") ? states.getFirst().get("error_code") : null,
       time(clock.instant()),
       id,
       state
