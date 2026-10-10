@@ -6,6 +6,16 @@ Atualizado em **09/10/2026**, fuso de São Paulo.
 ou conversa ao vivo. Substitui a preferência anterior por tempo real.
 Monetização permanece para uma entrega futura.
 
+## Interface minimalista
+
+Após a revisão do proprietário, o agente usa uma janela menor, sem introdução,
+atalhos ou avisos permanentes. Microfone, mensagem e envio ficam na mesma barra.
+Grupo, nova conversa e informações sobre dados ficam em **Opções da conversa**.
+A confirmação mostra partida, grupo, local e horário; configurações secundárias
+ficam em **Detalhes**. Repetição e cobrança, quando presentes, continuam visíveis.
+Funções, permissões e confirmação final foram preservadas. Verificado por build
+e 18 cenários existentes de navegador, com capturas de computador e celular.
+
 ## Agente conversacional do site — correção da experiência
 
 O pedido do proprietário em 09/10/2026 é que o microfone conduza e execute tarefas,

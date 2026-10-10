@@ -716,7 +716,7 @@ export class App implements OnInit, OnDestroy {
     if (!scope) return;
     const elements = Array.from(
       document.querySelectorAll<HTMLElement>(
-        `${scope} button:not(:disabled),${scope} input,${scope} select,${scope} textarea,${scope} a[href]`,
+        `${scope} button:not(:disabled),${scope} input,${scope} select,${scope} textarea,${scope} a[href],${scope} summary`,
       ),
     ).filter((element) => element.getClientRects().length > 0);
     const first = elements[0],

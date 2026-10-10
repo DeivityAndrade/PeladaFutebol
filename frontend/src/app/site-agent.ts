@@ -13,6 +13,7 @@ import { DatePipe, CurrencyPipe } from '@angular/common';
 import { Api, ApiError } from './api';
 import { Club } from './models';
 import { AudioRequest } from './audio-request';
+import { Icon } from './icon';
 
 interface GameOption {
   id: string;
@@ -64,7 +65,7 @@ interface Turn {
 @Component({
   selector: 'app-site-agent',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPipe, AudioRequest],
+  imports: [FormsModule, DatePipe, CurrencyPipe, AudioRequest, Icon],
   templateUrl: './site-agent.html',
   styleUrl: './site-agent.css',
 })
@@ -207,10 +208,6 @@ export class SiteAgent implements OnInit, OnDestroy {
   changeGroup(id: string) {
     this.selectedClubId = id;
     this.restart(false);
-  }
-  startGame() {
-    this.message = 'Marcar um jogo ';
-    this.focus();
   }
   restart(clearGroup = true) {
     if (this.busy()) return;
