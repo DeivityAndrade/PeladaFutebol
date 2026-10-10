@@ -4,8 +4,10 @@ Implementação de 08/10/2026. Código e fluxos disponíveis; esta entrega não 
 reais por padrão. Não é necessário contratar n8n Cloud para os testes locais.
 
 O [registro atualizado e plano de continuidade](WHATSAPP-PILOTO-STATUS.md)
-separa implementação, teste simulado e piloto real. Em 09/10/2026, o recebimento
-com IA foi validado; a entrega ainda está desligada e os modelos aguardam análise.
+separa implementação, teste simulado e piloto real. Em 10/10/2026, recebimento
+com IA foi validado e entrega foi habilitada somente para respostas do piloto.
+Os modelos foram aprovados; recebimento da resposta pelo participante ainda
+está em diagnóstico.
 As instruções abaixo descrevem a instalação inicial e o contrato de operação.
 
 ## O que o piloto faz
@@ -22,8 +24,17 @@ As instruções abaixo descrevem a instalação inicial e o contrato de operaç�
 - Permite ao organizador ativar/pausar por grupo na **Agenda de jogos → WhatsApp do grupo**.
   Mostra resultados dos últimos sete dias e respostas de presença dos próximos jogos.
 
-Áudio, edição/cancelamento pelo chat, cobrança automática, preenchimento de vagas
+Áudio já possui processamento implementado, com teste real ainda pendente.
+Edição/cancelamento pelo chat, cobrança automática, preenchimento de vagas
 por mensagens e transferência para atendimento humano são próximas fases.
+
+O endpoint privado `POST /api/integrations/whatsapp/diagnostics` exige a credencial
+do executor e um número autorizado no piloto. Retorna contagens de recebimento
+e respostas nas últimas 24 horas, estado efetivo do envio/modo somente respostas
+e códigos de falha agrupados. Inclui respostas gerais sem grupo associado.
+Erros arbitrários aparecem como `OTHER`; não retorna texto, contatos ou segredos
+e não altera a fila. `ACCEPTED` significa aceite pela Meta; `DELIVERED` ou `READ`
+dependem dos eventos de entrega. `UNKNOWN` exige investigação antes de reenviar.
 
 ## Como funciona
 

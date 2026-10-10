@@ -1,5 +1,26 @@
 # Registro e plano de continuidade — IA e WhatsApp
 
+## Piloto de respostas e diagnóstico de entrega — 10/10/2026
+
+O proprietário renovou a credencial da Meta e permitiu os domínios de API e
+mídia necessários. Convite e lembrete foram conferidos como aprovados, em pt_BR.
+O Render está com automação, envio e modo somente respostas habilitados para
+um único número de piloto. O fluxo de entrega foi publicado no n8n local.
+Convites e lembretes continuam bloqueados pelo modo somente respostas.
+
+A consulta real chegou, foi processada e gerou uma resposta. O proprietário
+informou que ainda não recebeu essa resposta. **Entrega real ainda não validada.**
+O painel do grupo não inclui respostas de consultas gerais sem grupo associado.
+O diagnóstico privado do executor passa a mostrar estados e códigos de falha
+das respostas nas últimas 24 horas, incluindo essas consultas. Não mostra
+conteúdo, telefones, credenciais ou identificadores de mensagens, nem reserva,
+reenvia ou altera a fila. Códigos desconhecidos são agrupados em `OTHER`.
+
+Próximo passo: consultar esse diagnóstico e corrigir a causa observada antes
+de repetir o teste. Depois validar áudio, presença e criação com confirmação,
+pausa e revogação, e definir hospedagem contínua do executor. Os registros
+abaixo preservam o estado histórico de cada entrega.
+
 ## Correção do microfone para agente — 09/10/2026
 
 O proprietário confirmou que o gravador funcionou, mas pediu que o agente
