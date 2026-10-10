@@ -26,11 +26,25 @@ audio {
   gap: 8px;
 }
 .audio-compact {
-  margin-block: 12px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
 }
 .audio-compact .audio-note {
-  margin-top: 6px;
+  margin: 8px;
+}
+.audio-compact .audio-controls {
+  gap: 8px;
+}
+.audio-compact .audio-controls > span {
+  flex: 1;
+  padding-left: 8px;
+  font-size: 13px;
+}
+.audio-compact .audio-controls > button {
+  flex-shrink: 0;
+}
+.audio-compact .alert {
+  margin: 8px;
 }

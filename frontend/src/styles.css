@@ -2801,13 +2801,18 @@ input[type='checkbox'] {
 }
 
 .modal.agent-modal {
-  max-width: 640px;
-  height: min(920px, calc(100dvh - 40px));
+  max-width: 420px;
+  height: min(320px, calc(100dvh - 40px));
+  padding: 20px;
   display: flex;
   flex-direction: column;
 }
-.agent-modal .modal-brand {
-  margin-bottom: 12px;
+.modal.agent-modal:has(.agent-turn) {
+  height: min(520px, calc(100dvh - 40px));
+}
+.agent-modal .modal-close {
+  top: 20px;
+  right: 12px;
 }
 .agent-modal app-site-agent {
   flex: 1;

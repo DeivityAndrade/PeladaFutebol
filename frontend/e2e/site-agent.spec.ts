@@ -83,6 +83,15 @@ for (const mobile of [false, true])
       let confirms = 0;
       let messages = 0;
       await setup(page);
+      await expect(page.getByLabel('Mensagem para o agente')).toBeFocused();
+      await page.screenshot({
+        path:
+          '../docs/screenshots/agente-minimalista-inicial-' +
+          (mobile ? 'celular' : 'desktop') +
+          '.png',
+        animations: 'disabled',
+        style: '.modal { animation: none !important; }',
+      });
       await page.route('**/api/assistant/conversations/conversation/confirm', (r) => {
         confirms++;
         return r.fulfill({
@@ -118,6 +127,7 @@ for (const mobile of [false, true])
       expect(confirms).toBe(0);
       await page.screenshot({
         path: '../docs/screenshots/agente-conversa-' + (mobile ? 'celular' : 'desktop') + '.png',
+        animations: 'disabled',
       });
       await page.getByRole('button', { name: 'Criar jogo', exact: true }).click();
       await expect(page.getByRole('log')).toContainText('Jogo criado');
@@ -127,6 +137,11 @@ for (const mobile of [false, true])
   );
 test('perguntas e ajustes continuam a conversa sem formulário', async ({ page }) => {
   await setup(page, { audio: false });
+  await page.getByLabel('Mensagem para o agente').press('Shift+Tab');
+  await expect(page.getByLabel('Opções da conversa')).toBeFocused();
+  await page.getByLabel('Opções da conversa').press('Enter');
+  await expect(page.getByRole('link', { name: 'Privacidade', exact: true })).toBeVisible();
+  await page.getByLabel('Opções da conversa').press('Enter');
   const bodies: any[] = [];
   await page.route('**/api/assistant/conversations', (r) => {
     bodies.push(r.request().postDataJSON());

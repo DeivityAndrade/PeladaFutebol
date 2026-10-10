@@ -8,6 +8,9 @@ import { Icon } from './icon';
   imports: [Icon],
   templateUrl: './audio-request.html',
   styleUrl: './audio-request.css',
+  host: {
+    '[class.expanded]': 'autoSend() && (recording() || busy() || !!error() || !!preview())',
+  },
 })
 export class AudioRequest implements OnDestroy {
   endpoint = input.required<string>();

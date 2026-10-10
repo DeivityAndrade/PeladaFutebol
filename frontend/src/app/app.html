@@ -1591,7 +1591,9 @@
       <button class="icon-button modal-close" aria-label="Fechar" (click)="closeModal()">
         <app-icon name="close" />
       </button>
-      <div class="modal-brand"><app-brand /></div>
+      @if (modal() !== 'agent') {
+        <div class="modal-brand"><app-brand /></div>
+      }
       @if (error()) {
         <div class="alert error" role="alert">{{ error() }}</div>
       }

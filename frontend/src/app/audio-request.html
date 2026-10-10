@@ -1,5 +1,72 @@
 <div class="audio-request" [class.audio-compact]="autoSend()">
-  @if (!supported) {
+  @if (autoSend()) {
+    @if (supported) {
+      @if (recording()) {
+        <div class="audio-controls">
+          <span role="status">Gravando · {{ seconds() }}s / 60s</span>
+          <button id="audio-stop" class="button secondary" type="button" (click)="stop()">
+            Enviar áudio
+          </button>
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Descartar áudio"
+            title="Descartar áudio"
+            (click)="discard(true)"
+          >
+            <app-icon name="close" />
+          </button>
+        </div>
+      } @else if (busy()) {
+        <p class="audio-note" role="status">Entendendo áudio…</p>
+      } @else if (preview()) {
+        <div class="audio-controls">
+          <button
+            id="audio-transcribe"
+            class="text-button"
+            type="button"
+            [disabled]="disabled()"
+            (click)="transcribe()"
+          >
+            Enviar áudio novamente
+          </button>
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Descartar áudio"
+            title="Descartar áudio"
+            [disabled]="disabled()"
+            (click)="discard(true)"
+          >
+            <app-icon name="close" />
+          </button>
+        </div>
+        <details class="audio-note">
+          <summary>Ouvir áudio</summary>
+          <audio controls [src]="preview()" aria-label="Ouvir seu pedido gravado"></audio>
+        </details>
+      } @else {
+        <button
+          id="audio-record"
+          class="icon-button"
+          type="button"
+          aria-label="Gravar pedido"
+          title="Gravar pedido"
+          aria-describedby="audio-disclosure"
+          [disabled]="disabled() || requesting()"
+          (click)="record()"
+        >
+          <app-icon name="mic" />
+        </button>
+        @if (requesting()) {
+          <span class="sr-only" role="status">Abrindo microfone…</span>
+        }
+      }
+      <span id="audio-disclosure" class="sr-only"
+        >Até 60 segundos. Enviado à OpenAI ao finalizar ou atingir o limite.</span
+      >
+    }
+  } @else if (!supported) {
     <p class="audio-note">Este navegador não permite gravar aqui. Escreva seu pedido abaixo.</p>
   } @else {
     @if (recording()) {
