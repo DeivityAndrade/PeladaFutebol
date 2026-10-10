@@ -31,13 +31,16 @@ public class WhatsAppDiagnostics {
 
   public record Status(
     boolean sendsEnabled,
+    boolean repliesOnly,
     boolean deliveryReady,
     boolean phoneIdMatches,
     long exactVerifiedContacts,
     long legacyBrazilianVerifiedContacts,
     long enabledGroups,
     Map<String, Long> recentInbox,
-    long recentReplies
+    long recentReplies,
+    Map<String, Long> recentReplyStates,
+    Map<String, Long> recentReplyErrors
   ) {}
 
   @Transactional(readOnly = true)
@@ -64,7 +67,7 @@ public class WhatsAppDiagnostics {
       exact,
       legacy
     );
-    var since = time(clock.instant().minusSeconds(900));
+    var since = time(clock.instant().minusSeconds(86400));
     var states = new LinkedHashMap<String, Long>();
     jdbc
       .queryForList(
@@ -94,16 +97,59 @@ public class WhatsAppDiagnostics {
       legacy,
       since
     );
+    var replyStates = new LinkedHashMap<String, Long>();
+    var replyErrors = new LinkedHashMap<String, Long>();
+    jdbc
+      .queryForList(
+        """
+        SELECT o.state,o.error_code,count(*) n FROM whatsapp_outbox o
+        JOIN whatsapp_contacts c ON c.player_id=o.player_id
+        WHERE (c.phone=? OR c.phone=?) AND o.kind='REPLY' AND o.created_at>?
+        GROUP BY o.state,o.error_code
+        """,
+        exact,
+        legacy,
+        since
+      )
+      .forEach(row -> {
+        long count = ((Number) row.get("n")).longValue();
+        replyStates.merge((String) row.get("state"), count, Long::sum);
+        String error = (String) row.get("error_code");
+        if (error != null && !error.isBlank()) {
+          replyErrors.merge(safeError(error), count, Long::sum);
+        }
+      });
     return new Status(
       config.sendEnabled,
+      config.repliesOnly,
       config.deliveryAvailable(),
       whatsapp.phoneId().equals(expectedPhoneId),
       exactContacts,
       legacyContacts,
       enabledGroups,
       states,
-      replies
+      replies,
+      replyStates,
+      replyErrors
     );
+  }
+
+  private String safeError(String error) {
+    if (
+      error.matches("[0-9]{1,8}") ||
+      Set.of(
+        "INVALID_RESPONSE",
+        "TRANSPORT_UNKNOWN",
+        "TIMEOUT",
+        "INELIGIBLE",
+        "PAUSED",
+        "EXPIRED",
+        "REVOKED",
+        "GAME_CHANGED",
+        "SCHEDULE_CHANGED"
+      ).contains(error)
+    ) return error;
+    return "OTHER";
   }
 
   private long verified(String phone) {

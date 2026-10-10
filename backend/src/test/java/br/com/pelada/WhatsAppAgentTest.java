@@ -465,6 +465,7 @@ class WhatsAppAgentTest {
       )
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.phoneIdMatches").value(true))
+      .andExpect(jsonPath("$.repliesOnly").value(false))
       .andExpect(jsonPath("$.exactVerifiedContacts").value(1))
       .andExpect(jsonPath("$.legacyBrazilianVerifiedContacts").value(0))
       .andExpect(jsonPath("$.enabledGroups").value(1))
@@ -492,7 +493,86 @@ class WhatsAppAgentTest {
       )
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.recentInbox.DONE").value(1))
-      .andExpect(jsonPath("$.recentReplies").value(1));
+      .andExpect(jsonPath("$.recentReplies").value(1))
+      .andExpect(jsonPath("$.recentReplyStates.PENDING").value(1))
+      .andExpect(jsonPath("$.recentReplyErrors").isEmpty());
+  }
+
+  @Test
+  void deliveryDiagnosticsIncludeGeneralRepliesButHidePrivateErrorsAndOtherContacts()
+    throws Exception {
+    var job = job("agenda privada");
+    act(job, "LIST", null, null);
+    inbox.finish(job.id(), job.leaseId());
+    jdbc.update(
+      "UPDATE whatsapp_outbox SET state='FAILED',error_code='131030' WHERE player_id=? AND kind='REPLY'",
+      member
+    );
+    receive("5511999990002", "outra agenda", null, null);
+    var otherJob = inbox.claim().getFirst();
+    act(otherJob, "LIST", null, null);
+    inbox.finish(otherJob.id(), otherJob.leaseId());
+    jdbc.update(
+      "UPDATE whatsapp_outbox SET state='UNKNOWN',error_code='PRIVATE_ERROR_123' WHERE player_id=? AND kind='REPLY'",
+      other
+    );
+    advance(1800);
+    var before = jdbc.queryForList("SELECT * FROM whatsapp_outbox ORDER BY id");
+    String path = "/api/integrations/whatsapp/diagnostics";
+    var response = mvc
+      .perform(
+        post(path)
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(
+            "{\"phone\":\"5511999990001\",\"expectedPhoneId\":\"test-phone\"}"
+          )
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.recentReplies").value(1))
+      .andExpect(jsonPath("$.recentReplyStates.FAILED").value(1))
+      .andExpect(jsonPath("$.recentReplyStates.UNKNOWN").doesNotExist())
+      .andExpect(jsonPath("$.recentReplyErrors.131030").value(1))
+      .andReturn()
+      .getResponse()
+      .getContentAsString();
+    assertThat(response).doesNotContain(
+      "agenda privada",
+      "PRIVATE_ERROR_123",
+      "5511999990001",
+      token
+    );
+    mvc
+      .perform(
+        post(path)
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(
+            "{\"phone\":\"5511999990002\",\"expectedPhoneId\":\"test-phone\"}"
+          )
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.recentReplyErrors.OTHER").value(1))
+      .andExpect(
+        jsonPath("$.recentReplyErrors.PRIVATE_ERROR_123").doesNotExist()
+      );
+    assertThat(
+      jdbc.queryForList("SELECT * FROM whatsapp_outbox ORDER BY id")
+    ).isEqualTo(before);
+    advance(86400);
+    mvc
+      .perform(
+        post(path)
+          .header("Authorization", token)
+          .contentType("application/json")
+          .content(
+            "{\"phone\":\"5511999990001\",\"expectedPhoneId\":\"test-phone\"}"
+          )
+      )
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.recentReplies").value(0))
+      .andExpect(jsonPath("$.recentReplyStates").isEmpty())
+      .andExpect(jsonPath("$.recentReplyErrors").isEmpty());
   }
 
   @Test
