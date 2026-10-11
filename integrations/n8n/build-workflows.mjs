@@ -110,6 +110,9 @@ const gupshup = structuredClone(outbox);
 gupshup.id = 'todentro-outbox-gupshup';
 gupshup.name = 'Tô Dentro — respostas pela Gupshup';
 const gsClaim = gupshup.nodes.find(n => n.name === 'Buscar envios');
+// Older servers return 404 here, so even an accidental manual run cannot
+// consume the previous transport's pending replies before the upgrade.
+gsClaim.parameters.url = `={{ ${config} + '/api/integrations/whatsapp/outbox/claim/gupshup' }}`;
 Object.assign(gsClaim.parameters, { sendBody: true, specifyBody: 'json', jsonBody: '={{ { provider: "GUPSHUP" } }}' });
 gupshup.nodes.find(n => n.name === 'Validar antes de enviar').parameters.jsonBody = `={{ { leaseId: ${delivery}.leaseId, provider: 'GUPSHUP' } }}`;
 const gsSend = gupshup.nodes.find(n => n.name === 'Enviar pela Meta');

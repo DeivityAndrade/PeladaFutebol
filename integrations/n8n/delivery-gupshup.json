@@ -68,7 +68,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $('Configuração').first().json.backend + '/api/integrations/whatsapp/outbox/claim' }}",
+        "url": "={{ $('Configuração').first().json.backend + '/api/integrations/whatsapp/outbox/claim/gupshup' }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {

@@ -43,8 +43,9 @@ const server = createServer(async (req, res) => {
     const message = hasTool ? {role: 'assistant', content: 'Concluído.'} : {role: 'assistant', content: null, tool_calls: [{ id: `call-${modelCalls}`, type: 'function', function: {name: body.tools[0].function.name, arguments: JSON.stringify({action: 'LIST', clubId: '', gameId: ''})} }]};
     return answer({id: `chat-${modelCalls}`, object: 'chat.completion', created: 1, model: 'gpt-4.1-mini', choices: [{index: 0, message, finish_reason: hasTool ? 'stop' : 'tool_calls'}], usage: {prompt_tokens: 1, completion_tokens: 1, total_tokens: 2}});
   }
-  if (req.url === '/api/integrations/whatsapp/outbox/claim') {
+  if (['/api/integrations/whatsapp/outbox/claim', '/api/integrations/whatsapp/outbox/claim/gupshup'].includes(req.url)) {
     if (mode === 'gupshup') assert.equal(body.provider, 'GUPSHUP');
+    if (mode === 'gupshup') assert(req.url.endsWith('/gupshup'));
     return answer([1, 2, 3, 4].map(n => ({id: `send${n}`, leaseId: `sendlease${n}`})));
   }
   if (req.url.endsWith('/dispatch')) {

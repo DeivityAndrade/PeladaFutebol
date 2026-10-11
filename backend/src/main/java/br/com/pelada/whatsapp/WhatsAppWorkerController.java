@@ -122,6 +122,16 @@ public class WhatsAppWorkerController {
 
   public record Transport(@NotBlank @Pattern(regexp = "META|GUPSHUP") String provider) {}
 
+  @PostMapping("/outbox/claim/gupshup")
+  public List<WhatsAppOutbox.Lease> gupshupOutbox(
+    @RequestHeader(name = "Authorization", required = false) String token
+  ) {
+    auth(token);
+    if (!config.gupshup()) return List.of();
+    agent.materialize();
+    return outbox.claim();
+  }
+
   public record DispatchRequest(
     @NotNull UUID leaseId,
     @Pattern(regexp = "META|GUPSHUP") String provider

@@ -105,7 +105,7 @@ class WhatsAppGupshupTest {
     inbox.finish(job.id(), job.leaseId());
     mvc.perform(post("/api/integrations/whatsapp/outbox/claim").header("Authorization", WORKER))
       .andExpect(status().isOk()).andExpect(content().json("[]"));
-    var response = mvc.perform(post("/api/integrations/whatsapp/outbox/claim").header("Authorization", WORKER)
+    var response = mvc.perform(post("/api/integrations/whatsapp/outbox/claim/gupshup").header("Authorization", WORKER)
       .contentType("application/json").content("{\"provider\":\"GUPSHUP\"}"))
       .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").exists()).andReturn();
     var tree = tools.jackson.databind.json.JsonMapper.builder().build().readTree(response.getResponse().getContentAsString()).path(0);
