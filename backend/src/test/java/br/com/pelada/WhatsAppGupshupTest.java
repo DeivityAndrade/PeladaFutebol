@@ -79,6 +79,11 @@ class WhatsAppGupshupTest {
 
   @Test void requiresIsolatedCredentialAndAppBeforeConsuming() throws Exception {
     String json = message(APP, "gs-phone", "5511999990000", "\"type\":\"text\",\"text\":{\"body\":\"agenda\"}");
+    mvc.perform(post("/api/whatsapp/webhook").contentType("application/json").content(json))
+      .andExpect(status().isServiceUnavailable());
+    mvc.perform(get("/api/whatsapp/webhook").param("hub.mode", "subscribe")
+      .param("hub.verify_token", "").param("hub.challenge", "123"))
+      .andExpect(status().isServiceUnavailable());
     mvc.perform(post("/api/whatsapp/webhook/gupshup").contentType("application/json").content(json))
       .andExpect(status().isUnauthorized());
     mvc.perform(post("/api/whatsapp/webhook/gupshup").header("X-ToDentro-Webhook", WORKER)

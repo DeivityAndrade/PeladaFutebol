@@ -345,7 +345,7 @@ public class WhatsApp {
   }
 
   public String challenge(String mode, String token, String challenge) {
-    if (!available()) throw new ApiException(503, "WhatsApp em preparação.");
+    if (!available() || !config.provider.equals("META")) throw new ApiException(503, "WhatsApp em preparação.");
     if (
       !"subscribe".equals(mode) ||
       token == null ||
@@ -360,7 +360,7 @@ public class WhatsApp {
   }
 
   public void authenticate(byte[] body, String signature) {
-    if (!available()) throw new ApiException(503, "WhatsApp em preparação.");
+    if (!available() || !config.provider.equals("META")) throw new ApiException(503, "WhatsApp em preparação.");
     if (body.length > 131072) throw new ApiException(
       413,
       "Evento muito grande."
