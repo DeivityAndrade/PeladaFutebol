@@ -42,6 +42,9 @@ springdoc:
     path: /api/openapi
 app:
   whatsapp:
+    provider: ${WHATSAPP_PROVIDER:META}
+    gupshup-app-id: ${WHATSAPP_GUPSHUP_APP_ID:}
+    gupshup-webhook-token: ${WHATSAPP_GUPSHUP_WEBHOOK_TOKEN:}
     enabled: ${WHATSAPP_ENABLED:false}
     business-number: ${WHATSAPP_BUSINESS_NUMBER:}
     phone-id: ${WHATSAPP_PHONE_ID:}

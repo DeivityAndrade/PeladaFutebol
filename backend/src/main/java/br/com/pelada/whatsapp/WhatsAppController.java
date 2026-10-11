@@ -18,17 +18,20 @@ public class WhatsAppController {
   private final Accounts accounts;
   private final ObjectMapper mapper;
   private final WhatsAppOutbox outbox;
+  private final WhatsAppIntegration config;
 
   public WhatsAppController(
     WhatsApp whatsapp,
     Accounts accounts,
     ObjectMapper mapper,
-    WhatsAppOutbox outbox
+    WhatsAppOutbox outbox,
+    WhatsAppIntegration config
   ) {
     this.whatsapp = whatsapp;
     this.accounts = accounts;
     this.mapper = mapper;
     this.outbox = outbox;
+    this.config = config;
   }
 
   @GetMapping
@@ -100,10 +103,26 @@ public class WhatsAppController {
     ) String signature
   ) {
     whatsapp.authenticate(body, signature);
+    return receive(body, false);
+  }
+
+  @PostMapping(value = "/webhook/gupshup", consumes = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<Void> gupshup(
+    @RequestBody byte[] body,
+    @RequestHeader(name = "X-ToDentro-Webhook", required = false) String token
+  ) {
+    config.authenticateGupshup(body, token);
+    if (!whatsapp.available()) throw new ApiException(503, "WhatsApp em preparação.");
+    return receive(body, true);
+  }
+
+  private ResponseEntity<Void> receive(byte[] body, boolean gupshup) {
     List<WhatsApp.Incoming> messages = new ArrayList<>();
     List<Delivery> deliveries = new ArrayList<>();
     try {
       var root = mapper.readTree(body);
+      if (gupshup && !root.path("gs_app_id").asText().equals(config.gupshupAppId))
+        throw new ApiException(400, "Aplicativo de webhook inválido.");
       if (
         !root.path("object").asText().equals("whatsapp_business_account")
       ) throw new ApiException(400, "Evento inválido.");
@@ -165,9 +184,13 @@ public class WhatsAppController {
             );
           }
           for (var status : value.path("statuses")) {
-            deliveries.add(
+            Set<String> identifiers = new LinkedHashSet<>();
+            identifiers.add(status.path("id").asText());
+            if (gupshup && !status.path("gs_id").asText().isBlank())
+              identifiers.add(status.path("gs_id").asText());
+            for (String identifier : identifiers) deliveries.add(
               new Delivery(
-                status.path("id").asText(),
+                identifier,
                 status.path("status").asText(),
                 Long.parseLong(status.path("timestamp").asText()),
                 status.path("errors").path(0).path("code").asText(null)

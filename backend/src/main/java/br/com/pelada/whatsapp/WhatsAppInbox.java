@@ -144,7 +144,7 @@ public class WhatsAppInbox {
           context,
           c.get("proposal_id") != null,
           (UUID) c.get("club_id"),
-          !audio.available() ||
+          config.gupshup() || !audio.available() ||
             row.get("media_id") == null ||
             row.get("text") != null
             ? null

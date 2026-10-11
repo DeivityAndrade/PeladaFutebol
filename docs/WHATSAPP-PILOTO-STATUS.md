@@ -1,5 +1,35 @@
 # Registro e plano de continuidade — IA e WhatsApp
 
+## Número irlandês e Gupshup — 10/10/2026
+
+A última falha do piloto Meta de teste foi **130497**. O diagnóstico apontou
+restrições na conta/portfólio; ainda não houve resposta recebida pelo participante.
+Não atribuir isso apenas à ausência de CNPJ ou ao cartão. O proprietário testa
+como pessoa física e escolheu dedicar seu WhatsApp Business irlandês ao site.
+Esse número não recebe SMS/ligação; foi vinculado e conectado pela coexistência,
+com confirmação no próprio aplicativo, preservando seu acesso.
+
+O proprietário criou a conta Gupshup, configurou MFA pessoalmente e completou
+o cadastro incorporado. O painel mostra ToDentro Live, conta Active e telefone
+Connected, além de pendência interna do MM Lite. Não foram comprovadas mensagens
+entregues, e não houve recarga feita pelo agente.
+
+Preparada a integração Gupshup v3: callback autenticado com segredo exclusivo,
+App ID e Phone ID, piloto restrito e variante n8n de entrega separada. O executor
+Meta não reserva entregas ao trocar o provedor. O caminho novo exige modo somente
+respostas; convites e lembretes não são liberados. Áudio no novo transporte
+ainda pede texto. Configuração remota, credenciais e teste real permanecem
+pendentes; o transporte padrão continua Meta até alterar as variáveis.
+
+**Continuar pelo [guia Gupshup](WHATSAPP-GUPSHUP.md):** primeiro configurar o
+servidor e o callback, conferir uma consulta nova com envio desligado, depois
+preparar credencial/fluxo e verificar custos antes do teste de entrega. Segredos
+entram diretamente nos serviços, pelo proprietário. Depois validar presença,
+criação, áudio e execução contínua. CAT automático é tarefa pendente para a
+migração obrigatória do mecanismo legado até 31/03/2027.
+
+Os registros abaixo são históricos.
+
 ## Token duradouro e retorno final da Meta — 10/10/2026
 
 O proprietário criou e salvou pessoalmente um token de usuário do sistema,

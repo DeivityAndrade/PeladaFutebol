@@ -23,6 +23,7 @@ public class WhatsAppAgent {
   private final Assistant assistant;
   private final Games games;
   private final TransactionTemplate tx;
+  private final WhatsAppIntegration config;
   private final JsonMapper json = JsonMapper.builder()
     .findAndAddModules()
     .build();
@@ -34,7 +35,8 @@ public class WhatsAppAgent {
     WhatsAppOutbox outbox,
     Assistant assistant,
     Games games,
-    TransactionTemplate tx
+    TransactionTemplate tx,
+    WhatsAppIntegration config
   ) {
     this.jdbc = jdbc;
     this.clock = clock;
@@ -43,6 +45,7 @@ public class WhatsAppAgent {
     this.assistant = assistant;
     this.games = games;
     this.tx = tx;
+    this.config = config;
   }
 
   public record Command(String action, UUID clubId, UUID gameId) {}
@@ -84,7 +87,9 @@ public class WhatsAppAgent {
           text = (String) row.get("text");
         if (row.get("media_id") != null && text == null) return save(
           row,
-          "Não consegui transcrever esse áudio. Envie uma gravação curta de até 2 MB ou escreva seu pedido.",
+          config.gupshup()
+            ? "Recebi seu áudio. Nesta etapa do piloto, envie seu pedido por texto."
+            : "Não consegui transcrever esse áudio. Envie uma gravação curta de até 2 MB ou escreva seu pedido.",
           List.of(),
           null,
           null

@@ -575,11 +575,7 @@ public class WhatsAppOutbox {
     );
     return new Dispatch(
       true,
-      "https://graph.facebook.com/" +
-        config.graphVersion +
-        "/" +
-        phoneId +
-        "/messages",
+      config.deliveryUrl(phoneId),
       payload
     );
   }

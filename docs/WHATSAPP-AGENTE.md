@@ -1,5 +1,10 @@
 # Agente WhatsApp e piloto local
 
+Para o número irlandês conectado em 10/10/2026, seguir o
+[guia de preparação Gupshup](WHATSAPP-GUPSHUP.md). O transporte Meta continua
+padrão até a configuração explícita do servidor. Esta preparação não altera
+credenciais reais nem comprova entrega ao WhatsApp.
+
 Implementação de 08/10/2026. Código e fluxos disponíveis; esta entrega não ativa envios
 reais por padrão. Não é necessário contratar n8n Cloud para os testes locais.
 

@@ -56,10 +56,10 @@ public class SecurityConfig {
     SecurityContextRepository repository
   ) throws Exception {
     return http
-      .csrf(c -> c.ignoringRequestMatchers("/api/whatsapp/webhook"))
+      .csrf(c -> c.ignoringRequestMatchers("/api/whatsapp/webhook", "/api/whatsapp/webhook/gupshup"))
       .authorizeHttpRequests(auth ->
         auth
-          .requestMatchers("/api/whatsapp/webhook")
+          .requestMatchers("/api/whatsapp/webhook", "/api/whatsapp/webhook/gupshup")
           .permitAll()
           .requestMatchers(
             HttpMethod.GET,
