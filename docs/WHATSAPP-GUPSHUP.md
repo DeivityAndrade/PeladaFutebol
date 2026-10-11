@@ -73,9 +73,8 @@ O proprietário cria a credencial **Gupshup — Tô Dentro**, tipo Header Auth:
 - Value: App API Key do aplicativo, **sem Bearer**.
 - Allowed HTTP Request Domains: Specific Domains; `api.gupshup.io` somente.
 
-Selecionar essa credencial apenas no nó de envio do novo workflow. O nó legado
-se chama “Enviar pela Meta” por compatibilidade com o gerador de fluxos, mas
-nessa variante usa a credencial Gupshup e a URL v3 da Gupshup. Redirecionamentos
+Selecionar essa credencial apenas no nó **Enviar pela Gupshup** do novo workflow.
+Essa variante usa a credencial Gupshup e a URL v3 da Gupshup. Redirecionamentos
 e tentativas automáticas ficam desabilitados. A URL é validada antes de anexar
 a credencial. Não guardar dados de execuções ou fixar dados reais nos nós.
 

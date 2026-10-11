@@ -118,5 +118,12 @@ gsSend.parameters.options.redirect = { redirect: { followRedirects: false } };
 // The host and app path must match the server-selected transport before the
 // credential is attached. The credential also restricts api.gupshup.io.
 gsSend.parameters.url = "={{ /^https:\\/\\/api\\.gupshup\\.io\\/wa\\/app\\/[0-9a-f-]{36}\\/v3\\/msg$/i.test($json.url) ? $json.url : (() => { throw new Error('Provedor de envio inválido'); })() }}";
+const gsNames = { 'Enviar pela Meta': 'Enviar pela Gupshup', 'Registrar resposta da Meta': 'Registrar resposta da Gupshup' };
+for (const n of gupshup.nodes) n.name = gsNames[n.name] ?? n.name;
+gupshup.connections = Object.fromEntries(Object.entries(gupshup.connections).map(([name, branches]) => {
+  for (const outputs of Object.values(branches)) for (const edges of outputs) for (const edge of edges)
+    edge.node = gsNames[edge.node] ?? edge.node;
+  return [gsNames[name] ?? name, branches];
+}));
 writeFileSync(join(dir, 'delivery-gupshup.json'), JSON.stringify(gupshup, null, 2) + '\n');
 console.log('Fluxos gerados, desativados e sem segredos.');

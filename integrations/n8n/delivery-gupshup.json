@@ -162,7 +162,7 @@
     },
     {
       "id": "td-node-8",
-      "name": "Enviar pela Meta",
+      "name": "Enviar pela Gupshup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
@@ -204,7 +204,7 @@
     },
     {
       "id": "td-node-9",
-      "name": "Registrar resposta da Meta",
+      "name": "Registrar resposta da Gupshup",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
@@ -335,7 +335,7 @@
       "main": [
         [
           {
-            "node": "Enviar pela Meta",
+            "node": "Enviar pela Gupshup",
             "type": "main",
             "index": 0
           }
@@ -349,11 +349,11 @@
         ]
       ]
     },
-    "Enviar pela Meta": {
+    "Enviar pela Gupshup": {
       "main": [
         [
           {
-            "node": "Registrar resposta da Meta",
+            "node": "Registrar resposta da Gupshup",
             "type": "main",
             "index": 0
           }
@@ -367,7 +367,7 @@
         ]
       ]
     },
-    "Registrar resposta da Meta": {
+    "Registrar resposta da Gupshup": {
       "main": [
         [
           {

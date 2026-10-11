@@ -91,7 +91,7 @@ try {
       w.nodes.find(n => n.name==='Validar mídia').parameters.jsCode=`${validateMedia.toString()}\nconst result=validateMedia($json,$('Uma mensagem por vez').first(1).json.mediaMime); return {json:{url:'${origin}/audio-file/'+$json.url.split('id=')[1]}};`;
     }
     if (w.id === 'todentro-outbox-gupshup') {
-      const send = w.nodes.find(n => n.name === 'Enviar pela Meta');
+      const send = w.nodes.find(n => n.name === 'Enviar pela Gupshup');
       // Run the real destination guard before replacing only the transport.
       const guard = send.parameters.url.slice(3, -2);
       send.parameters.url = `={{ (() => { const verified = (${guard}); if (!verified) throw new Error('Invalid fixture'); return '${origin}/meta/' + $json.payload.fixtureResult; })() }}`;
