@@ -1,0 +1,401 @@
+{
+  "id": "todentro-outbox-gupshup",
+  "name": "Tô Dentro — respostas pela Gupshup",
+  "active": false,
+  "nodes": [
+    {
+      "id": "td-node-1",
+      "name": "Testar manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "td-node-2",
+      "name": "A cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "td-node-3",
+      "name": "Configuração",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "backend",
+              "name": "backend",
+              "type": "string",
+              "value": "http://host.docker.internal:8080"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "td-node-4",
+      "name": "Buscar envios",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.backend + '/api/integrations/whatsapp/outbox/claim/gupshup' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { provider: \"GUPSHUP\" } }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "todentro-worker",
+          "name": "Tô Dentro — integração"
+        }
+      }
+    },
+    {
+      "id": "td-node-5",
+      "name": "Um envio por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        720,
+        100
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "td-node-6",
+      "name": "Validar antes de enviar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.backend + '/api/integrations/whatsapp/outbox/' + $('Um envio por vez').first(1).json.id + '/dispatch' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { leaseId: $('Um envio por vez').first(1).json.leaseId, provider: 'GUPSHUP' } }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "todentro-worker",
+          "name": "Tô Dentro — integração"
+        }
+      }
+    },
+    {
+      "id": "td-node-7",
+      "name": "Pode enviar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Pode enviar?",
+              "leftValue": "={{ $json.send === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "td-node-8",
+      "name": "Enviar pela Gupshup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ /^https:\\/\\/api\\.gupshup\\.io\\/wa\\/app\\/[0-9a-f-]{36}\\/v3\\/msg$/i.test($json.url) ? $json.url : (() => { throw new Error('Provedor de envio inválido'); })() }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {
+          "timeout": 25000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "todentro-gupshup",
+          "name": "Gupshup — Tô Dentro"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "id": "td-node-9",
+      "name": "Registrar resposta da Gupshup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1680,
+        -100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.backend + '/api/integrations/whatsapp/outbox/' + $('Um envio por vez').first(1).json.id + '/receipt' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { leaseId: $('Um envio por vez').first(1).json.leaseId, state: $json.statusCode >= 200 && $json.statusCode < 300 && $json.body?.messages?.[0]?.id ? 'ACCEPTED' : $json.body?.error?.code ? 'FAILED' : 'UNKNOWN', providerId: $json.body?.messages?.[0]?.id || null, errorCode: $json.statusCode >= 200 && $json.statusCode < 300 && $json.body?.messages?.[0]?.id ? null : $json.body?.error?.code ? String($json.body.error.code) : 'INVALID_RESPONSE' } }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "todentro-worker",
+          "name": "Tô Dentro — integração"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "td-node-10",
+      "name": "Registrar resultado desconhecido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1680,
+        140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuração').first().json.backend + '/api/integrations/whatsapp/outbox/' + $('Um envio por vez').first(1).json.id + '/receipt' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { leaseId: $('Um envio por vez').first(1).json.leaseId, state: 'UNKNOWN', errorCode: 'TRANSPORT_UNKNOWN' } }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "todentro-worker",
+          "name": "Tô Dentro — integração"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Testar manualmente": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Configuração",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuração": {
+      "main": [
+        [
+          {
+            "node": "Buscar envios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar envios": {
+      "main": [
+        [
+          {
+            "node": "Um envio por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Um envio por vez": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Validar antes de enviar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar antes de enviar": {
+      "main": [
+        [
+          {
+            "node": "Pode enviar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode enviar?": {
+      "main": [
+        [
+          {
+            "node": "Enviar pela Gupshup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Um envio por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar pela Gupshup": {
+      "main": [
+        [
+          {
+            "node": "Registrar resposta da Gupshup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar resultado desconhecido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar resposta da Gupshup": {
+      "main": [
+        [
+          {
+            "node": "Um envio por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar resultado desconhecido": {
+      "main": [
+        [
+          {
+            "node": "Um envio por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240,
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": false,
+    "timezone": "America/Sao_Paulo"
+  }
+}

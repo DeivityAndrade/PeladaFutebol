@@ -43,8 +43,20 @@ const server = createServer(async (req, res) => {
     const message = hasTool ? {role: 'assistant', content: 'Concluído.'} : {role: 'assistant', content: null, tool_calls: [{ id: `call-${modelCalls}`, type: 'function', function: {name: body.tools[0].function.name, arguments: JSON.stringify({action: 'LIST', clubId: '', gameId: ''})} }]};
     return answer({id: `chat-${modelCalls}`, object: 'chat.completion', created: 1, model: 'gpt-4.1-mini', choices: [{index: 0, message, finish_reason: hasTool ? 'stop' : 'tool_calls'}], usage: {prompt_tokens: 1, completion_tokens: 1, total_tokens: 2}});
   }
-  if (req.url === '/api/integrations/whatsapp/outbox/claim') return answer([1, 2, 3, 4].map(n => ({id: `send${n}`, leaseId: `sendlease${n}`})));
-  if (req.url.endsWith('/dispatch')) return answer({send: !req.url.includes('send4'), url: `http://127.0.0.1:${server.address().port}/meta/${req.url.includes('send1') ? 'success' : req.url.includes('send2') ? 'failure' : 'unknown'}`, payload: {to: 'fake-number', messaging_product: 'whatsapp', type: 'text', text: {body: 'Teste'}}});
+  if (['/api/integrations/whatsapp/outbox/claim', '/api/integrations/whatsapp/outbox/claim/gupshup'].includes(req.url)) {
+    if (mode === 'gupshup') assert.equal(body.provider, 'GUPSHUP');
+    if (mode === 'gupshup') assert(req.url.endsWith('/gupshup'));
+    return answer([1, 2, 3, 4].map(n => ({id: `send${n}`, leaseId: `sendlease${n}`})));
+  }
+  if (req.url.endsWith('/dispatch')) {
+    if (mode === 'gupshup') assert.equal(body.provider, 'GUPSHUP');
+    const fixtureResult = req.url.includes('send1') ? 'success' : req.url.includes('send2') ? 'failure' : 'unknown';
+    return answer({send: !req.url.includes('send4'), url: mode === 'gupshup' ? 'https://api.gupshup.io/wa/app/11111111-1111-1111-1111-111111111111/v3/msg' : `${origin}/meta/${fixtureResult}`, payload: {to: 'fake-number', messaging_product: 'whatsapp', type: 'text', text: {body: 'Teste'}, fixtureResult}});
+  }
+  if (mode === 'gupshup' && req.url.startsWith('/meta/')) {
+    assert.equal(req.headers.apikey, 'fake-gupshup');
+    assert.equal(req.headers.authorization, undefined);
+  }
   if (req.url === '/meta/success') return answer({messages: [{id: 'wamid.fixture'}]});
   if (req.url === '/meta/failure') return answer({error: {code: 131026}}, 400);
   if (req.url === '/meta/unknown') { req.socket.destroy(); return; }
@@ -67,17 +79,23 @@ async function run(args) {
   });
 }
 try {
-  const credentials = [{id: 'todentro-worker', name: 'Tô Dentro — integração', type: 'httpHeaderAuth', data: {name: 'Authorization', value: 'Bearer fake-worker'}}, {id: 'todentro-meta', name: 'Meta — WhatsApp', type: 'httpHeaderAuth', data: {name: 'Authorization', value: 'Bearer fake-meta'}}, {id: 'todentro-ai', name: 'OpenAI — Tô Dentro', type: 'openAiApi', data: {apiKey: 'fake-model', url: origin + '/v1'}}];
+  const credentials = [{id: 'todentro-worker', name: 'Tô Dentro — integração', type: 'httpHeaderAuth', data: {name: 'Authorization', value: 'Bearer fake-worker'}}, {id: 'todentro-meta', name: 'Meta — WhatsApp', type: 'httpHeaderAuth', data: {name: 'Authorization', value: 'Bearer fake-meta'}}, {id: 'todentro-ai', name: 'OpenAI — Tô Dentro', type: 'openAiApi', data: {apiKey: 'fake-model', url: origin + '/v1'}}, {id:'todentro-gupshup', name:'Gupshup — Tô Dentro', type:'httpHeaderAuth', data:{name:'apikey', value:'fake-gupshup'}}];
   await writeFile(join(temp, 'credentials.json'), JSON.stringify(credentials));
   console.log('Importando credenciais fictícias no banco local isolado…');
   await run(['import:credentials', '--input=' + join(temp, 'credentials.json')]);
-  const workflows = await Promise.all(['agent.json', 'delivery.json'].map(async file => {
+  const workflows = await Promise.all(['agent.json', 'delivery.json', 'delivery-gupshup.json'].map(async file => {
     const w = JSON.parse(await readFile(join(dir, file), 'utf8'));
     w.nodes.find(n => n.name === 'Configuração').parameters.assignments.assignments[0].value = origin;
     if (w.id==='todentro-inbox') {
       w.nodes.find(n => n.name==='Obter mídia da Meta').parameters.url=`={{ '${origin}/media-info/' + $('Uma mensagem por vez').first(1).json.id.slice(3) }}`;
       // Validate the real strict allowlist first, then substitute only the binary transport for this isolated fixture.
       w.nodes.find(n => n.name==='Validar mídia').parameters.jsCode=`${validateMedia.toString()}\nconst result=validateMedia($json,$('Uma mensagem por vez').first(1).json.mediaMime); return {json:{url:'${origin}/audio-file/'+$json.url.split('id=')[1]}};`;
+    }
+    if (w.id === 'todentro-outbox-gupshup') {
+      const send = w.nodes.find(n => n.name === 'Enviar pela Gupshup');
+      // Run the real destination guard before replacing only the transport.
+      const guard = send.parameters.url.slice(3, -2);
+      send.parameters.url = `={{ (() => { const verified = (${guard}); if (!verified) throw new Error('Invalid fixture'); return '${origin}/meta/' + $json.payload.fixtureResult; })() }}`;
     }
     return w;
   }));
@@ -103,6 +121,13 @@ try {
   await run(['execute', '--id=todentro-outbox']);
   assert.deepEqual(receipts.map(r => r.state), ['ACCEPTED', 'FAILED', 'UNKNOWN']);
   assert.equal(receipts[0].providerId, 'wamid.fixture');
+  assert.equal(receipts[0].errorCode, null);
+  assert.equal(receipts[1].errorCode, '131026');
+  assert.equal(calls.filter(c => c.url.startsWith('/meta/')).length, 3);
+  calls.length = 0; receipts.length = 0; mode = 'gupshup';
+  console.log('Executando Gupshup: credencial própria, provedor explícito e sem reenvio…');
+  await run(['execute', '--id=todentro-outbox-gupshup']);
+  assert.deepEqual(receipts.map(r => r.state), ['ACCEPTED', 'FAILED', 'UNKNOWN']);
   assert.equal(receipts[0].errorCode, null);
   assert.equal(receipts[1].errorCode, '131026');
   assert.equal(calls.filter(c => c.url.startsWith('/meta/')).length, 3);

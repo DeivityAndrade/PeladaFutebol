@@ -104,4 +104,29 @@ for (const [name, workflow] of [['agent.json', inbox], ['delivery.json', outbox]
   for (const n of workflow.nodes) n.position = positions[n.name];
   writeFileSync(join(dir, name), JSON.stringify(workflow, null, 2) + '\n');
 }
+// Separate credentials and an explicit provider on claim/dispatch prevent the
+// existing Meta worker from reserving deliveries after a provider switch.
+const gupshup = structuredClone(outbox);
+gupshup.id = 'todentro-outbox-gupshup';
+gupshup.name = 'Tô Dentro — respostas pela Gupshup';
+const gsClaim = gupshup.nodes.find(n => n.name === 'Buscar envios');
+// Older servers return 404 here, so even an accidental manual run cannot
+// consume the previous transport's pending replies before the upgrade.
+gsClaim.parameters.url = `={{ ${config} + '/api/integrations/whatsapp/outbox/claim/gupshup' }}`;
+Object.assign(gsClaim.parameters, { sendBody: true, specifyBody: 'json', jsonBody: '={{ { provider: "GUPSHUP" } }}' });
+gupshup.nodes.find(n => n.name === 'Validar antes de enviar').parameters.jsonBody = `={{ { leaseId: ${delivery}.leaseId, provider: 'GUPSHUP' } }}`;
+const gsSend = gupshup.nodes.find(n => n.name === 'Enviar pela Meta');
+gsSend.credentials = { httpHeaderAuth: { id: 'todentro-gupshup', name: 'Gupshup — Tô Dentro' } };
+gsSend.parameters.options.redirect = { redirect: { followRedirects: false } };
+// The host and app path must match the server-selected transport before the
+// credential is attached. The credential also restricts api.gupshup.io.
+gsSend.parameters.url = "={{ /^https:\\/\\/api\\.gupshup\\.io\\/wa\\/app\\/[0-9a-f-]{36}\\/v3\\/msg$/i.test($json.url) ? $json.url : (() => { throw new Error('Provedor de envio inválido'); })() }}";
+const gsNames = { 'Enviar pela Meta': 'Enviar pela Gupshup', 'Registrar resposta da Meta': 'Registrar resposta da Gupshup' };
+for (const n of gupshup.nodes) n.name = gsNames[n.name] ?? n.name;
+gupshup.connections = Object.fromEntries(Object.entries(gupshup.connections).map(([name, branches]) => {
+  for (const outputs of Object.values(branches)) for (const edges of outputs) for (const edge of edges)
+    edge.node = gsNames[edge.node] ?? edge.node;
+  return [gsNames[name] ?? name, branches];
+}));
+writeFileSync(join(dir, 'delivery-gupshup.json'), JSON.stringify(gupshup, null, 2) + '\n');
 console.log('Fluxos gerados, desativados e sem segredos.');

@@ -110,20 +110,42 @@ public class WhatsAppWorkerController {
 
   @PostMapping("/outbox/claim")
   public List<WhatsAppOutbox.Lease> outbox(
-    @RequestHeader(name = "Authorization", required = false) String token
+    @RequestHeader(name = "Authorization", required = false) String token,
+    @Valid @RequestBody(required = false) Transport request
   ) {
     auth(token);
+    String expected = request == null ? "META" : request.provider();
+    if (!config.provider.equals(expected)) return List.of();
     agent.materialize();
     return outbox.claim();
   }
+
+  public record Transport(@NotBlank @Pattern(regexp = "META|GUPSHUP") String provider) {}
+
+  @PostMapping("/outbox/claim/gupshup")
+  public List<WhatsAppOutbox.Lease> gupshupOutbox(
+    @RequestHeader(name = "Authorization", required = false) String token
+  ) {
+    auth(token);
+    if (!config.gupshup()) return List.of();
+    agent.materialize();
+    return outbox.claim();
+  }
+
+  public record DispatchRequest(
+    @NotNull UUID leaseId,
+    @Pattern(regexp = "META|GUPSHUP") String provider
+  ) {}
 
   @PostMapping("/outbox/{id}/dispatch")
   public WhatsAppOutbox.Dispatch dispatch(
     @RequestHeader(name = "Authorization", required = false) String token,
     @PathVariable UUID id,
-    @Valid @RequestBody Reserve request
+    @Valid @RequestBody DispatchRequest request
   ) {
     auth(token);
+    if (!config.provider.equals(request.provider() == null ? "META" : request.provider()))
+      throw br.com.pelada.domain.ApiException.conflict("O provedor do executor mudou. Confira a configuração.");
     return outbox.dispatch(id, request.leaseId());
   }
 

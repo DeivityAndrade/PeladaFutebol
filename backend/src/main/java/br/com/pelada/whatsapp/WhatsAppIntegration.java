@@ -13,6 +13,8 @@ public class WhatsAppIntegration {
   public final boolean enabled, sendEnabled, repliesOnly;
   public final String token, publicUrl, graphVersion, invitationTemplate, reminderTemplate;
   public final int dailyLimit;
+  public final String provider, gupshupAppId;
+  private final String gupshupWebhookToken;
   private final Set<String> pilot;
 
   public WhatsAppIntegration(
@@ -25,7 +27,10 @@ public class WhatsAppIntegration {
     @Value("${app.whatsapp.invitation-template:}") String invitationTemplate,
     @Value("${app.whatsapp.reminder-template:}") String reminderTemplate,
     @Value("${app.whatsapp.pilot-numbers:}") String pilot,
-    @Value("${app.whatsapp.daily-send-limit:20}") int dailyLimit
+    @Value("${app.whatsapp.daily-send-limit:20}") int dailyLimit,
+    @Value("${app.whatsapp.provider:META}") String provider,
+    @Value("${app.whatsapp.gupshup-app-id:}") String gupshupAppId,
+    @Value("${app.whatsapp.gupshup-webhook-token:}") String gupshupWebhookToken
   ) {
     this.enabled = enabled;
     this.sendEnabled = sendEnabled;
@@ -41,16 +46,45 @@ public class WhatsAppIntegration {
         number.strip()
       );
     this.dailyLimit = Math.max(1, Math.min(1000, dailyLimit));
+    this.provider = provider.strip().toUpperCase(Locale.ROOT);
+    this.gupshupAppId = gupshupAppId;
+    this.gupshupWebhookToken = gupshupWebhookToken;
+  }
+
+  public boolean gupshup() {
+    return provider.equals("GUPSHUP");
+  }
+
+  public boolean transportAvailable() {
+    return provider.equals("META") ||
+      (gupshup() && gupshupAppId.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}") &&
+        gupshupWebhookToken.matches("[0-9a-fA-F]{64}"));
+  }
+
+  public void authenticateGupshup(byte[] body, String suppliedToken) {
+    if (!gupshup() || !transportAvailable()) throw new ApiException(503, "WhatsApp em preparação.");
+    if (body.length > 131072) throw new ApiException(413, "Evento muito grande.");
+    if (suppliedToken == null || !MessageDigest.isEqual(
+      gupshupWebhookToken.getBytes(StandardCharsets.UTF_8),
+      suppliedToken.getBytes(StandardCharsets.UTF_8)
+    )) throw new ApiException(401, "Credencial de webhook inválida.");
+  }
+
+  public String deliveryUrl(String phoneId) {
+    return gupshup()
+      ? "https://api.gupshup.io/wa/app/" + gupshupAppId + "/v3/msg"
+      : "https://graph.facebook.com/" + graphVersion + "/" + phoneId + "/messages";
   }
 
   public boolean available() {
-    return enabled && token.length() >= 32 && token.length() <= 256;
+    return enabled && transportAvailable() && token.length() >= 32 && token.length() <= 256;
   }
 
   public boolean deliveryAvailable() {
     return (
       available() &&
       sendEnabled &&
+      (!gupshup() || repliesOnly) &&
       !pilot.isEmpty() &&
       publicUrl.matches(
         "https://[^\\s?#]+|http://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?"

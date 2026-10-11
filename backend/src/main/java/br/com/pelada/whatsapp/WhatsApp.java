@@ -25,6 +25,7 @@ public class WhatsApp {
   private final String businessNumber, phoneId, appSecret, verifyToken;
   private final int maxCodesPerHour;
   private final WhatsAppInbox inbox;
+  private final WhatsAppIntegration config;
   private final SecureRandom random = new SecureRandom();
 
   public WhatsApp(
@@ -36,7 +37,8 @@ public class WhatsApp {
     @Value("${app.whatsapp.app-secret:}") String appSecret,
     @Value("${app.whatsapp.verify-token:}") String verifyToken,
     @Value("${app.whatsapp.max-codes-per-hour:3}") int maxCodesPerHour,
-    WhatsAppInbox inbox
+    WhatsAppInbox inbox,
+    WhatsAppIntegration config
   ) {
     this.jdbc = jdbc;
     this.clock = clock;
@@ -47,6 +49,7 @@ public class WhatsApp {
     this.verifyToken = verifyToken;
     this.maxCodesPerHour = Math.max(1, maxCodesPerHour);
     this.inbox = inbox;
+    this.config = config;
   }
 
   public record Preference(
@@ -86,8 +89,8 @@ public class WhatsApp {
       enabled &&
       businessNumber.matches("[1-9][0-9]{7,14}") &&
       !phoneId.isBlank() &&
-      !appSecret.isBlank() &&
-      !verifyToken.isBlank()
+      config.transportAvailable() &&
+      (config.gupshup() || (!appSecret.isBlank() && !verifyToken.isBlank()))
     );
   }
 
@@ -342,7 +345,7 @@ public class WhatsApp {
   }
 
   public String challenge(String mode, String token, String challenge) {
-    if (!available()) throw new ApiException(503, "WhatsApp em preparação.");
+    if (!available() || !config.provider.equals("META")) throw new ApiException(503, "WhatsApp em preparação.");
     if (
       !"subscribe".equals(mode) ||
       token == null ||
@@ -357,7 +360,7 @@ public class WhatsApp {
   }
 
   public void authenticate(byte[] body, String signature) {
-    if (!available()) throw new ApiException(503, "WhatsApp em preparação.");
+    if (!available() || !config.provider.equals("META")) throw new ApiException(503, "WhatsApp em preparação.");
     if (body.length > 131072) throw new ApiException(
       413,
       "Evento muito grande."
